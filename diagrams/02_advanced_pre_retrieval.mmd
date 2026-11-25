@@ -1,0 +1,15 @@
+flowchart LR
+  C[Indexing: chunking<br/>size · overlap · headers]:::step
+  Q([Question]):::io --> RW[Rewrite into<br/>several queries]:::step
+  Q --> MF[Extract filters<br/>product · version]:::step
+  C --> S[(Vector store)]:::store
+  RW --> S
+  MF --> S
+  S --> U[Union +<br/>de-duplicate]:::step
+  U --> G[LLM]:::llm --> A([Answer]):::io
+
+  classDef io fill:#E8A33D,stroke:#E8A33D,color:#0B3C49,font-weight:bold
+  classDef store fill:#1B7F8C,stroke:#1B7F8C,color:#FFFFFF
+  classDef llm fill:#0B3C49,stroke:#0B3C49,color:#FFFFFF,font-weight:bold
+  classDef decide fill:#FFFFFF,stroke:#C8553D,stroke-width:3px,color:#0B3C49
+  classDef step fill:#EEF5F6,stroke:#1B7F8C,color:#0B3C49

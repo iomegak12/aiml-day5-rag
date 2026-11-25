@@ -1,0 +1,23 @@
+[project]
+name = "rag-module"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain>=1.5,<2",
+    "langchain-chroma>=1.2.0",
+    "langchain-classic>=1.1.0",
+    "langchain-community>=0.4.2",
+    "langchain-openai>=1.8.5",
+    "langchain-text-splitters>=1.2.0",
+    "langgraph>=1.2.24",
+    "pydantic>=2.14.4",
+    "pypdf>=7.1.1",
+    "python-dotenv>=1.2.4",
+    "rank-bm25>=0.2.2",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.4.0",
+    "reportlab>=5.1.1",
+]

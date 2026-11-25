@@ -1,0 +1,12 @@
+flowchart LR
+  H[(Chat history)]:::store --> C
+  F(["Follow-up:<br/>does that affect 9.1?"]):::io --> C[Condense to a<br/>standalone question]:::step
+  C --> S["Does the BFD timer issue<br/>affect Aurora 9.1?"]:::step
+  S --> R[(Retrieve)]:::store --> G[LLM]:::llm --> A([Answer]):::io
+  H --> G
+
+  classDef io fill:#E8A33D,stroke:#E8A33D,color:#0B3C49,font-weight:bold
+  classDef store fill:#1B7F8C,stroke:#1B7F8C,color:#FFFFFF
+  classDef llm fill:#0B3C49,stroke:#0B3C49,color:#FFFFFF,font-weight:bold
+  classDef decide fill:#FFFFFF,stroke:#C8553D,stroke-width:3px,color:#0B3C49
+  classDef step fill:#EEF5F6,stroke:#1B7F8C,color:#0B3C49

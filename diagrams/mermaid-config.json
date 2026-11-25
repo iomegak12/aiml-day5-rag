@@ -1,0 +1,20 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Carlito, Calibri, sans-serif",
+    "fontSize": "22px",
+    "primaryColor": "#EEF5F6",
+    "primaryTextColor": "#0B3C49",
+    "primaryBorderColor": "#1B7F8C",
+    "lineColor": "#5B6B73",
+    "edgeLabelBackground": "#FFFFFF",
+    "clusterBkg": "#FFFFFF",
+    "clusterBorder": "#B9CDD1"
+  },
+  "flowchart": {
+    "curve": "basis",
+    "nodeSpacing": 28,
+    "rankSpacing": 38,
+    "htmlLabels": true
+  }
+}

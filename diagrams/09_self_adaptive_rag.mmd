@@ -1,0 +1,19 @@
+flowchart LR
+  Q([Question]):::io --> CL{Classify<br/>complexity}:::decide
+  CL -->|simple| D[Answer directly]:::llm
+  CL -->|single-hop| S[(Retrieve once)]:::store
+  CL -->|multi-hop| M[(Retrieve<br/>iteratively)]:::store
+  S --> G[Generate]:::llm
+  M --> G
+  G --> H{Grounded in<br/>the documents?}:::decide
+  H -->|no| G
+  H -->|yes| U{Answers the<br/>question?}:::decide
+  U -->|no| RW[Rewrite query]:::step --> S
+  U -->|yes| A([Answer]):::io
+  D --> A
+
+  classDef io fill:#E8A33D,stroke:#E8A33D,color:#0B3C49,font-weight:bold
+  classDef store fill:#1B7F8C,stroke:#1B7F8C,color:#FFFFFF
+  classDef llm fill:#0B3C49,stroke:#0B3C49,color:#FFFFFF,font-weight:bold
+  classDef decide fill:#FFFFFF,stroke:#C8553D,stroke-width:3px,color:#0B3C49
+  classDef step fill:#EEF5F6,stroke:#1B7F8C,color:#0B3C49

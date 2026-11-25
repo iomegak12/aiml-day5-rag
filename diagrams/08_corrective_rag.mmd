@@ -1,0 +1,16 @@
+flowchart LR
+  Q([Question]):::io --> R[(Retrieve<br/>KB)]:::store
+  R --> GR{Grade<br/>relevance}:::decide
+  GR -->|relevant| G[Generate]:::llm
+  GR -->|weak / irrelevant| RW[Rewrite<br/>query]:::step
+  RW --> FB[(Fallback:<br/>resolved tickets)]:::store
+  FB --> GR2{Grade<br/>again}:::decide
+  GR2 -->|relevant| G
+  GR2 -->|still irrelevant| N([INSUFFICIENT_DATA]):::io
+  G --> A([Answer]):::io
+
+  classDef io fill:#E8A33D,stroke:#E8A33D,color:#0B3C49,font-weight:bold
+  classDef store fill:#1B7F8C,stroke:#1B7F8C,color:#FFFFFF
+  classDef llm fill:#0B3C49,stroke:#0B3C49,color:#FFFFFF,font-weight:bold
+  classDef decide fill:#FFFFFF,stroke:#C8553D,stroke-width:3px,color:#0B3C49
+  classDef step fill:#EEF5F6,stroke:#1B7F8C,color:#0B3C49

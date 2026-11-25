@@ -1,0 +1,17 @@
+flowchart LR
+  Q([Question]):::io --> RT{Router}:::decide
+  RT -->|known issue| KB[(KB articles)]:::store
+  RT -->|fixed in version?| RN[(Release notes)]:::store
+  RT -->|similar case| TK[(Resolved tickets)]:::store
+  RT -->|how-to / config| PG[(Product guides)]:::store
+  KB --> RR[Reranker]:::step
+  RN --> RR
+  TK --> RR
+  PG --> RR
+  RR --> G[Generator]:::llm --> A([Answer]):::io
+
+  classDef io fill:#E8A33D,stroke:#E8A33D,color:#0B3C49,font-weight:bold
+  classDef store fill:#1B7F8C,stroke:#1B7F8C,color:#FFFFFF
+  classDef llm fill:#0B3C49,stroke:#0B3C49,color:#FFFFFF,font-weight:bold
+  classDef decide fill:#FFFFFF,stroke:#C8553D,stroke-width:3px,color:#0B3C49
+  classDef step fill:#EEF5F6,stroke:#1B7F8C,color:#0B3C49
