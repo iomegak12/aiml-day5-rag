@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-NF#3",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Nimbus NF-300 session tables are sharded to reduce lock contention and keep per-core connection tracking deterministic under load. When traffic is symmetric, return packets usually hash to the same shard as the forward flow, so occupancy stays balanced and session aging behaves predictably. With asymmetric routing, the reverse path may arrive on a different interface or after a policy decision that steers only one direction through the firewall, and that can concentrate new sessions on a subset of shards. The result is not an immediate outage; it is usually a gradual rise in occupancy on one shard, longer insert latency, and, in extreme cases, session drops even when overall table utilization still appears acceptable.",
+      "The most common mistake is to treat high total session-table utilization as the only threshold. In asymmetric scenarios, the aggregate percentage can look acceptable while one shard is near exhaustion. That is why the operational target is shard balance, not just total capacity. Use show session table summary to look for a single shard that is consistently hotter than the rest across successive samples. If the busiest shard is trending upward while the others remain flat, the distribution is not self-correcting and you should change the policy design rather than wait for traffic to normalize.",
+      "On 5.2.0, if asymmetric routing is enabled for large-prefix traffic, disable it for the affected policy set when shard imbalance appears. This is the preferred corrective action because 5.2.0 can amplify hot-spotting when several related flows from the same prefix resolve to the same shard. Do not disable asymmetric routing globally unless the affected policies are the only ones using it; broad changes can break legitimate return-path exceptions and may move the problem to another service class. After the change, recheck the shard histogram and session insert rate to confirm that occupancy is flattening.",
+      "For concentrated /24 traffic, split the prefix into smaller policy groups so sessions distribute more evenly across shards. This works best when a single subnet generates a disproportionate share of short-lived connections, such as client bursts or NATed application traffic. Splitting policy groups changes the policy lookup distribution and can reduce repeated hits to the same shard. Keep the busiest shard below 75 percent occupancy until a software fix is available, and verify distribution after each policy change. If you change multiple policies at once, you lose the ability to determine which adjustment improved the balance and which one caused a regression.",
+      "A common operational error is to tune the table only after user-visible drops begin. By then, the hottest shard may already be shedding new sessions and creating intermittent application failures that are difficult to correlate. Instead, sample the summary periodically during the busy window and compare the hottest shard across at least three observations. Use a consistent interval so transient bursts do not mask a real trend. If occupancy is stable below threshold and the hottest shard is not climbing, no further change is needed; if it keeps rising, reduce the concentration of the traffic profile before raising the session-table size, because adding capacity without fixing imbalance usually delays the failure rather than removing it.",
+      "When you must apply the workaround, make the change in config mode and commit it during a maintenance window if the affected policy set carries production traffic. Session-table tuning does not require a reboot, but it does change how new sessions are placed, so you should expect the distribution to normalize over time rather than instantly. Existing sessions remain on their current shards until they age out or are cleared by normal timeout handling. If you are troubleshooting a mixed workload, document the pre-change summary, apply one adjustment, and then resample after the new sessions have accumulated. That sequence makes it easier to prove whether the imbalance is caused by asymmetric routing or by a separate traffic concentration issue."
+    ],
+    "procedure_steps": [
+      "Enter configuration mode: config",
+      "Disable asymmetric routing on the affected policy set: session-table asymmetric-routing disable",
+      "Commit the change: commit",
+      "Return to operational mode and sample session distribution: show session table summary",
+      "Compare the hottest shard against earlier samples and confirm it remains below 75 percent occupancy",
+      "If the shard is still trending upward, split the concentrated /24 traffic into smaller policy groups and repeat the check"
+    ],
+    "table": {
+      "caption": "Session-table tuning reference for asymmetric traffic",
+      "header": [
+        "Condition",
+        "Operational effect",
+        "Recommended action"
+      ],
+      "rows": [
+        [
+          "5.2.0 with asymmetric routing on large-prefix traffic",
+          "Can concentrate new sessions on one or a few shards",
+          "On 5.2.0, if asymmetric routing is enabled for large-prefix traffic, disable it for the affected policy set when shard imbalance appears."
+        ],
+        [
+          "A /24 source or destination generates most new sessions",
+          "Policy lookup and shard placement can become uneven",
+          "For concentrated /24 traffic, split the prefix into smaller policy groups so sessions distribute more evenly across shards."
+        ],
+        [
+          "Hot shard approaching saturation",
+          "Insert latency increases and session drops may begin on that shard",
+          "Keep the busiest shard below 75 percent occupancy until a software fix is available, and verify distribution after each policy change."
+        ],
+        [
+          "Need to confirm whether balance is improving",
+          "Single snapshots can hide a developing hot spot",
+          "Use session-table summary output to confirm that the hottest shard is not trending upward across successive samples."
+        ]
+      ]
+    },
+    "verification": "Run show session table summary before and after the change and compare the per-shard occupancy, insert counters, and the hottest shard across at least three samples taken at the same interval. Expected output is a flatter distribution with the busiest shard remaining below 75 percent occupancy and no continued upward trend on the same shard. If the output still shows one shard climbing while others remain steady, recheck the affected policy set and confirm that the asymmetric-routing setting was committed with config and commit."
+  }
+}

@@ -1,0 +1,147 @@
+{
+  "stage": "facts_guide",
+  "label": "HX",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "title": "Helix HX-5000 Configuration and Troubleshooting Guide",
+    "sections": [
+      {
+        "heading": "Optics and transceiver health checks",
+        "key_facts": [
+          "On 7.2, reduce DOM polling on affected SFP28 ports by setting the transceiver monitoring interval to 120 seconds.",
+          "Keep optics below 50 C case temperature when possible, especially on ports showing bias current spikes or remote LOS alarms.",
+          "If a port continues to flap under load, move the optic to a later-release port or replace the module with one that has a stable bias current profile."
+        ],
+        "commands": [
+          "configure terminal",
+          "interface ethernet 1/1",
+          "transceiver monitoring interval 120",
+          "show interfaces transceiver detail"
+        ],
+        "related_kbs": [
+          "KB-6101",
+          "KB-6111"
+        ]
+      },
+      {
+        "heading": "Stack stability and master election",
+        "key_facts": [
+          "On 7.3, use matched-length stack cables between all members to reduce master election oscillation.",
+          "Keep control-plane load below 60 percent until the software is upgraded, because higher load increases the chance of unstable master changes.",
+          "Pin the desired master by setting a higher priority value on the preferred member and avoid adding or removing members during the unstable period.",
+          "On 7.6, keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path."
+        ],
+        "commands": [
+          "configure terminal",
+          "stack member 1 priority 200",
+          "stack member 2 priority 100",
+          "stack heartbeat timeout 900",
+          "show stack"
+        ],
+        "related_kbs": [
+          "KB-6103",
+          "KB-6104"
+        ]
+      },
+      {
+        "heading": "Spanning tree behavior on access ports",
+        "key_facts": [
+          "Do not run rapid-pvst on ports facing devices that legitimately move multiple MAC addresses, such as virtualization hosts or clustered appliances.",
+          "Use a dedicated edge VLAN design or restrict the port to a single access device when rapid-pvst is required.",
+          "Apply portfast on edge ports to reduce convergence delay, but only on interfaces that do not participate in downstream bridging.",
+          "Monitor for continuous topology-change notifications on 10G access ports and reclassify the port role if the notifications persist."
+        ],
+        "commands": [
+          "configure terminal",
+          "spanning-tree mode rapid-pvst",
+          "interface ethernet 1/10",
+          "spanning-tree portfast",
+          "show spanning-tree detail"
+        ],
+        "related_kbs": [
+          "KB-6105"
+        ]
+      },
+      {
+        "heading": "LACP and EtherChannel member handling",
+        "key_facts": [
+          "On 7.4, configure both ends of the bundle for fast LACP timers if the design permits it.",
+          "If the peer advertises slow timers and the bundle mis-bundles or suspends members, switch the local port-channel to fast LACP timers.",
+          "When the bundle must remain on slow timers, do not flap individual member links during maintenance and clear the EtherChannel only after link restoration."
+        ],
+        "commands": [
+          "configure terminal",
+          "interface port-channel 10",
+          "lacp rate fast",
+          "show lacp neighbor",
+          "show etherchannel summary"
+        ],
+        "related_kbs": [
+          "KB-6106",
+          "KB-6107"
+        ]
+      },
+      {
+        "heading": "EVPN route handling and memory protection",
+        "key_facts": [
+          "On 7.6, trigger a controlled EVPN route refresh after moving the anycast gateway MAC.",
+          "Avoid gateway MAC mobility during periods when the fabric is carrying active type-5 routes, and keep the gateway anchored on a single leaf pair when possible.",
+          "On 7.6, reduce unnecessary neighbor resets and schedule a reload before free memory drops below 15 percent.",
+          "If route-refresh events are unavoidable, keep EVPN adjacency changes out of peak traffic windows."
+        ],
+        "commands": [
+          "configure terminal",
+          "router evpn",
+          "address-family l2vpn evpn",
+          "route-refresh",
+          "neighbor 198.51.100.1 route-refresh disable",
+          "show system resources"
+        ],
+        "related_kbs": [
+          "KB-6108",
+          "KB-6112"
+        ]
+      },
+      {
+        "heading": "Queue, buffer, and burst management",
+        "key_facts": [
+          "On 7.2, reduce burstiness with upstream shaping or spread load across additional uplinks so no single egress port stays above 85 percent sustained utilization.",
+          "For critical low-latency flows on oversubscribed 100G egress ports, reserve a dedicated queue on the affected interface.",
+          "On 8.0, limit multicast fanout on busy leafs or move replication-heavy workloads onto a separate uplink group to protect the shared buffer pool.",
+          "If multicast bursts are predictable, schedule the traffic outside congestion-sensitive windows and tune the multicast reservation to 12 percent with a 4096 cell queue limit where required."
+        ],
+        "commands": [
+          "configure terminal",
+          "interface ethernet 1/52",
+          "queue-set 3",
+          "priority-flow-control disable",
+          "hardware buffer multicast-reservation 12",
+          "interface port-channel 20",
+          "queue-limit 4096",
+          "show interfaces counters"
+        ],
+        "related_kbs": [
+          "KB-6109",
+          "KB-6110"
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "question": "How should I tune optics and DOM monitoring on HX-5000 ports that are showing link drops or LOS alarms?",
+        "section_index": 0,
+        "related_kbs": [
+          "KB-6101"
+        ]
+      },
+      {
+        "question": "What should I change on HX-5000 if a stack is oscillating or briefly separating between members?",
+        "section_index": 1,
+        "related_kbs": [
+          "KB-6103",
+          "KB-6104"
+        ]
+      }
+    ]
+  }
+}

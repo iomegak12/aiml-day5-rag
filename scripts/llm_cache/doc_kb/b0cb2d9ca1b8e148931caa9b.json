@@ -1,0 +1,26 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-6105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Helix HX-5000 switches, rapid-pvst can generate repeated topology-change notifications on access ports connected to downstream devices that move multiple MAC addresses, such as virtualization hosts or clustered appliances. The condition appears after a single downstream reboot and can continue for several minutes even though the physical link remains stable.",
+    "symptoms": "After a downstream host reboots, the access switch may begin emitting topology-change notifications at a 2 to 4 second interval. Operators typically see the affected port reenter forwarding repeatedly in spanning-tree output, while the MAC table ages out entries much faster than the configured 300-second timer.\n\nThe issue is most visible on 10G access ports connected to devices that legitimately shift traffic between virtual NICs or clustered endpoints. The switch may remain operational, but MAC learning and spanning-tree state churn increase until the downstream device settles or the port is redesigned.",
+    "diagnosis_steps": [
+      "Run `show spanning-tree detail` and inspect the affected VLAN instance. Repeated topology-change notices on the same interface, with the port appearing to reenter forwarding, indicate this condition.",
+      "Run `show mac address-table dynamic interface ethernet 1/10` and verify whether the same downstream MAC addresses move between physical or logical endpoints. Frequent relearning on the same edge port is expected in this issue.",
+      "Run `show mac address-table aging-time` and compare it with the observed flush rate. If entries disappear well before the configured 300-second timer, the topology-change state is being reset repeatedly.",
+      "Run `show logging | include TCN-STORM` and confirm that the switch logs repeated `%STP-5-TCN-STORM` messages for the same port and VLANs at short intervals.",
+      "If available in your deployment, run `show interfaces ethernet 1/10 counters` and verify that the link remains up with no corresponding physical flap, which rules out a cabling or optics problem.",
+      "Check whether the connected device is a virtualization host, vMotion source, or clustered appliance that may move multiple MAC addresses across a single access port. This traffic pattern matches the trigger for the condition."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %STP-5-TCN-STORM: vlan 120, interface ethernet 1/10, excessive topology-change notifications detected\n2026-03-14T02:13:09Z %STP-5-TCN-STORM: vlan 120, interface ethernet 1/10, excessive topology-change notifications detected\n2026-03-14T02:13:12Z %STP-5-TCN-STORM: vlan 120, interface ethernet 1/10, excessive topology-change notifications detected\n\nswitch# show spanning-tree detail\n vlan 120\n   topology change count        48\n   last topology change          2026-03-14T02:13:12Z\n   interface ethernet 1/10\n     role                       designated\n     state                      forwarding\n     transitions to forwarding   17\n     topology changes            48\n\nswitch# show mac address-table dynamic interface ethernet 1/10\n vlan 120    00:11:22:33:44:55   dynamic   age 00:00:08\n vlan 120    00:11:22:33:44:66   dynamic   age 00:00:06\n vlan 120    00:11:22:33:44:77   dynamic   age 00:00:05",
+    "root_cause": "This is a design limitation in the access-edge loop guard behavior when rapid-pvst is used on ports that also learn moving MAC addresses from downstream virtual devices. Each learned MAC move resets the topology-change state, so the switch keeps generating notifications even though the physical topology is stable.\n\nBecause the port is behaving as a multi-MAC edge attachment point, the switch interprets normal downstream MAC mobility as repeated topology events. This does not indicate a software defect in the spanning-tree engine, and it is not corrected by a software upgrade.",
+    "workaround_steps": [
+      "Review the affected edge port design and identify whether the downstream device is expected to move multiple MAC addresses, such as a virtualization host or clustered appliance.",
+      "Change the access design so the port faces only a single downstream access device, or place the downstream system into a dedicated edge VLAN design that avoids repeated MAC movement on the same spanning-tree edge.",
+      "Apply rapid-pvst only where the port is a true single-host edge, and keep portfast enabled on the access interface to minimize convergence delay once the topology is stable.",
+      "If the downstream device must remain multi-MAC, move it to a design that does not rely on rapid-pvst behavior on that port; do not attempt to suppress the notifications with repeated state clears."
+    ],
+    "resolution": "No software fix is required. The permanent resolution is to avoid using rapid-pvst on ports that face devices which legitimately move multiple MAC addresses, and to keep those connections in a design that treats them as multi-MAC edge attachments. Prevent recurrence by applying rapid-pvst only to single-host access ports and by validating the downstream device type before enabling spanning-tree edge features."
+  }
+}

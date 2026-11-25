@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "error_code:%PKI-3-CHAIN-UNTRUSTED",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "What does %PKI-3-CHAIN-UNTRUSTED mean on Atlas SD-WAN 2.8, and what should I do when I see it after an edge certificate renewal?",
+    "reference_answer": "In Atlas SD-WAN 2.8, %PKI-3-CHAIN-UNTRUSTED means the orchestrator cannot build the renewed edge certificate chain to a trusted root because the intermediate CA is missing or stale in the stored trust bundle. This can cause the edge to show as disconnected within 2 to 6 minutes after rotation, and policy pushes to that site to fail with certificate validation errors, even though the renewal completed locally on the edge. Reimport the full certificate chain, including the active intermediate CA, on the orchestrator before renewing the edge certificate using `certificate import trust-bundle edge-chain.pem` and `commit`; for large deployments, stage the new chain at least 24 hours before the old intermediate expires. The issue affects 2.8 and is fixed in 2.9, where certificate renewal refreshes the stored intermediate chain automatically."
+  }
+}

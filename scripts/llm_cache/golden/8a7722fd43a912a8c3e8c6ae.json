@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "similar_case:KB-5106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "We have an Atlas SD-WAN 3.2 site where an IPSec tunnel will not come up against a remote peer. The edge keeps retrying negotiation, `show sdwan tunnels` stays in negotiating, and the peer appears to reject the proposal even though the crypto settings should be compatible. Has TAC seen this exact behavior with other customers before, and if so, how was it resolved?",
+    "reference_answer": "Yes, TAC has seen 5 similar resolved cases. In those cases, the issue was worked around by either changing the remote peer to accept an AES-GCM proposal without a separate integrity field using `tunnel ipsec proposal set aes-gcm-256 sha384` and `commit`, or by upgrading the Atlas edge from 3.2 to 3.3, where the negotiator emits the combined ESP proposal required by the peer. In the reported cases, the tunnel established after the workaround or after the upgrade."
+  }
+}

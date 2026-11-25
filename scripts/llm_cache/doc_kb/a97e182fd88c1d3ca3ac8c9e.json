@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-4102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Orion OW-20 release 4.7, some access points can stall during join and remain offline until the next discovery window. The issue is associated with AP radio capability revalidation during the join sequence and is logged as ERR-APJ-4417.",
+    "symptoms": "A subset of APs intermittently stop after the third join retry and remain offline for 5 to 10 minutes before they rediscover the controller. The event log shows repeated join retries, followed by a radio capability revalidation step, after which no additional CAPWAP messages are seen from the AP.\n\nIn affected cases, `show ap detail <name>` shows the AP as not currently joined, with `last-seen` advancing only after the AP is power-cycled or the join database is cleared. The behavior is more visible on remote sites where join latency or transient packet loss extends the time between the initial discovery and the second capability query.",
+    "diagnosis_steps": [
+      "Run `show ap summary` and confirm that one or more APs remain in a join-pending or offline state while neighboring APs are joined normally. Look for APs whose join attempt counter stops increasing after three retries.",
+      "Run `show ap detail <name>` for an affected AP. This issue is indicated when `last-seen` does not advance until the AP is power-cycled or the join database is cleared, and the join state remains unchanged for several minutes.",
+      "Check the event log with `show logging last 50`. The expected pattern is repeated join retry messages, a capability revalidation message, and then an error matching ERR-APJ-4417 with no subsequent CAPWAP join progress.",
+      "If the AP is remote, verify the transport path by checking one-way latency and loss on the uplink path. One-way latency should be under 80 ms and packet loss should be below 1%; values above these thresholds can amplify the join stall.",
+      "Confirm the controller release with `show version`. The defect affects release 4.7 and is corrected in 4.8 and later."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %APJ-5-JOIN_RETRY: ap=ap-branch-14 retry=1 state=discover\n2026-03-14T02:13:12Z %APJ-5-JOIN_RETRY: ap=ap-branch-14 retry=2 state=capability-check\n2026-03-14T02:13:17Z %APJ-5-JOIN_RETRY: ap=ap-branch-14 retry=3 state=capability-check\n2026-03-14T02:13:18Z %APJ-3-ERR-APJ-4417: ap=ap-branch-14 capability revalidation timed out; join transaction expired\n2026-03-14T02:18:21Z %APJ-5-DISCOVERY: ap=ap-branch-14 rediscovered controller after join window reopened\n\now-20# show ap detail ap-branch-14\nname                 : ap-branch-14\nstate                : not-joined\nlast-seen            : 2026-03-14T02:18:21Z\njoin-retry-count     : 3\ncapability-recheck   : pending\ncontroller-release   : 4.7",
+    "root_cause": "The 4.7 AP-join state machine advances the retry counter before radio capability revalidation completes. If the AP responds slowly to the second capability query, the controller marks the join transaction as expired and removes it from the retransmit queue.\n\nOnce the transaction is removed, the AP does not receive further join retransmissions and waits until the next discovery cycle to retry. This produces a 5 to 10 minute offline interval on affected APs, depending on the discovery timer and uplink conditions.",
+    "workaround_steps": [
+      "Reduce the AP join retry interval so the controller keeps the join transaction active long enough for capability revalidation to complete. Apply the new value globally on the controller.",
+      "After changing the timer, monitor an affected AP with the detail view to confirm that the join state progresses past capability revalidation without expiring.",
+      "Review the last 50 log entries for the affected AP and confirm that ERR-APJ-4417 no longer appears during subsequent join attempts.",
+      "If the APs are remote, verify the WAN path meets the recommended thresholds before retrying the join; if latency or loss is above threshold, correct the transport issue first."
+    ],
+    "resolution": "The defect is fixed in release 4.8. In 4.8 and later, join retries are not consumed until capability revalidation returns or times out, so affected APs no longer drop out of the retransmit queue during the join process."
+  }
+}

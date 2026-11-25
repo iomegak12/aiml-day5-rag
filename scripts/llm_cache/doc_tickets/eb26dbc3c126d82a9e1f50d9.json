@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-4109",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Guest portal login loop after redundancy switchover on OW-20 4.9",
+        "description": "Partner escalation for Crescent Health Group on an Orion OW-20 controller running 4.9. Guest users can complete the captive portal login on the active unit, but after a planned redundancy failover the browser returns to the login page and the session never becomes authorized. TAC reviewed the portal and redundancy status and confirmed the issue starts immediately after the standby takes over, while the guest database remains populated. The controller portal log shows repeated \"%PORTAL-5-COOKIE_MISMATCH\" messages during the redirect loop.",
+        "resolution": "This matched KB-4109. The customer upgraded the OW-20 pair from 4.9 to 5.0, which changes guest portal cookie validation to use the redundancy cluster identity rather than the active node UUID. After the upgrade, guest authentication and post-failover session persistence were verified with repeated switchover testing."
+      },
+      {
+        "subject": "OW-20 guest portal fails after failover - need workaround",
+        "description": "Northstar Bank opened a TAC email case for an Orion OW-20 running 4.9. Guest users authenticate normally on the primary controller, but after a failover the portal keeps sending them back to the login page instead of granting access. TAC reproduced the behavior in a lab sequence and confirmed the issue appears within a couple of seconds of redundancy switchover. The portal validation log also reports \"%PORTAL-5-COOKIE_MISMATCH\" for the affected sessions.",
+        "resolution": "This was identified as KB-4109. Because the customer could not schedule an immediate upgrade, TAC applied the documented workaround: guest portal session timeout was reduced to 15 minutes and redundancy failover was inhibited during guest registration windows, with planned maintenance used to expire active sessions before switchover. The bank confirmed the redirect loop stopped when failover was controlled in this way."
+      },
+      {
+        "subject": "Guest captive portal sessions drop after controller failover",
+        "description": "Sunset Power Authority reported that their Orion OW-20 controller, running 4.9, would accept guest sign-ins but lose those sessions after a standby takeover. The field engineer initially suspected DHCP or DNS because users were being redirected back to the portal, but the guest database entries were still present and only the post-failover state was broken. TAC reviewed the controller state and determined the symptom was limited to guest portal session handling during redundancy events. The problem was consistent with a cookie validation defect in the active/standby handoff path.",
+        "resolution": "TAC matched the behavior to KB-4109. The customer upgraded the OW-20 from 4.9 to 5.0, which corrects guest portal cookie validation so it is tied to the redundancy cluster identity instead of the active node UUID. After the upgrade, failover testing showed guest sessions surviving switchover as expected."
+      },
+      {
+        "subject": "OW-20 guest portal re-prompts users after redundancy test",
+        "description": "Summit Logistics called from the data center after testing redundancy on an Orion OW-20 running 4.9. Their guest network works until the controller role changes, then every browser gets sent back to the portal and users cannot stay authorized. The field engineer verified that the issue only appears after failover and not during normal operation, which ruled out a general portal outage. TAC also confirmed that existing guest entries were not being removed from the database, so the symptom was tied to session validation rather than account creation.",
+        "resolution": "This case matched KB-4109. TAC implemented the supported workaround by setting guest portal session timeout to 15 minutes, expiring current guest sessions before the planned switchover, and keeping redundancy failover inhibited during guest registration windows. After those changes, Summit Logistics was able to complete maintenance without the portal redirect loop."
+      },
+      {
+        "subject": "Guests stuck in portal loop after standby takes over",
+        "description": "Evergreen Clinic Network submitted a portal form ticket for an Orion OW-20 running 4.9. Their guest users can sign in successfully, but when the controller fails over the browser immediately returns to the login page and the session never becomes authorized. TAC checked the redundancy state and portal behavior and saw the issue appear right after the standby became active. The portal log includes repeated \"%PORTAL-5-COOKIE_MISMATCH\" entries during the affected sessions.",
+        "resolution": "TAC traced the issue to KB-4109. Since the customer needed a short-term fix, we applied the documented workaround: guest portal session timeout was set to 15 minutes and redundancy failover was inhibited during guest registration windows, with sessions expired before planned switchover. Evergreen confirmed the redirect loop stopped once failover was controlled and users reauthenticated after maintenance."
+      }
+    ]
+  }
+}

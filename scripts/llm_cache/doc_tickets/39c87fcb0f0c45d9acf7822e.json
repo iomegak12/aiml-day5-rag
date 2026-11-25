@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-2105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Best-effort drops during voice bursts on AR-900 uplink",
+        "description": "Customer emailed TAC reporting that intermittent ordering and POS traffic on a single Aurora AR-900 uplink was stalling for 1 to 2 seconds whenever the voice VLAN became active. The device is an Aurora AR-900 running 9.2.1, and the site has a 10 Gbps egress with a strict-priority voice class. Initial checks showed no physical errors, no interface flaps, and no BGP or OSPF instability. `show qos interface` showed the priority queue draining continuously while the weighted queues stayed near near empty during the affected interval. The customer initially suspected an optics problem because the issue only appeared in short bursts.",
+        "resolution": "TAC matched the behavior to KB-2105 and applied the documented workaround. The voice class was capped to 30 percent bandwidth on the egress policy, which prevented the strict-priority queue from monopolizing the transmit window during microbursts. After the change, best-effort traffic remained stable and the latency spikes stopped."
+      },
+      {
+        "subject": "Short latency spikes on mixed traffic after voice calls start",
+        "description": "TAC logged this call from Summit Logistics for an Aurora AR-900 at version 9.2.1. The site reported that once softphones started sending RTP, file transfers on the same uplink slowed dramatically for a few seconds at a time. Interface counters were clean, and the customer had already ruled out duplex and cabling issues. During verification, the router logged \"%QOS-5-SCHED-DEFICIT\" and `show qos interface` indicated the priority queue was emptying at line rate while the weighted classes were not being serviced normally. The customer asked whether packet loss on the WAN circuit could be causing the delay, but the symptoms were isolated to the router egress scheduler.",
+        "resolution": "TAC found the issue described in KB-2105 and advised an upgrade to Aurora AR-900 9.2.3. The customer completed the upgrade and retested with the same traffic mix. After the upgrade, the scheduler preserved weighted queue service credits after each priority burst, and the latency spikes were no longer observed."
+      },
+      {
+        "subject": "Best-effort traffic slows when priority queue is active",
+        "description": "A call was opened for a MetroLink Telecom Aurora AR-900 running 9.2.1. The customer reported that routine Internet traffic became unusably slow whenever a voice burst hit the WAN link, but only for brief intervals. They initially blamed the provider circuit because the symptom looked like congestion, yet the interface counters showed no drops from the physical layer. TAC review confirmed the router was forwarding on a 10 Gbps uplink with strict-priority voice configured, and `show qos interface` showed the priority queue emptying normally while the other queues stayed almost idle. The behavior was repeatable under microburst load and matched a scheduler fairness problem rather than a carrier issue.",
+        "resolution": "TAC identified the problem as KB-2105 and moved the customer to Aurora AR-900 9.2.3. The upgrade was completed during the maintenance window, and no configuration workaround was required after validation. Post-upgrade testing showed the weighted queues receiving service normally even after priority bursts."
+      },
+      {
+        "subject": "Unexpected throughput dips on AR-900 during voice bursts",
+        "description": "Pinnacle Energy contacted TAC about an Aurora AR-900 on 9.2.1 that was showing brief throughput dips on a shared WAN port. The customer described it as a random slowdown affecting nonvoice applications for about a second at a time, while the voice service itself remained stable. TAC found no physical layer alarms, no interface resets, and no control-plane anomalies. The routing table and neighbor state were stable, but `show qos interface` showed the strict-priority queue draining continuously and the weighted queues not receiving expected service during the burst window. The customer had originally tried changing MTU values, which did not affect the issue.",
+        "resolution": "TAC linked the case to KB-2105 and recommended upgrading the Aurora AR-900 from 9.2.1 to 9.2.3. The customer completed the upgrade and repeated the traffic test under the same load. The scheduler behavior normalized after the upgrade, and the short throughput dips did not recur."
+      },
+      {
+        "subject": "Field verification shows microburst starvation on egress queueing",
+        "description": "An on-site field engineer opened the case for Northstar Bank after users reported that transactions slowed whenever voice traffic peaked on the branch WAN link. The affected platform is an Aurora AR-900 running 9.2.1, connected to a 10 Gbps uplink with a strict-priority voice class in the egress policy. Initial field checks found no CRCs, no port errors, and no sign of upstream provider impairment. TAC asked for queueing data and confirmed the priority class was consuming the transmit window while the weighted queues were not being replenished as expected during the burst interval. The symptom was repeatable and limited to short microbursts, which pointed away from a general forwarding problem.",
+        "resolution": "TAC traced the issue to KB-2105 and directed the customer to upgrade the Aurora AR-900 to 9.2.3. After the upgrade, the router no longer starved best-effort traffic during the voice bursts. The customer confirmed that transaction latency returned to normal under the same test conditions."
+      }
+    ]
+  }
+}

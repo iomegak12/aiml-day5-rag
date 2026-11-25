@@ -1,0 +1,19 @@
+{
+  "stage": "doc_tickets_howto",
+  "label": "GUIDE-NF",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "configure ikev2 tunnels to avoid phase 2 renegotiation",
+        "description": "HarborPoint Retail is asking how to configure IKEv2 tunnels on Nimbus NF-300 5.1.3 so they do not see phase 2 renegotiation or selector-related failures. They are using a policy-based design today and want to know whether specific selector widths or transform settings can trigger resets. TAC reviewed the request against the product guidance and confirmed the recommended configuration pattern for this release family.",
+        "resolution": "TAC pointed the customer to GUIDE-NF and recommended avoiding policy-based IKEv2 tunnels with local selectors narrower than /30. For host-to-host designs, the guide recommends using route-based VPN and enforcing traffic restrictions with firewall policy instead. On 5.1.3 and 5.1.5, pin a single DH group on both peers, preferably group 14, and avoid mixed transform sets to prevent phase 2 resets. The guide also provides the following example configuration: config, vpn ikev2 policy-based disable, crypto ikev2 proposal default dh-group 14, crypto ikev2 child-sa rekey disable, commit."
+      },
+      {
+        "subject": "stage a firmware upgrade with minimal config loss risk",
+        "description": "Pinnacle Energy is preparing to upgrade a Nimbus NF-300 running 5.0.8 and asked how to stage the upgrade while reducing the chance of configuration loss or image rejection. They want to know which prechecks to run, whether to back up the configuration first, and what transfer method to use for the 5.0.9 image. TAC reviewed the request and summarized the upgrade handling steps from the product guide.",
+        "resolution": "TAC pointed the customer to GUIDE-NF and advised keeping each checkpoint file under 4,000 entries before upgrading from 5.0.x to 5.1.3 or 5.1.5, then verifying the running configuration immediately after reboot. If the configuration has more than 4,096 replay entries, the guide recommends splitting the upgrade into smaller chunks or exporting and re-importing policy objects after first boot. On 5.0.8, stage 5.0.9 images with SCP or USB rather than HTTPS so the boot loader does not reject a valid image because of padding, and always verify the staged image hash and confirm the image appears in software inventory. Example commands from the guide are: show configuration checkpoint summary, copy running-config backup://198.51.100.20/nf300-preupgrade.cfg, copy scp://198.51.100.10/nf300-5.0.9.bin system image, and show software image."
+      }
+    ]
+  }
+}

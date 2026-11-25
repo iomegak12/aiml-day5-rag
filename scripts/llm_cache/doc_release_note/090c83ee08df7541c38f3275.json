@@ -1,0 +1,30 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-OW-4.9",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Orion OW-20 release 4.9 adds targeted improvements for roaming continuity, guest access resilience, and DFS observability. The 802.11r fast transition path has been refined to reduce roam disruption under common controller and AP timing conditions, while guest portal session handling is improved for stations that move between APs during an active web-authenticated session. This release also adds clearer DFS event logging to help isolate radar detections, channel moves, and CAC-related transitions. In addition to these feature updates, 4.9 includes stability fixes for AP join processing and active-standby synchronization when the configuration database is large.",
+    "features": [
+      {
+        "name": "802.11r FT enhancements",
+        "description": "This release improves fast transition handling for 802.11r-capable SSIDs by tightening controller-side state processing during roam authentication. The update is intended to reduce roam interruptions caused by timing-sensitive FT exchanges, especially in environments with aggressive roaming thresholds and mixed AP load."
+      },
+      {
+        "name": "guest portal session continuity",
+        "description": "Guest portal sessions now retain authentication state more consistently during client movement across APs in the same controller domain. This reduces the chance of an otherwise valid portal session being dropped during roam events, with no change to the standard guest policy or portal authentication workflow."
+      },
+      {
+        "name": "DFS event logging",
+        "description": "The controller now records additional DFS events to support troubleshooting of radar detection and channel evacuation behavior. New log entries make it easier to correlate channel moves, CAC completion, and DFS-triggered AP actions without changing DFS enforcement behavior."
+      }
+    ],
+    "compatibility": "Release 4.9 is supported as an upgrade from Orion OW-20 4.8 on the same hardware platform and follows the standard controller-wide image upgrade process. Configuration from 4.8 is retained, and no manual conversion is required for existing WLANs, AP groups, redundancy settings, or RADIUS profiles. Interoperability with APs, 802.1X authentication servers, and guest portal clients is preserved, but operators should review any roaming-sensitive SSIDs that use 802.11r and confirm portal behavior after standby failover in environments that pin session cookies to controller identity. The release includes bug fixes for AP join and redundancy synchronization, but it does not change supported hardware models or require a new configuration schema.",
+    "upgrade_steps": [
+      "Back up the running configuration and export any local certificates, portal assets, and authentication profiles required for recovery.",
+      "Verify the 4.9 image checksum on the controller and confirm sufficient flash space before copying the image to the standby or maintenance node.",
+      "Schedule a maintenance window and place the controller pair or cluster into the planned upgrade state to avoid client disruption during image activation.",
+      "Upgrade the standby controller first, confirm it returns to in-sync state, and then fail traffic over before upgrading the former active node.",
+      "After both nodes are on 4.9, verify AP join status, client authentication, guest portal access, DFS log generation, and redundancy synchronization with show ap summary, show client detail <mac>, and the redundancy status commands used in your deployment."
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AR#1",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "BGP next-hop resolution on Aurora AR-900 depends on recursive lookup in the main routing table. When a learned BGP path points to a next hop that is not reachable through an installed underlay route, the path remains in an unresolved state and is not selected for forwarding. This is normal behaviour, but it becomes operationally visible when an underlay route is withdrawn or replaced and the BGP process does not immediately converge to the replacement route. In steady state, the router should keep the best path installed only while recursion resolves to an active next hop with a usable outbound interface.",
+      "The common failure mode is a route churn event in the underlay, followed by stale recursion for one or more BGP prefixes. On 9.1.4 and 9.1.6, the recommended recovery is to clear the BGP process for the affected IPv4 unicast address family if the next-hop remains unresolved after an underlay route withdrawal. This is a process-level corrective action, not a substitute for fixing the underlay. Use it when the control plane has not re-evaluated the recursive dependency after the underlay change and the route must be restored promptly.",
+      "Where a path is critical during a maintenance window, prefer a static discard route with a lower administrative distance than the learned underlay route so recursion remains stable. This prevents transient withdrawal of the recursive anchor from causing BGP to lose reachability during the change. The discard route should match only the exact prefix needed for recursion, and it should be removed only after the replacement underlay path is active and verified. This approach is useful when you need deterministic next-hop resolution while changing IGP metrics, interface states, or transport adjacency.",
+      "On 9.2.3, the preferred recovery after changing recursive static routes is to issue a soft clear of the affected BGP address family. If a clear must be avoided, withdraw the old static route for at least 5 seconds before installing the replacement. That pause allows the routing process to age out the prior recursive entry cleanly and reduces the chance of BGP retaining a stale next hop. Avoid repeated soft clears during peak update periods, because the routing process can spike to 95% CPU on 9.2.1. If you must operate during a busy convergence event, coordinate the change so that route refreshes, BFD flaps, and BGP policy updates do not overlap.",
+      "A frequent mistake is to clear only the learned prefix route without correcting the recursive underlay dependency. In that case the BGP table may repopulate the same unresolved next hop and the symptom returns immediately. Another common issue is replacing a static route too quickly; if the old recursive route is removed and the new one is installed back-to-back, the process may not age the previous dependency in time. For affected environments, treat route recursion as a stateful dependency chain: underlay reachability first, then BGP next-hop resolution, then policy and advertisement checks.",
+      "Operationally, validate the underlay before forcing BGP recovery. Confirm that the next-hop address resolves to an active route and that the interface used by recursion is up/up. If BFD is enabled, verify that the neighbor session is stable and that no recent BFD down events correlate with the BGP withdrawal. For troubleshooting, compare the BGP path selection before and after the change, and inspect whether the next-hop column shows a resolved interface or remains unresolved. If the path is still unresolved after underlay recovery, the control plane likely needs the corrective clear appropriate to the release family."
+    ],
+    "procedure_steps": [
+      "Check the underlay route for the BGP next hop and confirm that the recursive prefix is installed and active.",
+      "If the device is running 9.1.4 or 9.1.6 and the next hop remains unresolved after an underlay route withdrawal, clear the BGP process for the affected IPv4 unicast address family with clear bgp ipv4 unicast 65001.",
+      "If the path is critical during a planned change, install a static discard route with a lower administrative distance than the learned underlay route before withdrawing the original underlay route.",
+      "On 9.2.3, after changing recursive static routes, issue a soft clear with clear bgp ipv4 unicast 65001 soft.",
+      "If a clear must be avoided on 9.2.3, withdraw the old static route for at least 5 seconds before installing the replacement, using clear ip route 198.51.100.0/24 or clear ip route 203.0.113.0/24 as appropriate.",
+      "Avoid repeated soft clears during peak update periods, especially on 9.2.1, and verify that routing CPU remains below the threshold for normal operation."
+    ],
+    "table": {
+      "caption": "BGP next-hop resolution guidance by release family",
+      "header": [
+        "Release family",
+        "Operational guidance",
+        "Notes"
+      ],
+      "rows": [
+        [
+          "9.1: 9.1.4, 9.1.6",
+          "Clear the BGP process for the affected IPv4 unicast address family if the next-hop remains unresolved after an underlay route withdrawal.",
+          "Use a process clear only after confirming the underlay has recovered or been replaced."
+        ],
+        [
+          "9.2: 9.2.0, 9.2.1",
+          "Prefer minimal intervention; avoid repeated soft clears during busy convergence periods.",
+          "On 9.2.1, repeated soft clears can spike routing CPU to 95%."
+        ],
+        [
+          "9.2.3",
+          "Issue a soft clear after changing recursive static routes.",
+          "If a clear must be avoided, withdraw the old static route for at least 5 seconds before installing the replacement."
+        ],
+        [
+          "9.3: 9.3.0",
+          "Use the same underlay-first approach and verify recursive resolution after any static-route change.",
+          "No special recovery action is required if recursion reconverges normally."
+        ]
+      ]
+    },
+    "verification": "Use show bgp summary to confirm the BGP session is established and that the affected prefixes are present in the table. Then use show bgp ipv4 unicast to verify that the best path has a resolved next hop and that the route points to the expected recursive interface or next-hop address. If BFD is deployed on the session path, use show bfd neighbors detail to confirm the neighbor is Up and stable. Expected output should show the prefix as best, the next hop as reachable, and no recent withdrawal or unresolved-recursion messages in the routing log."
+  }
+}

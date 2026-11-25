@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-4104",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why does 4.8 redundancy go partially out of sync once the config database gets large?",
+    "reference_answer": "In Orion OW-20 4.8, the active-standby incremental sync encoder uses a 15-bit row index, so once the configuration database grows past about 32,768 rows, rows above 32,767 wrap and are treated as already synchronized. As a result, the standby stops receiving those incremental updates, `show redundancy status` reports `sync state: partial`, and the event log repeats %REDUNDANCY-4-SYNC_STALL every 10 seconds. The issue is fixed in 4.9, where incremental synchronization uses a 32-bit object index."
+  }
+}

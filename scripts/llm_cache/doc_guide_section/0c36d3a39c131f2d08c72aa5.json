@@ -1,0 +1,53 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AT#2",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Atlas SD-WAN edge registration depends on a certificate chain that the orchestrator can validate without ambiguity. In practice, the orchestrator must trust the edge leaf certificate, the issuing intermediate CA, and the root CA that anchors the chain. When the chain is incomplete or imported out of order, the orchestrator may accept the current edge session but fail the next renewal, which presents as a re-registration failure rather than an immediate certificate error. The operational goal is to keep the trust bundle current before any edge rotates its leaf certificate.",
+      "The safest maintenance model is to treat certificate replacement as a chain refresh, not just a leaf update. Reimport the full certificate chain, including the active intermediate CA, on the orchestrator before renewing any edge certificate. This avoids a dependency on cached trust state and ensures that the orchestrator can validate both the existing edge identity and the renewed identity during the overlap period. If you only import the new leaf or omit the active intermediate, the edge can lose trust during the TLS re-handshake used for re-registration.",
+      "Timing is important because certificate rollover has two separate clocks: the leaf validity window on the edge and the intermediate validity window in the trust store. Stage the new chain at least 24 hours before the old intermediate expires so renewal and re-registration do not fail during the cutover window. That buffer gives you time to confirm the orchestrator has distributed the updated trust bundle, and it leaves room to retry edge registration if any node is delayed or temporarily offline. In environments with many remote edges or intermittent LTE transport, this staging window is often the difference between a controlled rotation and a fleet-wide outage.",
+      "A common mistake is importing a partial chain that appears valid on the orchestrator UI but is missing the intermediate used by the edge at runtime. Another frequent error is importing a new root and new intermediate in separate operations, which can leave a transient state where the trust bundle does not contain a complete, consistent path. If edge re-registration fails after renewal, verify that the orchestrator trust bundle contains the current intermediate and root chain in the same import set. That check is especially important when the certificate hierarchy changes during a maintenance window or when multiple edge groups are renewed in sequence.",
+      "Operationally, do not assume successful certificate import means successful edge recovery. After the trust bundle is updated, the edge still must establish overlay tunnels, authenticate to the orchestrator, and receive a fresh policy push. Any residual mismatch can surface first as tunnel flaps, then as application-aware routing instability, and only later as an obvious certificate alarm. For this reason, certificate changes should be coordinated with tunnel monitoring and with any planned edge reboot or maintenance action. If possible, avoid combining certificate rollover with unrelated changes to SLA classes or transport interfaces.",
+      "When troubleshooting, compare the configured trust bundle against the expected chain and confirm that the edge has re-registered with a new session timestamp. If you see repeated registration attempts, inspect the edge logs for certificate validation failures and confirm the orchestrator accepted the same root and intermediate pair you intended to deploy. The commands below show the import and commit workflow, then provide a way to confirm that the trust bundle contains the current chain before you renew or force edge re-registration."
+    ],
+    "procedure_steps": [
+      "Import the full certificate chain on the orchestrator, including the active intermediate CA and the corresponding root, using the trust-bundle import workflow.",
+      "Commit the trust bundle change and wait for the configuration to become active before touching any edge certificate.",
+      "Verify that the trust bundle lists the expected chain elements and that the current intermediate is present in the same import set as the root.",
+      "Renew the edge certificate only after the orchestrator trust bundle is confirmed current; do not begin edge re-registration before this step is complete.",
+      "If the edge does not re-register cleanly, recheck the trust bundle contents and repeat the renewal only after correcting the chain mismatch."
+    ],
+    "table": {
+      "caption": "Certificate chain maintenance reference",
+      "header": [
+        "Item",
+        "Guidance",
+        "Operational impact"
+      ],
+      "rows": [
+        [
+          "Full certificate chain",
+          "Reimport the full certificate chain, including the active intermediate CA, on the orchestrator before renewing any edge certificate.",
+          "Prevents validation gaps during leaf renewal and edge re-registration."
+        ],
+        [
+          "Cutover timing",
+          "Stage the new chain at least 24 hours before the old intermediate expires so renewal and re-registration do not fail during the cutover window.",
+          "Provides overlap for distribution, retry, and delayed edge connectivity."
+        ],
+        [
+          "Chain consistency",
+          "If edge re-registration fails after renewal, verify that the orchestrator trust bundle contains the current intermediate and root chain in the same import set.",
+          "Rules out partial imports and mismatched trust paths."
+        ],
+        [
+          "Import scope",
+          "Import the active intermediate CA and root together rather than in separate maintenance actions.",
+          "Avoids transient trust-bundle states that can disrupt overlay authentication."
+        ]
+      ]
+    },
+    "verification": "Run show certificate trust-bundle after commit and confirm that the output lists the expected root and active intermediate as part of the same trust bundle. Then check edge registration state from the orchestrator and confirm that the edge shows a current registered timestamp and no certificate-validation alarms. If the edge still does not re-register, use the edge-side show sdwan tunnels command to confirm the overlay is established and that the session is using the renewed certificate path rather than repeatedly renegotiating."
+  }
+}

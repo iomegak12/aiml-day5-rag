@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-3108",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "policy-based vpn comes up but no traffic on nf-300 5.1.5",
+        "description": "IronGate Freight called TAC about a site-to-site VPN on a Nimbus NF-300 running 5.1.5. They said the tunnel shows as established, but traffic across the link stays at zero and the remote peer keeps renegotiating roughly every 10 seconds. Initial triage confirmed the IKE SA forms, while the child SA never finishes installing when the local selector is configured as a host route. When the selector was widened during the call, the tunnel behavior changed and traffic began to pass.",
+        "resolution": "TAC identified this as KB-3108, a selector limitation affecting policy-based IKEv2 tunnels when the local selector is narrower than /30. We applied the documented workaround by disabling policy-based VPN and moving the service to a route-based design with firewall policy filtering. The customer confirmed the tunnel stabilized and counters started incrementing after the change."
+      },
+      {
+        "subject": "ikev2 child sa does not install on /31 selector",
+        "description": "Pinnacle Energy emailed TAC about a Nimbus NF-300 running 5.0.9 that could not carry traffic over an IKEv2 VPN. Their message reported that the peer reaches an established state, but no packets move and the remote end retries the exchange every 10 seconds. TAC review showed the local policy uses a /31 selector on the firewall, which matches the symptoms of a child SA negotiation problem rather than an authentication failure. The issue reproduced in lab with the same selector size, and the log buffer contained \"%IKEV2-3-TS_UNSUPPORTED\" during CHILD_SA setup.",
+        "resolution": "TAC mapped the behavior to KB-3108 and confirmed it is the known selector limitation for policy-based IKEv2 tunnels. Per the documented workaround, we disabled policy-based VPN and shifted the design to route-based VPN with a firewall policy to restrict traffic. Pinnacle Energy applied the change and reported the tunnel passed traffic normally afterward."
+      },
+      {
+        "subject": "partner escalation: vpn to branch stuck after ike sa establishes",
+        "description": "A partner escalated on behalf of IronGate Freight regarding a Nimbus NF-300 running 5.1.5 at a branch office. The report said the VPN looks healthy in the dashboard, but end users cannot reach the remote subnet and the counter values stay at zero. TAC checked the configuration and found a policy-based IKEv2 tunnel using a local host route instead of a broader subnet, which matches the failure pattern for child SA negotiation. The peer was retrying every 10 seconds, while the IKE SA remained established throughout the call.",
+        "resolution": "TAC identified the issue as KB-3108 and explained that policy-based IKEv2 on this platform does not accept a local selector narrower than /30. We implemented the workaround from the article by disabling policy-based VPN and preserving access control with a firewall policy. After the configuration change, IronGate Freight confirmed the tunnel installed its child SA and traffic flowed."
+      },
+      {
+        "subject": "child sa fails with ikev2-3-ts_unsupported on nf-300",
+        "description": "MetroLink Telecom phoned TAC about a Nimbus NF-300 running 5.1.3 that had a newly built branch VPN with no payload traffic. During initial triage, the device showed an established IKE SA, but the child SA never came up and the peer retried the exchange every 10 seconds. The system log also showed \"%IKEV2-3-TS_UNSUPPORTED\" during CHILD_SA negotiation, which pointed away from PSK or proposal mismatch and toward a selector problem. The local tunnel policy was configured with a host address selector, which is narrower than the platform accepts for this mode.",
+        "resolution": "TAC traced the failure to KB-3108 and confirmed the selector compiler limitation affecting policy-based IKEv2 tunnels. We applied the documented workaround by disabling policy-based VPN and moving the security control to a firewall policy on the route-based design. MetroLink Telecom verified the tunnel came up cleanly and traffic counters increased after the change."
+      },
+      {
+        "subject": "vpn up but zero counters on policy-based ikev2 tunnel",
+        "description": "Pinnacle Energy submitted a web form for a Nimbus NF-300 running 5.1.3. They reported that the VPN shows connected, but the application servers behind it cannot reach the remote site and the tunnel counters remain at zero. TAC reviewed the configuration and found a policy-based IKEv2 setup with a local selector defined as a single host address. The peer was retrying every 10 seconds, which aligned with a child SA negotiation issue rather than a generic outage.",
+        "resolution": "TAC associated the case with KB-3108 and confirmed the platform limitation for policy-based IKEv2 when the local selector is narrower than /30. We used the documented workaround by disabling policy-based VPN and enforcing the required traffic with firewall policy on the broader subnet design. Pinnacle Energy confirmed the tunnel installed the child SA and carried traffic after the change."
+      }
+    ]
+  }
+}

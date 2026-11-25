@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "error_code:%SDWAN-4-SLA-DOWN",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "I found %SDWAN-4-SLA-DOWN in the Atlas SD-WAN logs. What does this error mean, and what should I do to stop the SLA class from going down after a brief probe loss spike?",
+    "reference_answer": "%SDWAN-4-SLA-DOWN on Atlas SD-WAN 2.8 means the application-aware routing SLA class was marked down after a single missed 1-second probe, even though packet loss may stay below 2% over the next several intervals. This is caused by the 2.8 SLA evaluator applying the hold-down timer to the most recent probe result instead of the rolling window when there are fewer than five samples, so a timeout clears the class state and starts a full recovery timer. Work around it by increasing the SLA probe window to at least five samples and extending the hold-down; for example, `app-route sla-class voice loss-threshold 5 latency-threshold 80 probe-interval 1000 hold-down 5000` followed by `commit`. The issue is fixed in 2.9."
+  }
+}

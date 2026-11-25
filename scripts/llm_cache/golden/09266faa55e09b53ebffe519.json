@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "multi_hop:KB-2105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "On Aurora AR-900 running 9.2.1, we have a 10 Gbps uplink with a strict-priority voice queue. During short microbursts, best-effort traffic drops to under 1 Mbps for a second or two even though there are no physical errors, and the queue stats show the priority class draining while the weighted queues stay almost idle. Which release fixes this, and what should we do in the meantime until we can upgrade?",
+    "reference_answer": "This issue is fixed in Aurora AR-900 9.2.3. Until you can upgrade, cap the strict-priority class to 30% bandwidth or convert it to low-latency queueing with an explicit policer of 300 Mbps on 10 Gbps links; if possible, move bulk traffic to a separate egress interface to avoid shared scheduler contention."
+  }
+}

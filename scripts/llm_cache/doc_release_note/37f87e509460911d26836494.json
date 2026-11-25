@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-AT-3.3",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Atlas SD-WAN 3.3 expands operational visibility and tightens control-plane validation. The release adds richer flow-history reporting, improved LTE handoff telemetry for field troubleshooting, and stricter certificate validation on orchestrator and edge control connections. In addition to these feature updates, 3.3 corrects IPSec proposal negotiation for peers that require AES-GCM with SHA-384 on the same proposal and preserves per-interface LTE tunnel MTU during migration when a nondefault APN is used. The release continues to focus on overlay tunnel stability, reporting accuracy, and predictable upgrades from the 3.2 train.",
+    "features": [
+      {
+        "name": "Expanded flow-history reporting",
+        "description": "Flow-history reporting now retains and exposes a broader set of per-flow attributes for post-event analysis, including tunnel selection, application classification, and SLA-class decisions. This improves troubleshooting of application-aware routing and overlay path changes after a transient outage. Existing report definitions continue to work, but operators may need to review retention and export settings because larger datasets can increase report generation time."
+      },
+      {
+        "name": "LTE handoff telemetry",
+        "description": "Atlas SD-WAN 3.3 adds detailed telemetry for LTE handoff events on the edge, including modem state transitions, carrier acquisition timing, and tunnel recovery markers. The new data is available in edge operational output and reporting so TAC can correlate handoff activity with tunnel loss or latency spikes. No configuration changes are required, but operators should ensure their monitoring systems are prepared to ingest the additional event fields."
+      },
+      {
+        "name": "Certificate validation tightening",
+        "description": "The orchestrator and edge now enforce stricter certificate checks during control-plane authentication. Validation includes closer matching of certificate identity, validity period, and chain requirements, which reduces acceptance of malformed or weakly trusted certificates. Before upgrade, verify that all device and orchestrator certificates are current and that any custom trust chain is complete, because previously tolerated certificate defects may now block enrollment or policy synchronization."
+      }
+    ],
+    "compatibility": "Atlas SD-WAN 3.3 supports upgrade from 3.2 in-place for the orchestrator and edges, including platforms that use LTE transport and application-aware routing policies. Existing overlay tunnels, SLA classes, and policy constructs are retained, but certificate-based control connections may require remediation if certificates are expired, missing intermediates, or use mismatched identities. The release remains interoperable with 3.2 peers during a staged upgrade, although mixed-version reporting may show different levels of flow detail until all components are upgraded. The LTE migration fix preserves per-interface tunnel MTU values for profiles that use a nondefault APN; no manual configuration change is required unless a site previously worked around the issue. Hardware support follows the existing 3.2 platform matrix.",
+    "upgrade_steps": [
+      "Back up the orchestrator configuration, edge templates, certificates, and any local edge exports before starting the upgrade.",
+      "Verify the 3.3 images on the orchestrator and edge repositories, and confirm the checksums match the published package values.",
+      "Schedule a maintenance window large enough to upgrade the orchestrator first, then the edges in staged groups so policy push and reporting can be validated incrementally.",
+      "Upgrade the orchestrator to 3.3, confirm policy compilation succeeds, and verify that certificate validation passes for all managed edges.",
+      "Upgrade a small edge batch, then confirm tunnel state, application-aware routing, LTE transport, and report generation with commands such as 'show sdwan tunnels' and 'show app-route sla-class'.",
+      "After all sites are upgraded, review logs and counters for certificate failures, tunnel re-establishment, and LTE handoff events, and document any residual reporting CPU impact if flow-history retention is set above 7 days."
+    ]
+  }
+}

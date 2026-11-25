@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-HX-8.0",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Helix HX-5000 release 8.0 focuses on control-plane stability and operational recovery in stacked and EVPN deployments. The release adds improvements to EVPN type-5 route refresh handling, faster and more deterministic stack failure detection, and cleanup of routing-process memory management under repeated control-plane churn. In the 7.6 train, these changes address transient stack separation during heartbeat jitter, loss of type-5 advertisement after anycast gateway MAC movement, and memory growth following repeated EVPN route-refresh activity. Operators should expect no intended data-plane feature changes, but should validate stack behavior, EVPN route propagation, and baseline resource utilization after upgrade.",
+    "features": [
+      {
+        "name": "EVPN type-5 refresh fixes",
+        "description": "This release corrects EVPN type-5 route refresh handling so advertised prefixes remain present after control-plane events such as anycast gateway MAC movement. The change reduces the risk of stale refresh state suppressing type-5 advertisements in VXLAN/EVPN fabrics. No new configuration is required, but TAC recommends verifying route advertisement with show commands after any gateway MAC change."
+      },
+      {
+        "name": "stack failure detection",
+        "description": "Stack failure detection has been tightened so transient heartbeat jitter on long interconnect runs is less likely to trigger a brief member separation event. The switch now distinguishes between short transport disruption and true member loss more reliably. Existing stack configurations remain valid, but operators should review cabling quality and monitor show stack output after upgrade."
+      },
+      {
+        "name": "memory management cleanup",
+        "description": "This release includes memory management cleanup in the routing process to reduce growth observed after repeated EVPN route-refresh events. The update improves reclaim behavior under sustained control-plane churn and helps preserve headroom for routing and adjacency processing. No configuration changes are required, but operators should establish a pre- and post-upgrade baseline for memory utilization."
+      }
+    ],
+    "compatibility": "Release 8.0 is supported as an upgrade from HX-5000 release 7.6 and is intended for existing 7.6 hardware and configurations. Interoperability with adjacent routing, stacking, LACP, spanning tree, and VXLAN/EVPN peers is preserved, although environments that depend on aggressive route-refresh behavior should be validated after upgrade. No configuration syntax changes are required, and existing hierarchical configuration entered with configure terminal remains compatible. Any temporary operational variance is expected to be limited to post-upgrade state convergence and should be verified with show stack, show interfaces transceiver detail, and EVPN routing status commands.",
+    "upgrade_steps": [
+      "Back up the running configuration and export any operational state you need for rollback comparison, including show stack and show interfaces transceiver detail output.",
+      "Verify the 8.0 image checksum and confirm sufficient flash and bootloader space before scheduling the change.",
+      "Plan a maintenance window long enough for image installation, reload, and post-upgrade convergence of stacking and EVPN control-plane state.",
+      "Upgrade one stack member or a staged subset first if your deployment model allows it, then complete the remaining members after the first unit returns to service.",
+      "After reload, confirm stack membership, EVPN type-5 advertisement, and routing process health with show stack and related route verification commands.",
+      "Monitor logs, memory utilization, and interface counters for at least one convergence interval and confirm there are no unexpected member separations or route-refresh stalls."
+    ]
+  }
+}

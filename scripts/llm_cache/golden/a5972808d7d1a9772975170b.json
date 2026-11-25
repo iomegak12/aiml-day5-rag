@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "multi_hop:KB-4105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "We’re running Orion OW-20 4.9 with 802.11r enabled, and some clients pause for a couple hundred milliseconds when they roam between APs; voice calls also drop a brief gap or two before traffic starts again. `show client detail <mac>` says the roam completed, but it still looks like the key install is timing out, especially when the controller is a bit busy. Which release fixes this, and what should we do until we can upgrade?",
+    "reference_answer": "This issue is fixed in 5.0, where FT key installation uses a dedicated queue with priority over accounting updates. Until you can upgrade, lower the client accounting interval to 60 seconds to reduce queue pressure and keep controller CPU below 70% during roaming tests. For latency-sensitive SSIDs, disable 802.11r until the maintenance window."
+  }
+}

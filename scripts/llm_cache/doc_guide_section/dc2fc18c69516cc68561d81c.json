@@ -1,0 +1,52 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-HX#1",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "The HX-5000 transceiver subsystem combines Digital Optical Monitoring (DOM) data with link-state detection to help operators identify marginal optics before they affect forwarding. On healthy ports, temperature, transmit bias current, receive power, and voltage typically remain stable within a narrow operating band. When one of these values drifts sharply, the port can begin to flap, error counters may rise, and upstream protocols such as LACP or spanning tree can react to the brief loss of carrier. For that reason, optics health checks should be part of the normal troubleshooting sequence for any interface showing intermittent errors, especially on dense 25G and 100G uplinks.",
+      "Case temperature is one of the most useful indicators because it often reflects both the module’s own thermal load and the temperature of the adjacent cage and airflow path. Keep optics below 50 C case temperature when possible, especially on ports showing bias current spikes or remote LOS alarms. A temperature increase by itself is not always a fault, but a module that is warm and also showing rising bias current usually indicates a stressed laser or an airflow issue. In practice, the most common mistakes are overlooking contaminated connectors, mixing optics from different manufacturing lots without checking their DOM trends, and interpreting a single momentary sample as a stable condition. Review several readings over time before deciding that the module is healthy.",
+      "On 7.2, reduce DOM polling on affected SFP28 ports by setting the transceiver monitoring interval to 120 seconds. This reduces management-plane overhead on ports that are already exhibiting marginal behavior and avoids amplifying transient spikes caused by very frequent sampling. The trade-off is that longer polling intervals can delay detection of a rapidly degrading optic, so use the setting selectively on the affected interface rather than globally unless your operational policy requires otherwise. Later releases are generally more tolerant of frequent polling, but the same health checks still apply when the hardware is close to its thermal or optical limit.",
+      "If a port continues to flap under load, move the optic to a later-release port or replace the module with one that has a stable bias current profile. This is a practical isolation step: if the symptom follows the optic, the module is the likely source; if the symptom stays with the cage or line card, investigate the host port, airflow, or adjacent cabling. A module with an unstable bias current profile often shows oscillation rather than a steady increase, and the port may log remote LOS alarms before the link fully drops. Re-seat the transceiver only after confirming that the connector endfaces are clean and that the fiber polarity is correct.",
+      "When interpreting DOM output, compare the values against both the optical vendor’s thresholds and the port’s recent history. A receive power reading that is technically within threshold can still be problematic if it is several dB lower than neighboring links on the same path, or if it varies with chassis temperature. Likewise, bias current spikes may not immediately trip a hard alarm, but they are a useful predictor of failure when they align with temperature rise or error bursts. Pair the optics check with interface counters and, if needed, with a physical inspection of patch cords, splitters, and attenuators to separate module faults from path losses."
+    ],
+    "procedure_steps": [
+      "Enter global configuration mode with `configure terminal`.",
+      "Select the affected interface with `interface ethernet 1/1`.",
+      "On 7.2 only, set `transceiver monitoring interval 120` to reduce DOM polling on the affected SFP28 port.",
+      "Exit configuration mode and monitor the interface under load for flaps, bias current spikes, or remote LOS alarms.",
+      "Run `show interfaces transceiver detail` and record temperature, transmit bias current, receive power, and alarm state for comparison over time."
+    ],
+    "table": {
+      "caption": "Optics health indicators and operator response",
+      "header": [
+        "Indicator",
+        "What to watch for",
+        "Typical operator response"
+      ],
+      "rows": [
+        [
+          "Case temperature",
+          "Sustained values above 50 C or a rapid rise correlated with traffic load",
+          "Improve airflow, clean the optics area, and consider replacing the module if bias current also rises"
+        ],
+        [
+          "Transmit bias current",
+          "Spikes, oscillation, or a steady increase compared with neighboring ports",
+          "Compare against recent history and move or replace the optic if the trend persists"
+        ],
+        [
+          "Receive power",
+          "Low absolute level, abrupt drop, or high variance between samples",
+          "Inspect fiber polarity, connector cleanliness, and path loss"
+        ],
+        [
+          "Remote LOS alarm",
+          "Alarm assertion despite physical link being present or flapping under load",
+          "Check the far-end optic, patching, and module stability"
+        ]
+      ]
+    },
+    "verification": "Use `show interfaces transceiver detail` to confirm that the configured port reports DOM values consistently across successive samples and that no new alarm flags are asserted. On 7.2, verify that the transceiver monitoring interval is set to 120 seconds for the affected interface and that the polling rate has decreased as expected. A healthy result shows stable temperature, bias current, and receive power readings, with no repeated remote LOS alarms or interface flap events while traffic remains active. If the readings still oscillate or the port continues to drop under load, move the optic to another later-release port or replace the module and repeat the same show command to confirm the fault follows the transceiver."
+  }
+}

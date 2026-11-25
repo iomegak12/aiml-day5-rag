@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-5102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Edge went offline after certificate renewal on orchestrator 2.8",
+        "description": "HarborPoint Retail reports that one Atlas SD-WAN edge stopped checking in shortly after a certificate renewal window. The affected device is edge site HPR-SEA-14 running Atlas SD-WAN 2.8, and the orchestrator now shows it disconnected about 5 minutes after the change. The customer also noted that policy updates to that site are failing, while other sites remain up. TAC review confirmed the renewal completed on the edge, but the orchestrator is rejecting the next registration attempt because it cannot validate the presented chain.",
+        "resolution": "TAC identified this as KB-5102. We reimported the full certificate chain on the orchestrator with the active intermediate CA, then committed the change and re-ran registration. The edge returned to connected state and policy push succeeded after the trust bundle was refreshed."
+      },
+      {
+        "subject": "Certificate renewal broke check-in for field edge",
+        "description": "CivicWorks Public Agency escalated that a remote edge lost orchestrator contact after a planned certificate rotation. The device is CW-EDGE-07 running Atlas SD-WAN 2.8, and the disconnect occurred within roughly 3 minutes of the renewal completing on the edge. The edge log shows the renewal itself succeeded locally, but the next registration attempt was denied. The log includes \"%PKI-3-CHAIN-UNTRUSTED\", which matches the orchestrator-side validation failure we saw in the certificate status view.",
+        "resolution": "TAC traced the issue to KB-5102. We imported the updated trust bundle containing the active intermediate CA on the orchestrator and committed the change before retrying registration. After the bundle refresh, the edge checked in normally and configuration pushes resumed."
+      },
+      {
+        "subject": "Renewed certificate accepted on edge, but orchestrator rejects registration",
+        "description": "Redwood University wrote in about a campus edge that renewed its certificate successfully but then disappeared from the orchestrator. The device is RU-EDGE-WEST running Atlas SD-WAN 2.8, and TAC observed the site flipping to disconnected status about 4 minutes after renewal. The edge log is explicit: \"%PKI-3-CHAIN-UNTRUSTED\" during the next registration attempt. Initial triage indicates the stored trust chain on the orchestrator still references the old intermediate CA, so the new chain cannot be built to a trusted root.",
+        "resolution": "TAC resolved this per KB-5102. We reimported the full certificate chain, including the active intermediate CA, on the orchestrator and committed the update. The edge then re-registered successfully and policy deployment to the site completed without further certificate errors."
+      },
+      {
+        "subject": "Atlas SD-WAN 2.8 edge lost connectivity after cert rotation",
+        "description": "Evergreen Clinic Network submitted a portal case for a clinic edge that dropped from the orchestrator after a certificate rotation. The affected device is ECN-CLINIC-03 running Atlas SD-WAN 2.8, and the disconnect showed up in the UI within about 6 minutes. The customer initially suspected an LTE outage, but transport health and tunnels remained up on the edge. TAC confirmed the registration failure was caused by a stale trust bundle on the orchestrator that no longer matched the renewed certificate chain.",
+        "resolution": "TAC treated this as KB-5102 and applied the documented workaround, then had the customer upgrade the orchestrator to 2.9. The full certificate chain was reimported on the orchestrator before the next renewal, and the site was brought back into service. After the upgrade, subsequent renewals refreshed the intermediate chain automatically."
+      },
+      {
+        "subject": "P1: multiple branches dropped after certificate renewal",
+        "description": "BlueRiver Credit Union escalated as P1 because several branches went offline shortly after certificate maintenance on the Atlas SD-WAN orchestrator. The affected edge fleet is running Atlas SD-WAN 2.8, and the first site to fail was BRCU-ATM-02 before additional branches followed within 2 to 6 minutes. TAC saw the same pattern at each site: the edge renews locally, then the next registration attempt is denied and the orchestrator marks the device disconnected. The edge logs include \"%PKI-3-CHAIN-UNTRUSTED\", which points to a trust-chain validation problem rather than a transport issue.",
+        "resolution": "TAC resolved the outage using the KB-5102 workaround. We reimported the complete trust bundle on the orchestrator, including the current intermediate CA, and committed the change before reattempting edge registration. Once the bundle was refreshed, the affected sites checked in again and policy pushes completed successfully."
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-5103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Atlas SD-WAN policy push stuck on large route-map tenant",
+        "description": "Partner escalation for Lakeside Hospitality on Atlas SD-WAN orchestrator 3.0. The customer reported that a policy change for a branch tenant stayed in processing for about 10 minutes and then never reached the edges. TAC checked the orchestrator policy worker and saw CPU pinned above 90 percent during the push; the affected tenant had a route-map with more than 256 entries. The edge devices were still running the previous policy, and `show sdwan tunnels` on a sample branch remained stable while the new route was absent.",
+        "resolution": "TAC identified the issue as KB-5103. Lakeside Hospitality upgraded the orchestrator from 3.0 to 3.1, which uses the fixed route-map serializer. After the upgrade, policy pushes completed normally and the tenant policy applied to the edges without delay."
+      },
+      {
+        "subject": "Route-map change will not complete on Atlas SD-WAN 3.0",
+        "description": "Phone call logged by the TAC agent for Prairie State College on Atlas SD-WAN orchestrator 3.0. The caller said a routine routing policy edit had been spinning for most of the workday and then failed, but the branches still showed the old configuration. TAC reproduced the behavior on the policy worker and found the tenant had a single route-map with 257 rules. The orchestrator CPU climbed into the high 90s during the commit attempt, while the edges continued to advertise the prior policy.",
+        "resolution": "TAC matched the symptoms to KB-5103 and applied the documented workaround. The route-map was split so each policy object contained 256 entries or fewer, then the customer committed the change again. The policy push completed successfully and the remaining entries were added in a second commit."
+      },
+      {
+        "subject": "Policy push delay on 3.0 orchestrator with large route-map",
+        "description": "Lakeside Hospitality emailed TAC about Atlas SD-WAN orchestrator 3.0 after a branch policy update appeared to hang and then fail with no visible change on the edge. Initial triage showed the orchestrator policy worker consuming sustained high CPU during the push, and the tenant configuration included one route-map with 258 entries. The customer also attached logs showing repeated policy serialization retries. The quoted error was: \"%ORCH-3-ERR-ORCH-4412 policy push stalled during route-map serialization\".",
+        "resolution": "TAC identified the condition as KB-5103 and confirmed it was the known 3.0 route-map expansion defect. Lakeside Hospitality upgraded the orchestrator to 3.1, where the policy compiler uses a dynamically sized route-map serializer. After the upgrade, the policy push completed normally and subsequent commits cleared on the first attempt."
+      },
+      {
+        "subject": "Urgent: orchestrator policy commit blocked on 3.0",
+        "description": "HarborPoint Retail emailed TAC about an Atlas SD-WAN orchestrator 3.0 tenant where a policy update had remained in processing for more than 12 minutes and then failed. The customer described the issue as a branch outage, but TAC verified the edges were still forwarding on the previous policy and the overlay tunnels remained up. On the orchestrator, the policy worker stayed above 90 percent CPU while compiling a large route-map with 260+ entries. Because the commit could not complete, the intended routing changes never reached the branch devices.",
+        "resolution": "TAC traced the failure to KB-5103 and confirmed it was the 3.0 policy compiler limitation on large route-maps. HarborPoint Retail upgraded the orchestrator to 3.1, which resolved the serialization problem. After the upgrade, policy pushes completed successfully and the tenant changes propagated to the edges."
+      },
+      {
+        "subject": "Repeated policy commit failures on 3.0 with oversized route-map",
+        "description": "IronGate Freight emailed TAC about Atlas SD-WAN orchestrator 3.0 after a scheduled policy change would not finish and the branch remained on the old routing policy. TAC reviewed the tenant configuration and found one route-map exceeded 256 entries, while the policy worker CPU stayed elevated during each attempt. The customer provided logs from the orchestrator showing the failure condition, including the line \"ERR-ORCH-4412\". The edge devices were otherwise healthy and continued to use the prior configuration.",
+        "resolution": "TAC matched the behavior to KB-5103 and applied the documented workaround. The route-map was split into smaller policy objects with 256 entries or fewer, then the customer committed the change again. The push completed successfully and the remaining entries were added in a follow-up commit."
+      }
+    ]
+  }
+}

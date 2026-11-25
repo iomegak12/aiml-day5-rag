@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "multi_hop:KB-6103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "We have an HX-5000 stack on 7.3, and the master keeps changing several times an hour even though all the stack links stay up; `show stack` briefly shows the members in different election groups under normal control-plane load. Which release fixes this, and what should we do until we can upgrade?",
+    "reference_answer": "This issue is fixed in 7.4, where master election uses the current adjacency score and ignores transient scheduler delay spikes. Until you can upgrade, use matched-length stack cables between all members and keep control-plane load below 60 percent. If needed, pin the desired master with a higher priority value and avoid adding or removing members during the unstable period."
+  }
+}

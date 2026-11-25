@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-5111",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Policy pushes failing on Atlas SD-WAN 2.9 orchestrator after one day",
+        "description": "Field engineer on site for Evergreen Clinic Network reports that configuration changes stopped applying through the orchestrator after the system had been running normally for most of the day. The Atlas SD-WAN orchestrator is on version 2.9, and the edges still show healthy tunnels, but any policy update that touches the WAN profile fails during validation. Initial triage found the failure occurs before the job is sent to the edges, so this is not an overlay or transport issue. The customer said the same change had worked earlier in the week and asked whether the certificate service was down.",
+        "resolution": "TAC identified the issue as KB-5111 and applied the documented workaround. The CRL was refreshed on the orchestrator with `certificate import crl revocation-list.pem`, followed by `commit`, and the policy push succeeded after the updated timestamp was confirmed. We advised the customer to refresh the CRL before the 24-hour mark until they can move off 2.9."
+      },
+      {
+        "subject": "Orchestrator rejects policy jobs, edges remain up",
+        "description": "Pinnacle Energy submitted a portal case stating that policy pushes from the Atlas SD-WAN orchestrator began failing overnight, but existing tunnels and application routing stayed up. The orchestrator is running version 2.9, and the customer confirmed no edge devices were rebooted and no certificates were replaced. During triage, TAC confirmed the job was stopping in preflight validation before any edge received the change. The orchestrator log included the message \"%PKI-4-CRL-EXPIRED\", which aligned with a certificate revocation list age check rather than a connectivity fault.",
+        "resolution": "TAC matched the behavior to KB-5111 and recommended upgrading the orchestrator to 3.1. After the upgrade, the validator honored the CRL nextUpdate field instead of the fixed 24-hour timer, and policy pushes completed normally. No additional edge-side changes were required."
+      },
+      {
+        "subject": "SD-WAN change window blocked by certificate validation",
+        "description": "HarborPoint Retail escalated through a partner, reporting that routine SD-WAN policy updates were failing during a change window on an Atlas SD-WAN 2.9 orchestrator. The customer believed the issue was related to tunnel stability because the update would not proceed, but `show sdwan tunnels` on the edges still showed established sessions. TAC review showed the failure happened on the orchestrator before policy distribution began, and the log captured \"%PKI-4-CRL-EXPIRED\" during preflight checks. The symptoms were consistent with a CRL age check rather than an edge or routing defect.",
+        "resolution": "TAC identified KB-5111 as the root cause and applied the workaround from the article. The revocation list was refreshed on the orchestrator using `certificate import crl revocation-list.pem`, then `commit` was issued to update the timestamp before retrying the push. The customer was advised to repeat this refresh before the 24-hour threshold on future change windows."
+      },
+      {
+        "subject": "Policy deployment blocked on Atlas 2.9 orchestrator",
+        "description": "Evergreen Clinic Network opened a portal case saying that one site group could no longer receive configuration updates even though no visible network alarm was present. The Atlas SD-WAN orchestrator is version 2.9, and the edges continue to pass traffic over existing tunnels. TAC confirmed the policy job fails during orchestrator-side validation and never reaches the devices. The log line \"%PKI-4-CRL-EXPIRED\" appears at the time of failure, which points to a certificate revocation list timer expiring on the controller rather than a problem with the remote sites.",
+        "resolution": "TAC traced the issue to KB-5111 and completed the recommended upgrade path. The orchestrator was upgraded to 3.1, after which the certificate validator used the CRL nextUpdate field instead of a fixed 24-hour expiry. Policy pushes were retested and completed successfully."
+      },
+      {
+        "subject": "Change push fails after CRL ages out",
+        "description": "TAC logged a phone call from HarborPoint Retail reporting that SD-WAN changes were failing on their Atlas orchestrator during routine operations. The system is running version 2.9, and the customer noted that tunnel status and application SLA metrics looked normal, which initially suggested a routing or transport issue. TAC observed that the failure occurs before the job is sent to any edge node, and the orchestrator log shows \"%PKI-4-CRL-EXPIRED\" during the preflight stage. That behavior matched a certificate validation problem rather than an edge configuration fault.",
+        "resolution": "TAC identified KB-5111 and applied the documented workaround. We refreshed the CRL on the orchestrator with `certificate import crl revocation-list.pem` and committed the change so the policy engine would accept the next push. The customer was told to refresh the CRL before it reaches 24 hours old until the orchestrator can be upgraded."
+      }
+    ]
+  }
+}

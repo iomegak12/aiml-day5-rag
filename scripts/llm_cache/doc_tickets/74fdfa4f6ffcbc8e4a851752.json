@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-4111",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "OW-20 rolls back after 5.0 upgrade from 4.6",
+        "description": "Pinnacle Energy called in after an Orion OW-20 running 4.6 attempted a direct upgrade to 5.0. The controller rebooted into the new image, stayed up briefly, then rolled back about 10 minutes later and returned on the previous release. The upgrade log stopped during guest portal object processing and included the line \"%ERR-UPG-2204\". TAC reviewed the configuration and found a large set of legacy guest portal ACL objects created before 4.7.",
+        "resolution": "Per KB-4111, TAC instructed the customer to boot the old image, remove unused legacy guest portal ACL objects, and export the configuration for review before retrying the upgrade. After pruning the stale ACL entries, the customer reran the upgrade successfully and the controller completed the migration."
+      },
+      {
+        "subject": "5.0 upgrade fails after reboot on OW-20",
+        "description": "Evergreen Clinic Network reported that their Orion OW-20 on 4.6 would not stay on 5.0 after a planned maintenance window. The unit rebooted, came back with the new image briefly active, and then reverted to the prior image after several minutes. TAC confirmed the failure happened during post-upgrade database migration and that the configuration database contained a large number of older guest portal ACL objects. No alternate faults were found in AP join or redundancy logs.",
+        "resolution": "TAC applied the workaround from KB-4111 by having the customer boot the previous image, remove unused legacy guest portal ACL objects, and re-export the configuration for review. The upgrade was then retried and completed normally on 5.0."
+      },
+      {
+        "subject": "Partner reports upgrade rollback on Orion OW-20",
+        "description": "A partner escalated on behalf of MetroLink Telecom for an Orion OW-20 running 4.6. The customer had initiated a direct upgrade to 5.0, but the controller rebooted into the target image and then fell back to the older software before the maintenance window ended. The upgrade log ended while guest portal objects were being converted and showed \"%ERR-UPG-2204\". TAC also noted that the database summary showed more than 50 legacy guest ACL entries created before the schema change in 4.7.",
+        "resolution": "Per KB-4111, TAC advised the partner to boot the old image, delete unused legacy guest portal ACL objects, and verify the database export before running the upgrade again. After the stale ACL objects were pruned, the retry completed successfully."
+      },
+      {
+        "subject": "OW-20 on 4.6 cannot stay on 5.0 after upgrade",
+        "description": "Evergreen Clinic Network sent an on-site field engineer report for an Orion OW-20 running 4.6. The controller accepted the 5.0 image, rebooted, and then rolled back to the previous release after roughly 8 minutes without any AP impact. TAC confirmed the failure occurred during configuration database migration and was isolated to legacy guest portal ACL objects that had been carried forward from earlier releases. The engineer had already verified that the hardware and image integrity checks were clean.",
+        "resolution": "TAC used KB-4111 and recommended upgrading the controller to 5.1 instead of retrying 5.0. The customer completed the 5.1 upgrade successfully, and the migration translated the legacy guest portal ACL objects without aborting."
+      },
+      {
+        "subject": "Urgent: OW-20 upgrade to 5.0 reverts after migration",
+        "description": "Redwood University emailed TAC about an Orion OW-20 running 4.6 that failed a direct upgrade to 5.0 during a campus change window. The controller rebooted into the new release, remained reachable for a short period, and then reverted to the prior image after the post-upgrade migration ran. The upgrade log stopped at guest portal object conversion and included \"%ERR-UPG-2204\". TAC checked the configuration database and found many legacy guest portal ACL objects with empty destination fields.",
+        "resolution": "Per KB-4111, TAC had the customer boot the old image, remove unused legacy guest portal ACL objects, and export the configuration for review before rerunning the upgrade. After the stale objects were pruned, the upgrade completed successfully on 5.0."
+      }
+    ]
+  }
+}

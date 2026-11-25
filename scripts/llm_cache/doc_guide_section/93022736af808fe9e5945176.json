@@ -1,0 +1,58 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-HX#5",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "EVPN route handling on the Helix HX-5000 is designed to keep Type-2 and Type-5 reachability stable while the control plane converges, but the implementation still depends on how often peers exchange route-refresh requests and how frequently the anycast gateway MAC changes. In steady state, the safest design is to keep the gateway MAC and EVPN control-plane adjacency stable so that MAC/IP advertisements do not oscillate and create avoidable churn in the route table and forwarding memory. When the fabric is already carrying active Type-5 routes, repeated gateway mobility can force additional best-path recalculation and route refresh processing, which increases control-plane CPU and transient memory use.",
+      "On 7.6, trigger a controlled EVPN route refresh after moving the anycast gateway MAC. This is the preferred recovery action when a gateway move is required, because it re-synchronizes peer state without relying on timeouts or manual peer resets. The refresh should be planned and executed once the MAC move is complete; it is not a substitute for stable gateway placement. Avoid gateway MAC mobility during periods when the fabric is carrying active Type-5 routes, and keep the gateway anchored on a single leaf pair when possible. This reduces the chance of MAC mobility dampening, duplicate remote advertisements, and inconsistent forwarding entries across the fabric.",
+      "A common mistake is to treat route refresh as harmless background traffic and issue it repeatedly during an outage investigation. On larger fabrics, repeated refreshes can temporarily raise memory consumption because the switch must rebuild received EVPN routes, replay path attributes, and re-evaluate local imports into the L2VPN EVPN address family. On 7.6, reduce unnecessary neighbor resets and schedule a reload before free memory drops below 15 percent. That threshold is operationally important because the control plane may still appear healthy while memory fragmentation or allocation pressure is increasing. Waiting until free memory is lower than 15 percent increases the chance of route processing delays, stalled updates, and in severe cases process restart activity.",
+      "If route-refresh events are unavoidable, keep EVPN adjacency changes out of peak traffic windows. This is especially important on cores that also handle backup replication, vMotion-like workload bursts, or overlay route churn from multiple leaf nodes. The goal is to prevent route-refresh work from overlapping with the busiest forwarding intervals, when buffer pressure and control-plane updates are both elevated. In practice, the cleanest approach is to isolate the gateway role to a stable pair, make the route-refresh event explicit and deliberate, and avoid combining it with interface maintenance or peer flaps.",
+      "For troubleshooting, use the EVPN address-family context to confirm whether refresh controls are configured as intended and whether the switch is seeing unexpected route churn. If a specific neighbor is responsible for excessive control-plane churn, the per-neighbor route-refresh disable command can be used to suppress that behavior for the peer while you investigate. Use this only when you understand the impact on route synchronization, since disabling refresh for a peer can delay recovery after topology changes. The system resource output should always be part of the decision process; it tells you whether a route-handling issue is accompanied by shrinking free memory, which is a common precursor to instability on busy fabrics.",
+      "Operationally, treat anycast gateway moves as controlled events rather than routine changes. Document the old and new gateway location, verify that active Type-5 route advertisements are quiet or minimal before the move, and confirm that the EVPN control plane stabilizes afterward. If the switch is already near the memory threshold, prioritize service preservation over additional change activity and plan a reload instead of stacking more EVPN events onto the same maintenance window. This approach avoids compounding route churn with memory pressure and gives the fabric the best chance of returning to a steady state without forwarding interruptions."
+    ],
+    "procedure_steps": [
+      "Enter configuration mode and open the EVPN address-family context: configure terminal, router evpn, address-family l2vpn evpn.",
+      "If you must re-synchronize EVPN state after moving the anycast gateway MAC on 7.6, issue route-refresh once the move is complete.",
+      "If a specific peer is generating excessive refresh activity, apply neighbor 198.51.100.1 route-refresh disable only for that peer and only with a documented rollback plan.",
+      "Check free memory during and after the change with show system resources; if free memory trends toward 15 percent, stop nonessential EVPN changes and plan a reload.",
+      "Keep gateway mobility out of periods with active Type-5 route updates, and avoid combining route-refresh actions with other control-plane maintenance in the same window."
+    ],
+    "table": {
+      "caption": "EVPN route handling and memory protection guidance",
+      "header": [
+        "Item",
+        "Recommendation",
+        "Operational impact"
+      ],
+      "rows": [
+        [
+          "Anycast gateway MAC movement",
+          "On 7.6, trigger a controlled EVPN route refresh after moving the anycast gateway MAC.",
+          "Rebuilds EVPN reachability cleanly and reduces lingering stale state."
+        ],
+        [
+          "Gateway placement",
+          "Avoid gateway MAC mobility during periods when the fabric is carrying active type-5 routes, and keep the gateway anchored on a single leaf pair when possible.",
+          "Limits route churn and lowers forwarding and control-plane instability."
+        ],
+        [
+          "Memory threshold",
+          "On 7.6, reduce unnecessary neighbor resets and schedule a reload before free memory drops below 15 percent.",
+          "Prevents memory pressure from turning into route-processing delays or process restarts."
+        ],
+        [
+          "Maintenance timing",
+          "If route-refresh events are unavoidable, keep EVPN adjacency changes out of peak traffic windows.",
+          "Reduces overlap between control-plane work and busiest forwarding intervals."
+        ],
+        [
+          "Peer-specific suppression",
+          "neighbor 198.51.100.1 route-refresh disable",
+          "Stops refresh requests from a problematic peer while preserving broader EVPN operation."
+        ]
+      ]
+    },
+    "verification": "Verify the configuration with show system resources and confirm that free memory remains comfortably above 15 percent after any EVPN change. Then check EVPN state from the router evpn address-family context to ensure the expected routes have reappeared and that there are no repeated refresh requests or adjacency churn from the affected peer. In a healthy state, the switch should show stable resource usage, no continuing memory decline, and consistent EVPN route import behavior after the gateway move or peer adjustment."
+  }
+}

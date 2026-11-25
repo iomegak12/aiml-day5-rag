@@ -1,0 +1,65 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AT#5",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Overlay tunnel stability depends on two separate controls: how the edge schedules probe traffic when the underlay is busy, and how long the edge retains routed state after the underlay changes. On saturated WAN links, SLA probes share the same forwarding resources as user traffic unless they are explicitly placed in a higher-priority queue. If probe packets are delayed behind bursty data, the edge can misclassify the path as degraded, withdraw an otherwise usable tunnel, and trigger avoidable application reroutes.",
+      "For busy links, place SLA probes into a high-priority queue on busy links so burst traffic does not delay probe packets and flap the overlay tunnel. In Atlas SD-WAN, the voice SLA class is commonly used for this purpose because it is intended for latency-sensitive traffic. The configuration command sets only the probe queueing behavior for that class; it does not change the forwarding policy for ordinary application flows. This distinction matters when troubleshooting, because a path that carries data successfully can still fail SLA evaluation if probes are queued behind large transfers or if policing on the underlay is too aggressive.",
+      "If shaping is already enabled, reduce the bulk-traffic class to 60 to 70 percent so control traffic is not queued behind large data bursts. This gives probe packets, routing control traffic, and tunnel maintenance traffic headroom during short congestion events. Do not reduce the bulk class so far that the link becomes underutilized during normal operation; the goal is to prevent queue starvation, not to reserve excess bandwidth indefinitely. Common mistakes include applying the queue change on only one edge of the path, leaving an asymmetric bottleneck in place, or assuming the same queue settings are inherited across all transport profiles.",
+      "Routing-cache hygiene is equally important after underlay maintenance, carrier failover, or a planned route withdrawal. The edge may continue to use cached reachability information for a short period even after a route has been removed upstream. After a planned underlay withdrawal, trigger a route-refresh or shorten the app-route cache age-time to 60 seconds during the maintenance window. Shortening the cache age limits the time stale routes can influence application steering, especially when the backup link has different latency or loss characteristics. Restore the normal age-time after the change window if your standard policy uses a longer retention interval.",
+      "Confirm that withdrawn routes disappear from the cache before moving traffic to the backup link. If the cache still contains withdrawn prefixes, the edge can continue to select the old path until the cache entry expires or a refresh occurs, which can produce intermittent forwarding failures and misleading SLA results. This is most visible when the primary underlay is withdrawn cleanly at the routing layer but residual cached state still points application policy to the former next hop. During maintenance, always validate the tunnel state before and after the withdrawal so you can distinguish a genuine transport issue from stale route selection.",
+      "Operationally, the safest sequence is to adjust probe queueing first, then verify that tunnel health is stable under load, and only then change cache timing for the maintenance window. Keep in mind that queue priority solves delay-induced probe loss, while cache-age tuning addresses stale path selection; they solve different failure modes and should not be treated as interchangeable. In environments with frequent underlay changes, use the shorter age-time temporarily and watch tunnel transitions closely so that the overlay converges on the intended backup path without lingering on withdrawn routes."
+    ],
+    "procedure_steps": [
+      "Enter the edge CLI or the orchestrator policy editor and identify the SLA class used for tunnel probes on the affected transport.",
+      "Configure the probe queue for the voice SLA class so probe traffic is placed in a high-priority queue: app-route sla-class voice probe-queue priority.",
+      "If the link is already shaped, reduce the bulk-traffic class to 60 to 70 percent in the corresponding shaping policy so control traffic is not queued behind large data bursts.",
+      "During the maintenance window, set the application-route cache age-time to 60 seconds: app-route cache age-time 60.",
+      "Commit the configuration so the new queueing and cache settings take effect on the edge.",
+      "After the underlay change, review tunnel and route state to confirm withdrawn prefixes are no longer influencing path selection."
+    ],
+    "table": {
+      "caption": "Overlay tunnel queueing and cache parameters",
+      "header": [
+        "Parameter or command",
+        "Recommended value",
+        "Purpose",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "app-route sla-class voice probe-queue priority",
+          "priority",
+          "Places SLA probes in a high-priority queue",
+          "Use on busy links to reduce probe delay and tunnel flaps"
+        ],
+        [
+          "Bulk-traffic shaping class",
+          "60 to 70 percent",
+          "Leaves headroom for control traffic",
+          "Apply only where shaping is already enabled"
+        ],
+        [
+          "app-route cache age-time 60",
+          "60 seconds",
+          "Shortens retention of cached application routes",
+          "Use during planned underlay withdrawal or maintenance"
+        ],
+        [
+          "commit",
+          "n/a",
+          "Applies configuration changes",
+          "Run after each configuration update"
+        ],
+        [
+          "show sdwan tunnels",
+          "n/a",
+          "Displays tunnel status and transitions",
+          "Use to confirm stable overlay state after changes"
+        ]
+      ]
+    },
+    "verification": "Verify the change by running show sdwan tunnels and checking that the expected tunnels remain up, with no repeated down/up transitions during the congestion test or maintenance window. If the underlay route was withdrawn, confirm that the withdrawn route no longer appears in the edge’s cached path selection after the cache timer expires or after a route-refresh. The tunnel output should show stable adjacency and no ongoing SLA-triggered failovers; if available in your workflow, compare pre-change and post-change tunnel state to ensure the overlay converged on the backup link only after the withdrawn routes disappeared from the cache."
+  }
+}

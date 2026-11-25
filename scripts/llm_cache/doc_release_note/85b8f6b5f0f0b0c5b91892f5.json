@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-AR-9.2.3",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Aurora AR-900 release 9.2.3 is a maintenance update for the 9.2 train that adds control-plane visibility and routing diagnostics while addressing queue-scheduling and routing-process stability issues seen in 9.2.1. The release introduces control-plane punt accounting for improved tracking of packets delivered to the CPU, adds BGP recursive route notification to improve operator awareness of recursive resolution changes, and includes scheduler fairness fixes to reduce starvation of best-effort traffic under bursty load. This release is intended for deployments that require better observability of punted traffic and improved operational stability during routing churn and microburst conditions.",
+    "features": [
+      {
+        "name": "Control-plane punt accounting",
+        "description": "This release adds accounting for packets punted to the control plane so operators can correlate CPU-bound traffic with forwarding events. The counters are exposed through operational show commands and increment on punt paths used by routing, neighbor discovery, and control-plane policing functions. No configuration is required to enable the counters, but existing monitoring systems may need updated pollers to consume the new fields."
+      },
+      {
+        "name": "BGP recursive route notification",
+        "description": "The BGP process now generates a notification when a recursive path changes state, including cases where the next hop depends on a static or IGP-learned route. This improves troubleshooting for route resolution changes that can affect best-path selection and forwarding. The feature is informational and does not alter BGP policy or routing decisions."
+      },
+      {
+        "name": "Scheduler fairness fixes",
+        "description": "This release corrects scheduler behavior that could allow strict-priority queues to dominate transmission during short microbursts. The fix improves service fairness for best-effort traffic without changing the queueing model or requiring configuration changes. Existing QoS policies remain valid, but traffic behavior under congestion should be revalidated after upgrade."
+      }
+    ],
+    "compatibility": "Aurora AR-900 9.2.3 is supported as an in-place upgrade from earlier 9.2 releases, including 9.2.1, and can be used on the same AR-900 hardware platforms supported by the 9.2 train. Configuration is forward-compatible within the 9.2 family; existing BGP, BFD, OSPF, IPv6, QoS, control-plane protection, SNMP, NAT, and system settings should be retained across the upgrade. The new punt accounting and BGP notification functions do not require new configuration statements, but external monitoring, log parsing, and performance baselines may need adjustment to account for additional counters and event messages. When upgrading from 9.1.x, validate the configuration after boot because feature defaults and operational counters may differ between major.minor families.",
+    "upgrade_steps": [
+      "Back up the running configuration and save a copy of the current 9.2.1 image, including any boot variables and license files.",
+      "Verify the 9.2.3 image checksum and confirm adequate flash storage before copying the image to the device.",
+      "Schedule a maintenance window and reduce routing impact by draining nonessential traffic and confirming neighbor stability with commands such as 'show bgp summary' and 'show bfd neighbors detail'.",
+      "Upgrade the standby or inactive boot image first if the deployment uses redundant boot partitions, then set the next boot image to 9.2.3.",
+      "Reload the device and confirm that the system returns to service, then review 'show version', 'show interface counters', 'show bgp summary', and relevant control-plane logs for abnormal CPU, queue, or adjacency behavior.",
+      "After validation, update any external monitoring thresholds or scripts that rely on punt counters or BGP event messages."
+    ]
+  }
+}

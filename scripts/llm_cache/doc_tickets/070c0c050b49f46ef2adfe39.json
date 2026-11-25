@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-6103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "HX-5000 stack master keeps changing on 7.3",
+        "description": "On-site field engineer reported intermittent stack leadership changes on a Helix HX-5000 core switch stack running 7.3. The stack has four members, and the customer sees brief control-plane interruptions during normal business hours, especially when backup jobs and SNMP polling are active. `show stack` shows the members in separate election domains for a short period before converging again, and the event log includes repeated \"%STACK-3-SPLIT-BRAIN\" messages without any physical stack cable alarms. I confirmed the issue is reproducible under moderate control-plane load and is consistent with a software election problem rather than a cabling fault.",
+        "resolution": "TAC matched the symptoms to KB-6103 and advised the customer to upgrade the stack to 7.4, where master election uses the current adjacency score and ignores transient scheduler delay spikes. After the upgrade, the stack remained stable through validation testing and no further re-election events were observed."
+      },
+      {
+        "subject": "Repeated stack re-elections on HX-5000 pair",
+        "description": "Customer emailed TAC about a Helix HX-5000 core switch running 7.3 that keeps swapping stack master roles during the day. They described it as a 'random reboot of the main unit,' but the device stays up and only the active supervisor role moves between members. Triage showed no link-down counters on the stack ports, and the behavior aligns with a software election instability rather than a hardware failure. The issue is most visible when the control plane is busy, with the stack showing brief election instability and then recovering on its own.",
+        "resolution": "TAC identified the case as KB-6103 and instructed the customer to apply the documented workaround: use matched-length stack cables between all members, keep control-plane utilization below 60 percent, and set a higher priority on the preferred master with `configure terminal`, `stack member 1 priority 200`, and `stack member 2 priority 100`. The customer confirmed the stack stopped oscillating after the priority change and cable normalization."
+      },
+      {
+        "subject": "HX-5000 stack flapping between members in 7.3",
+        "description": "NOC escalated a Helix HX-5000 core switch stack running 7.3 after monitoring detected multiple master changes within the same shift. The stack has three members and services a clinic campus; users reported short management-plane interruptions, but data traffic remained mostly unaffected. `show stack` captured momentary split election domains, and the switch log included repeated \"%STACK-3-SPLIT-BRAIN\" events with no corresponding stack port loss or optics alarm. TAC noted the pattern was consistent with a known 7.3 stacking defect triggered by moderate control-plane load.",
+        "resolution": "TAC tied the symptoms to KB-6103 and recommended upgrading the stack to 7.4. After the upgrade, the election process stabilized, the master remained fixed during load testing, and the repeated stack re-election messages stopped."
+      },
+      {
+        "subject": "Stack master instability on HX-5000 core switch",
+        "description": "Customer submitted a portal report for a Helix HX-5000 core switch stack on version 7.3. They said the 'main switch' keeps changing and management sessions drop for a few seconds, but they could not reproduce it on demand. Initial triage found no cable faults, no member loss, and no stack port errors; the issue appears only when the control plane is under routine business load. The behavior matches a transient stack election issue rather than a physical failure.",
+        "resolution": "TAC associated the incident with KB-6103 and applied the workaround from the article. The customer replaced mixed-length stack cables with matched-length cables, reduced control-plane load during peak periods, and set the desired master to a higher priority using the documented configuration commands. The stack remained stable after the changes."
+      },
+      {
+        "subject": "HX-5000 master role oscillation during normal load",
+        "description": "Phone call logged by the TAC agent: CivicWorks reported that a Helix HX-5000 core switch stack running 7.3 has been changing masters several times per hour. The customer initially suspected a bad stack cable, but the hardware LEDs and interface counters do not show any physical disconnects. Triage confirmed brief split election domains in `show stack`, and the system log contained repeated \"%STACK-3-SPLIT-BRAIN\" events while the links stayed operational. The pattern increases when background management tasks and other control-plane work run at the same time.",
+        "resolution": "TAC mapped the issue to KB-6103 and advised the customer to upgrade the stack to 7.4. After the upgrade was completed, master election no longer oscillated and the stack remained in a single election domain during verification."
+      }
+    ]
+  }
+}

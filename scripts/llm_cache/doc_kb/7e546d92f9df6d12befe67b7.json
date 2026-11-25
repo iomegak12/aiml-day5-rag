@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-2106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Aurora AR-900 running 9.2.3, the control-plane policer can undercount IPv6 neighbor discovery (ND) punts during short bursts of traffic. As a result, the device may admit more ND packets to the CPU than intended while the drop counter remains unchanged.\n\nThis issue is most likely to appear on access VLANs with a concentrated burst of 5,000-8,000 NS/NA packets from a single source segment.",
+    "symptoms": "Operators may observe elevated CPU utilization on the route processor while `show control-plane protection statistics` continues to report zero IPv6 ND drops for an extended interval, typically 30-60 seconds. During the same period, IPv6 neighbors can flap between Reachable and Stale, or remain unstable until the burst subsides.\n\nThe condition is usually intermittent and load-dependent. It is most visible when a single access VLAN generates a short, repeated burst of neighbor solicitation and neighbor advertisement traffic that approaches or exceeds the configured policer rate.",
+    "diagnosis_steps": [
+      "Run `show control-plane protection statistics` and inspect the IPv6 ND policer section. If the configured rate is being exceeded but the drop counter remains at 0 while traffic is present, the issue is consistent with this defect.",
+      "Run `show ipv6 neighbors` and look for multiple entries in Stale state or frequent state transitions on neighbors attached to the affected access VLAN.",
+      "Run `show process cpu` and confirm that CPU utilization rises from normal idle levels into the 80% range during the burst interval, especially in the control-plane or packet-punt processing path.",
+      "Run `show logging` and look for repeated control-plane protection messages or `ERR-CPP-4412` entries that align with the burst window.",
+      "If available, run `debug control-plane protection ipv6-nd` briefly during the event and verify that punted ND traffic continues while the policer statistics do not increment proportionally to packet arrival rate."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %CPP-4-INFO control-plane protection ipv6-nd policer active rate 2000 pps\n2026-03-14T02:13:08Z %CPP-3-WARN ERR-CPP-4412 ipv6-nd punt accounting mismatch detected on queue 2\n2026-03-14T02:13:09Z %CPP-3-WARN ERR-CPP-4412 ipv6-nd punt accounting mismatch detected on queue 2\n\nshow control-plane protection statistics\n  Control Plane Protection Statistics\n  -----------------------------------\n  IPv6 ND policer: configured 2000 pps\n  IPv6 ND punts received: 7812\n  IPv6 ND drops: 0\n  IPv6 ND pass-through: 7812\n  Sample interval: 250 ms\n\nshow process cpu\n  CPU utilization: 84%\n  Control-plane: 71%\n  Routing: 9%\n  Management: 4%\n\nshow ipv6 neighbors\n  2001:db8:10::1    aa:bb:cc:dd:ee:01  vlan 120  stale\n  2001:db8:10::2    aa:bb:cc:dd:ee:02  vlan 120  stale\n  2001:db8:10::3    aa:bb:cc:dd:ee:03  vlan 120  reachable",
+    "root_cause": "The defect is caused by the IPv6 ND punt policer using a 32-bit per-queue counter that is sampled once every 250 ms. Under burst load, the counter can wrap between samples, so the sampled value does not reflect the full number of ND punts received during the interval.\n\nWhen that happens, the policer decision path can underestimate the burst and allow excess traffic to continue toward the CPU instead of dropping it. The result is higher-than-expected control-plane load, with the drop counter remaining at zero or otherwise not matching the observed punt volume.",
+    "workaround_steps": [
+      "Apply an ingress mitigation on the access VLAN to reduce IPv6 ND bursts. Use RA guard or storm control where supported so that excessive NS/NA traffic is constrained before it reaches the control plane.",
+      "Temporarily reduce the IPv6 ND control-plane policer to a conservative value such as 2,000 pps. This limits the rate at which burst traffic is admitted while the source is investigated.",
+      "If the affected neighbors remain unstable, shut the offending access port for about 30 seconds to allow neighbor cache entries to age and recover, then restore the port and confirm that the burst source is no longer present.",
+      "After applying the workaround, recheck `show control-plane protection statistics` and `show ipv6 neighbors` to confirm that CPU utilization falls and neighbor states stabilize."
+    ],
+    "resolution": "The defect is fixed in release 9.3.0. In that release, control-plane protection samples IPv6 ND punts with lossless accounting, so burst traffic is measured correctly and the drop decision path enforces the configured policer rate."
+  }
+}

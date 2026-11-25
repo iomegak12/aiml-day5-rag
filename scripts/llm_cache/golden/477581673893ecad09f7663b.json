@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "error_code:%ROAM-5-FT_KEYTIMEOUT",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "I found %ROAM-5-FT_KEYTIMEOUT in the Orion OW-20 logs. What does it mean, and what should I do about it?",
+    "reference_answer": "On Orion OW-20 4.9, %ROAM-5-FT_KEYTIMEOUT means the 802.11r fast transition key installation did not complete before the 300 ms FT timer expired, so the client falls back to the slower key derivation path. The issue is most visible when controller CPU is above 70%, and clients may pause for 200-400 ms with one or two audible gaps per roam; `show client detail <mac>` still shows successful reassociation. As a workaround, lower the client accounting interval to 60 seconds with `wlan corp accounting interval 60`, keep controller CPU below 70% during roaming tests, and for latency-sensitive SSIDs disable 802.11r until the maintenance window. The issue is fixed in 5.0."
+  }
+}

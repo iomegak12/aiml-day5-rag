@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-3104",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why does a 5.0.9 upgrade downloaded over HTTPS keep failing verification on a 5.0.8 box?",
+    "reference_answer": "On Nimbus NF-300 running 5.0.8, the boot loader is known to reject a valid 5.0.9 image after an HTTPS stage download with %UPGRADE-3-IMAGE_VERIFY_FAIL. The root cause is that 5.0.8 computes the verification digest over the padded image length instead of the actual payload length; HTTPS transfers pad the image to a 4 KB boundary, so the checksum comparison fails even when the file matches the published SHA-256 value. The issue affects 5.0.8 only and is fixed in 5.0.9, which hashes only the unpadded payload."
+  }
+}

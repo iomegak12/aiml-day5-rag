@@ -1,0 +1,329 @@
+{
+  "stage": "facts_issues",
+  "label": "AR",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "issues": [
+      {
+        "ref": "I01",
+        "category": "Routing",
+        "error_code": "%BGP-4-NH-RESOLVE",
+        "title": "Aurora AR-900 9.1.4 and 9.1.6 BGP IPv4 next-hop stays unresolved after underlay route withdrawal",
+        "symptoms": "On 9.1.4 and 9.1.6, eBGP IPv4 prefixes remain in the table with a valid AS path, but the selected next hop shows as unresolved after the connected underlay route is removed and re-added. The condition usually appears within 5-10 seconds of a track or interface flap and affects roughly 50-200 prefixes until BGP is cleared. `show bgp summary` stays Established, but `show ip route bgp` omits the affected routes.",
+        "root_cause": "The BGP next-hop recursion cache in the 9.1 family can retain a stale negative resolution entry when the resolving route is withdrawn and relearned within the 30-second hold interval. The session remains up, but the best-path process will not retry recursion until the next incremental update or a manual refresh.",
+        "workaround": "Clear the BGP process for the affected address family, or remove and re-add the underlay static/connected route so recursion is recomputed. If the path is critical, prefer a static discard route with a lower distance than the learned underlay during the maintenance window.",
+        "workaround_commands": [
+          "clear bgp ipv4 unicast 65001",
+          "clear ip route 198.51.100.0/24"
+        ],
+        "fix": "Fixed in 9.2.0: BGP now invalidates the next-hop recursion cache whenever the resolving route changes state.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "9.1.4",
+          "9.1.6"
+        ],
+        "fixed_in": "9.2.0",
+        "engineer_question": "In 9.1.6, why do some eBGP routes stay in the table but show unresolved next hop after the connected route flaps?",
+        "twin_of": "I07",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I02",
+        "category": "BFD",
+        "error_code": "ERR-BFD-2201",
+        "title": "Aurora AR-900 9.1.4 BFD sessions stop transmitting after 64-bit counter wrap on long-lived peers",
+        "symptoms": "After roughly 49.7 days of continuous operation with 50 ms transmit intervals, one or more BFD sessions stop sending control packets while the remote side continues to reply to the last valid state. `show bfd neighbors detail` shows the local discriminator as Up, but the transmit counter is frozen and the peer times out after 300 ms to 900 ms depending on the negotiated multiplier. The problem typically affects a small set of long-lived sessions first and then repeats on others after the system uptime crosses the wrap point.",
+        "root_cause": "In 9.1.4, the BFD scheduler used a signed comparison when calculating the next transmit deadline from a 64-bit monotonic counter. Once the counter crossed the sign bit boundary, the transmit wheel stopped advancing for affected sessions even though the receive path remained active.",
+        "workaround": "Restart the BFD process or reload during a maintenance window before the platform uptime reaches 49 days. As a temporary containment measure, increase the detection multiplier to 5 and the transmit interval to 200 ms on noncritical peers.",
+        "workaround_commands": [
+          "configure",
+          "router bfd",
+          "timers 200 200 5"
+        ],
+        "fix": "Fixed in 9.1.6: BFD transmit scheduling now handles 64-bit counter wrap correctly.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "9.1.4"
+        ],
+        "fixed_in": "9.1.6",
+        "engineer_question": "On 9.1.4, why do BFD peers suddenly stop sending packets after the router has been up for weeks?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I03",
+        "category": "OSPF",
+        "error_code": "%OSPF-4-ADJ-EXSTART",
+        "title": "Aurora AR-900 9.2.0 OSPF adjacency repeatedly resets on multiaccess networks with MTU mismatch",
+        "symptoms": "On broadcast segments, OSPF neighbors between AR-900 9.2.0 and a peer with a smaller interface MTU cycle between ExStart and Down every 20-30 seconds. The neighbor table never reaches Full, and LSDB churn increases by 100-300 LSAs per minute during the flap. The issue is most visible when the local interface is 1500 bytes and the peer advertises 1492 bytes or lower.",
+        "root_cause": "The 9.2.0 OSPF DBD exchange code incorrectly reuses the cached local MTU value after the first negotiation attempt. When the remote MTU is lower, the router accepts the initial DBD but then rejects subsequent packets as inconsistent, which forces the adjacency back to ExStart.",
+        "workaround": "Set a matching MTU on both sides or configure the neighbor on the interface as point-to-point if the topology permits. If changing MTU is not possible, use `ip ospf mtu-ignore` on both peers during the maintenance window.",
+        "workaround_commands": [
+          "configure",
+          "interface ethernet 1/1",
+          "ip ospf mtu-ignore"
+        ],
+        "fix": "Fixed in 9.2.1: OSPF now re-evaluates the remote MTU on every DBD exchange.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "9.2.0"
+        ],
+        "fixed_in": "9.2.1",
+        "engineer_question": "Why does OSPF keep dropping back to ExStart on 9.2.0 when the neighbor MTU is lower?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I04",
+        "category": "IPv6",
+        "error_code": "%IPV6-4-RA-LIFETIME",
+        "title": "Aurora AR-900 IPv6 SLAAC prefixes are removed too early after router advertisement suppression",
+        "symptoms": "Hosts on an access VLAN lose their global IPv6 address about 180 seconds after the last valid router advertisement is filtered or suppressed, even though the configured valid lifetime is 7200 seconds. The AR-900 itself still shows the delegated prefix in the configuration, but connected clients begin to fail new TCP sessions and Neighbor Discovery lookups after the preferred lifetime expires. The issue is reproducible on any release when RA suppression is used for maintenance or upstream filtering.",
+        "root_cause": "The router tracks SLAAC prefix lifetimes from received advertisements instead of from the locally configured valid and preferred timers when RA suppression is active. Once the upstream advertisements stop, the local prefix state is aged out by the 3-minute hold timer rather than the advertised lifetime, which prematurely withdraws host configuration.",
+        "workaround": "Do not suppress router advertisements on the active user VLAN. If suppression is required, use DHCPv6 stateful addressing for the affected segment or raise the RA hold timer to exceed the preferred lifetime.",
+        "workaround_commands": [
+          "configure",
+          "interface vlan 10",
+          "ipv6 nd ra-suppress"
+        ],
+        "fix": "No software fix required; this is a design constraint when RA suppression is used with SLAAC on Aurora AR-900.",
+        "affects_all_versions": true,
+        "affected_versions": [],
+        "fixed_in": null,
+        "engineer_question": "Why are clients losing their IPv6 address a few minutes after I suppress router advertisements?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I05",
+        "category": "QoS",
+        "error_code": "%QOS-5-SCHED-DEFICIT",
+        "title": "Aurora AR-900 9.2.1 strict-priority queue can starve best-effort traffic during microbursts",
+        "symptoms": "With a 10 Gbps uplink and a strict-priority voice queue, best-effort traffic can drop to below 1 Mbps for 1-2 second bursts when the priority queue is carrying 40,000-60,000 packets per second. Interface counters show no physical errors, but `show qos interface` reports the priority queue draining at 100% while the weighted queues remain almost empty. The symptom is a short but repeatable latency spike for nonpriority flows during microbursts.",
+        "root_cause": "The scheduler in 9.2.1 fails to reinsert a quantum for weighted queues after the priority queue empties, so a burst that fits inside one scheduling epoch can consume the entire transmit window. The deficit is only cleared on the next 4 ms scheduler tick, which is too late for latency-sensitive best-effort traffic sharing the same egress port.",
+        "workaround": "Cap the strict-priority class to 30% bandwidth or convert it to low-latency queueing with an explicit policer of 300 Mbps on 10 Gbps links. If possible, move bulk traffic to a separate egress interface to avoid shared scheduler contention.",
+        "workaround_commands": [
+          "configure",
+          "policy-map wan-egress",
+          "class voice",
+          "priority percent 30"
+        ],
+        "fix": "Fixed in 9.2.3: the scheduler now preserves weighted queue service credits after a priority burst.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "9.2.1"
+        ],
+        "fixed_in": "9.2.3",
+        "engineer_question": "On 9.2.1, why does best-effort traffic get crushed whenever the voice queue bursts?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I06",
+        "category": "Control-plane protection",
+        "error_code": "ERR-CPP-4412",
+        "title": "Aurora AR-900 9.2.3 control-plane policer can undercount IPv6 ND punts during burst traffic",
+        "symptoms": "On 9.2.3, sustained neighbor discovery traffic can exceed the configured control-plane limit without incrementing the drop counter. In observed cases, `show control-plane protection statistics` reports 0 drops for 30-60 seconds while the CPU rises from 15% to 85% and IPv6 neighbors intermittently transition to Stale. The condition is most visible when 5,000-8,000 NS/NA packets arrive in short bursts from a single access VLAN.",
+        "root_cause": "The punt policer accounts IPv6 ND packets in a 32-bit per-queue counter that is sampled once per 250 ms. Under burst load, the counter wraps between samples and the excess traffic bypasses the drop decision path, so the CPU sees more packets than the intended policer rate allows.",
+        "workaround": "Lower the IPv6 ND rate at the edge by enabling RA guard or storm control on the access VLAN, and reduce the control-plane policer to a conservative value such as 2,000 pps until the traffic source is identified. If necessary, shut the offending access port for 30 seconds to let neighbor state recover.",
+        "workaround_commands": [
+          "configure",
+          "control-plane",
+          "police ipv6-nd 2000"
+        ],
+        "fix": "Fixed in 9.3.0: control-plane protection now samples IPv6 ND punts with lossless accounting.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "9.2.3"
+        ],
+        "fixed_in": "9.3.0",
+        "engineer_question": "Why is the CPU climbing on 9.2.3 even though the control-plane drop counter stays at zero?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I07",
+        "category": "Routing",
+        "error_code": "%BGP-4-NH-RESOLVE",
+        "title": "Aurora AR-900 9.2.3 BGP next-hop remains unresolved after recursive static route changes",
+        "symptoms": "In 9.2.3, BGP IPv4 routes can disappear from the forwarding table after a static route used for recursion is replaced with another static route to the same prefix. The BGP session stays Established and updates continue to arrive, but `show ip route bgp` shows the affected prefixes as inactive until the route is refreshed or BGP is cleared. The problem typically affects 20-100 prefixes that point to the changed recursive path.",
+        "root_cause": "The route manager in 9.2.3 does not notify the BGP recursion engine when a static route changes its administrative distance but keeps the same destination prefix. As a result, BGP retains the old resolved next hop and marks the path unusable even though a valid recursive path exists.",
+        "workaround": "Issue a soft clear of the affected BGP address family after changing recursive static routes. If you must avoid a clear, withdraw the old static route for at least 5 seconds before installing the replacement so the recursion engine rebuilds the dependency graph.",
+        "workaround_commands": [
+          "clear bgp ipv4 unicast 65001 soft",
+          "clear ip route 203.0.113.0/24"
+        ],
+        "fix": "Fixed in 9.3.0: BGP is now re-notified whenever a recursive static route changes attributes.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "9.2.3"
+        ],
+        "fixed_in": "9.3.0",
+        "engineer_question": "In 9.2.3, why do BGP routes drop out after I swap one static route for another?",
+        "twin_of": "I01",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I08",
+        "category": "NAT",
+        "error_code": "ERR-NAT-4108",
+        "title": "Aurora AR-900 9.3.0 dynamic NAT port exhaustion is reported incorrectly after session teardown",
+        "symptoms": "On 9.3.0, the router can report NAT port exhaustion even when fewer than 10% of the available ports are active. `show nat translations` shows only a small active set, but new flows fail with source-port allocation errors for 2-4 minutes after a burst of short-lived connections. The condition is reproducible on pools with 64 or fewer public addresses and is most obvious when 20,000-30,000 sessions per minute are created and torn down.",
+        "root_cause": "The NAT allocator in 9.3.0 defers return of freed ports until the end of a 240-second aging cycle, but the exhaustion check counts deferred ports as still in use. During a burst, the allocator can reject new sessions even though the ports have already been logically released by the forwarding plane.",
+        "workaround": "Increase the NAT pool size or add at least one additional public address so the active allocator has headroom above the deferred-free window. If the traffic pattern is predictable, reduce the session churn by increasing application keepalive intervals to 60 seconds or more.",
+        "workaround_commands": [
+          "configure",
+          "ip nat pool edge-pool 198.51.100.10 198.51.100.30",
+          "ip nat translation timeout 240"
+        ],
+        "fix": "No software fix required; monitor NAT pool headroom and size pools to tolerate the 240-second deferred-free window.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "9.3.0"
+        ],
+        "fixed_in": null,
+        "engineer_question": "Why do new NAT sessions fail on 9.3.0 when the translation table looks mostly empty?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I09",
+        "category": "SNMP",
+        "error_code": "ERR-SNMP-3019",
+        "title": "Aurora AR-900 SNMP linkUp traps are lost when the trap queue exceeds 1024 entries",
+        "symptoms": "Across all releases, SNMP managers may miss linkUp and linkDown traps during an interface flap storm. When more than 1024 events are queued in 10 seconds, the router drops later traps silently and only increments the generic event counter by 1 per 64 discarded messages. Polling still works, but the NMS sees gaps in interface state history and alerts arrive out of order.",
+        "root_cause": "The SNMP trap daemon uses a fixed-depth queue of 1024 entries for all notification types, with no backpressure to the originating event sources. During bursty link events, newer traps are dropped once the queue is full, and the daemon does not persist the overflow condition in a dedicated counter.",
+        "workaround": "Reduce flap storms by enabling debounce on access ports or by fixing the physical layer issue generating the events. If the NMS depends on complete trap history, shorten the polling interval to 30 seconds and treat traps as advisory rather than authoritative.",
+        "workaround_commands": [
+          "configure",
+          "interface ethernet 1/1",
+          "link-debounce 500"
+        ],
+        "fix": "No software fix required; this is a capacity limit of the SNMP trap queue and must be handled by event-rate control or polling.",
+        "affects_all_versions": true,
+        "affected_versions": [],
+        "fixed_in": null,
+        "engineer_question": "Why are some link traps missing when a bunch of ports flap at once?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I10",
+        "category": "Performance",
+        "error_code": "ERR-CPU-7781",
+        "title": "Aurora AR-900 9.2.1 routing process can spike to 95% CPU during repeated BGP soft clears",
+        "symptoms": "On 9.2.1, running `clear bgp ipv4 unicast 65001 soft` repeatedly on a busy edge router can drive the routing process above 95% CPU for 30-90 seconds. During the spike, convergence slows and `show process cpu` shows the routing task consuming most of the scheduler slice, although data-plane forwarding remains mostly intact. The issue is more visible when the table has more than 250,000 prefixes and updates are arriving at the same time.",
+        "root_cause": "The soft-clear path in 9.2.1 rebuilds the outbound update queue from scratch on every refresh request instead of reusing the existing prefix state. With a large table, each clear triggers an O(n) walk plus duplicate best-path serialization, which saturates the single routing worker thread.",
+        "workaround": "Avoid repeated soft clears during peak update periods. If a refresh is required, prefer one hard clear during a maintenance window, or stage the clear after inbound route churn has settled for at least 60 seconds.",
+        "workaround_commands": [
+          "clear bgp ipv4 unicast 65001",
+          "show process cpu"
+        ],
+        "fix": "Fixed in 9.2.3: BGP refresh now reuses prefix state and no longer rebuilds the entire outbound queue on every soft clear.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "9.2.1"
+        ],
+        "fixed_in": "9.2.3",
+        "engineer_question": "Why does the router peg CPU when I keep doing BGP soft clears on 9.2.1?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I11",
+        "category": "Upgrade",
+        "error_code": "ERR-UPG-1307",
+        "title": "Aurora AR-900 9.1.x upgrade to 9.2.0 fails when BGP add-path is enabled",
+        "symptoms": "During an in-service upgrade from 9.1.4 or 9.1.6 to 9.2.0, the installer can abort after staging the image and the router remains on the old release. The log shows an add-path state migration failure, and the rollback leaves BGP sessions down for 1-2 minutes until they reestablish. The failure occurs only when BGP add-path is configured on at least one neighbor and the device has more than 1,000 advertised paths.",
+        "root_cause": "The upgrade migrator in the 9.1 family does not translate the add-path capability bitmap into the 9.2.0 session schema. When the precheck encounters a stale capability record, the installer aborts rather than converting the session database in place.",
+        "workaround": "Disable BGP add-path before starting the upgrade, then re-enable it after the router is running 9.2.0. If the box is already stuck in rollback, complete the boot on the previous release, remove add-path configuration, and retry the upgrade.",
+        "workaround_commands": [
+          "configure",
+          "router bgp 65001",
+          "no neighbor 203.0.113.2 add-path send"
+        ],
+        "fix": "Fixed in 9.2.1: the upgrade migrator now converts add-path state during the image transition.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "9.1.4",
+          "9.1.6"
+        ],
+        "fixed_in": "9.2.1",
+        "engineer_question": "Why does the 9.1 to 9.2 upgrade fail when add-path is turned on?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I12",
+        "category": "Security",
+        "error_code": "ERR-CPP-4412",
+        "title": "Aurora AR-900 BGP session resets when an inbound max-prefix limit is exceeded",
+        "symptoms": "Across all releases, an eBGP session resets if the inbound prefix count exceeds the configured limit by a single route and the peer is configured to send a notification on threshold violation. The neighbor transitions to Idle within 1-2 seconds, and `show bgp summary` records a last reset reason of notification received from peer. This is most visible with limits such as 1000/90 percent warning and a burst of 1001-1005 routes.",
+        "root_cause": "The router follows the peer notification and tears down the session immediately when the remote side signals that its maximum-prefix threshold has been crossed. Aurora AR-900 does not suppress or retry the session in this case because the violation is treated as a deliberate policy action by the peer, not a transient transport error.",
+        "workaround": "Raise the inbound maximum-prefix limit so routine updates do not exceed it, or change the peer policy to warn-only if session continuity is preferred. For example, set the limit to at least 110% of the steady-state prefix count and leave 10% headroom for route churn.",
+        "workaround_commands": [
+          "configure",
+          "router bgp 65001",
+          "neighbor 198.51.100.2 maximum-prefix 1100 90"
+        ],
+        "fix": "No software fix required; this is expected BGP behavior when the peer enforces its maximum-prefix policy.",
+        "affects_all_versions": true,
+        "affected_versions": [],
+        "fixed_in": null,
+        "engineer_question": null,
+        "twin_of": null,
+        "duplicate_of": "I06"
+      }
+    ],
+    "releases": [
+      {
+        "version": "9.1.4",
+        "features": [
+          "BGP next-hop recursion cache",
+          "BFD transmit scheduler",
+          "BGP add-path session state"
+        ]
+      },
+      {
+        "version": "9.1.6",
+        "features": [
+          "BGP route refresh handling",
+          "BFD counter wrap handling",
+          "Upgrade state migration"
+        ]
+      },
+      {
+        "version": "9.2.0",
+        "features": [
+          "OSPF DBD MTU negotiation",
+          "IPv6 SLAAC lifetime tracking",
+          "Recursive static-route notification"
+        ]
+      },
+      {
+        "version": "9.2.1",
+        "features": [
+          "QoS scheduler credits",
+          "BGP soft-clear scaling",
+          "OSPF adjacency interop"
+        ]
+      },
+      {
+        "version": "9.2.3",
+        "features": [
+          "Control-plane punt accounting",
+          "BGP recursive route notification",
+          "Scheduler fairness fixes"
+        ]
+      },
+      {
+        "version": "9.3.0",
+        "features": [
+          "NAT allocator aging",
+          "IPv6 control-plane protection accounting",
+          "BGP recursion re-notification"
+        ]
+      }
+    ]
+  }
+}

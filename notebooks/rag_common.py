@@ -75,7 +75,8 @@ def load_tickets() -> list[Document]:
 
 def load_guides() -> list[Document]:
     from langchain_community.document_loaders import PyPDFLoader
-    product_by_code = {"AR": "Aurora AR-900", "NF": "Nimbus NF-300", "OW": "Orion OW-20", "AT": "Atlas SD-WAN", "HX": "Helix HX-5000"}
+    facts = json.loads((DATA_DIR / "facts.json").read_text(encoding="utf-8"))
+    product_by_code = {code: p["name"] for code, p in facts["products"].items()}
     docs = []
     for path in sorted((DATA_DIR / "guides").glob("*.pdf")):
         for page in PyPDFLoader(str(path)).load():

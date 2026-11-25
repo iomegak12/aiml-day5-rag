@@ -1,0 +1,142 @@
+{
+  "stage": "facts_guide",
+  "label": "OW",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "title": "Orion OW-20 Configuration and Troubleshooting Guide",
+    "sections": [
+      {
+        "heading": "AP join baseline and retry tuning",
+        "key_facts": [
+          "For AP join failures on 4.6, remove any RF profile override from the AP group so the controller does not emit a zero-length RF profile TLV.",
+          "On 4.7, set the AP join retry interval to 2 seconds so the controller keeps the transaction active through capability revalidation.",
+          "On 4.8, set the AP join timeout to 180 seconds when join stalls occur during the second capability exchange.",
+          "For remote APs, keep one-way latency under 80 ms on 4.7 systems and keep uplink loss below 0.5% during 4.8 join operations."
+        ],
+        "commands": [
+          "show ap summary",
+          "ap-group default rf-profile none",
+          "ap join retry-interval 2",
+          "ap join timeout 180",
+          "show logging last 50"
+        ],
+        "related_kbs": [
+          "KB-4101",
+          "KB-4102",
+          "KB-4103"
+        ]
+      },
+      {
+        "heading": "Controller redundancy and configuration database hygiene",
+        "key_facts": [
+          "Keep the configuration database below 30,000 rows before enabling redundancy to avoid sync stalls at the 32,768-row threshold.",
+          "Remove unused AP groups, WLAN profiles, and stale guest accounts before enabling active-standby operation.",
+          "If immediate failover is required after a large configuration change, schedule a full config resync during a maintenance window.",
+          "Use redundancy force-resync only after confirming the database has been reduced and the commit queue is clear."
+        ],
+        "commands": [
+          "show redundancy status",
+          "show configuration database summary",
+          "redundancy force-resync",
+          "show logging last 50"
+        ],
+        "related_kbs": [
+          "KB-4104",
+          "KB-4112"
+        ]
+      },
+      {
+        "heading": "802.11r roaming validation and load control",
+        "key_facts": [
+          "For 4.9, keep controller CPU below 70% during roaming tests to reduce fast-transition key installation delays.",
+          "Lower the client accounting interval to 60 seconds on latency-sensitive SSIDs when 802.11r is enabled.",
+          "For 5.0, stagger roaming tests or reduce the client cleanup batch size so the FT flush completes within 150 ms.",
+          "Cap roam bursts below 30 clients per 10 seconds on voice-critical SSIDs until the affected release is updated."
+        ],
+        "commands": [
+          "show client detail <mac>",
+          "wlan corp ft enable",
+          "wlan corp accounting interval 60",
+          "roam batch-size 8"
+        ],
+        "related_kbs": [
+          "KB-4105",
+          "KB-4106"
+        ]
+      },
+      {
+        "heading": "RADIUS Access-Challenge attribute ordering",
+        "key_facts": [
+          "On 4.9, keep Access-Challenge replies at 12 or fewer attributes to avoid loss or omission of Vendor-Specific attribute 26.",
+          "If the server must send more than 12 attributes, move Vendor-Specific attribute 26 earlier in the response order.",
+          "Prefer a policy server that sends tunneled attributes first when troubleshooting intermittent 802.1X challenge processing.",
+          "Use the vendor-first attribute order setting before retesting client authentication."
+        ],
+        "commands": [
+          "show client detail <mac>",
+          "radius-server attribute-order vendor-first",
+          "show logging last 50"
+        ],
+        "related_kbs": [
+          "KB-4107",
+          "KB-4108"
+        ]
+      },
+      {
+        "heading": "Guest portal sessions across failover",
+        "key_facts": [
+          "During guest registration windows, keep failover inhibited so portal cookies remain pinned to the active node UUID.",
+          "For planned maintenance, set guest portal session timeout to 15 minutes before invoking failover.",
+          "If a switchover already occurred, clear the portal cookie and require the guest to reauthenticate.",
+          "Expire guest sessions before a planned redundancy failover when guest access continuity matters."
+        ],
+        "commands": [
+          "show redundancy status",
+          "guest-portal session timeout 15",
+          "redundancy failover inhibit"
+        ],
+        "related_kbs": [
+          "KB-4109"
+        ]
+      },
+      {
+        "heading": "5.1 RF manager and upgrade readiness",
+        "key_facts": [
+          "On 5.1, disable DFS on affected radio groups if repeated DFS events stop channel updates.",
+          "Pin radios to a non-DFS channel set such as 36,40,44,48 with at least 20 MHz separation from neighboring cells.",
+          "Keep radar events below 3 per 10 minutes during peak usage if DFS must remain enabled.",
+          "Before upgrading from 4.6 to 5.0, delete unused legacy guest portal ACL objects and verify the configuration database contains only normalized entries."
+        ],
+        "commands": [
+          "show ap summary",
+          "ap group dfs disable",
+          "rf channel set 36,40,44,48",
+          "show guest acl summary",
+          "upgrade apply 5.0"
+        ],
+        "related_kbs": [
+          "KB-4110",
+          "KB-4111"
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "question": "How should I tune AP join behavior so remote APs finish registration reliably on affected releases?",
+        "section_index": 0,
+        "related_kbs": [
+          "KB-4102",
+          "KB-4103"
+        ]
+      },
+      {
+        "question": "What do I need to change before enabling redundancy if the configuration database is large?",
+        "section_index": 1,
+        "related_kbs": [
+          "KB-4104",
+          "KB-4112"
+        ]
+      }
+    ]
+  }
+}

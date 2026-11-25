@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "error_code:%IKEV2-3-PROPOSAL_MISMATCH",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "I found %IKEV2-3-PROPOSAL_MISMATCH in the logs on a Nimbus NF-300. What does this mean, and what should I do to stop the child SA from failing during rekey?",
+    "reference_answer": "On Nimbus NF-300 5.0.8 and 5.0.9, %IKEV2-3-PROPOSAL_MISMATCH indicates a child-SA renegotiation failure caused by a stale PFS proposal during IKEv2 rekey. The tunnel can stay up for hours, then the child SA drops during rekey and traffic blackholes for 10 to 20 seconds while `show crypto ikev2 sa` still shows the IKE SA in ESTABLISHED. The workaround is to keep the PFS group unchanged on both peers, or disable child SA rekey with `config`, `crypto ikev2 child-sa rekey disable`, `commit` and restart the tunnel during a maintenance window; if you change the group, apply the same group on both sides and clear the SA after the change. The fix is in 5.1.3."
+  }
+}

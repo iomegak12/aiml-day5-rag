@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-2108",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "AR-900 reports NAT exhaustion during short-lived traffic bursts",
+        "description": "BlueRiver Credit Union escalated through a partner after their Aurora AR-900 on 9.3.0 started rejecting new outbound sessions during end-of-day file transfers. They reported that `show nat translations` showed only a few dozen active mappings, yet users saw intermittent connection failures for 2-4 minutes after a burst of short-lived HTTPS and VPN flows. TAC reviewed the router logs and confirmed repeated `%NAT-3-ALLOCFAIL` events with the message `ERR-NAT-4108`. Initial triage also showed the issue was reproducible only under heavy session churn, not during steady-state traffic.",
+        "resolution": "TAC identified the behavior as KB-2108, which matches a 9.3.0 dynamic NAT port exhaustion report caused by deferred port return. We applied the documented workaround by expanding the NAT pool to add additional public address capacity and adjusted the NAT translation timeout to 240 seconds. After the change, new sessions completed normally and the customer continued monitoring NAT headroom during peak windows."
+      },
+      {
+        "subject": "NAT pool exhaustion alarms on AR-900 with low active translation count",
+        "description": "Sunset Power Authority opened a P1 from the NOC because their Aurora AR-900 running 9.3.0 began dropping new internet-bound connections across several substations. The NOC noted the router was not actually full in `show nat translations`, but application retries spiked whenever a burst of short-lived telemetry sessions ended. TAC checked the event buffer and found repeated `ERR-NAT-4108` entries associated with source-port allocation failures. The failure pattern was tied to traffic bursts of roughly 20,000 to 30,000 sessions per minute, which lined up with the customer's reporting window.",
+        "resolution": "TAC mapped the case to KB-2108 and confirmed this was the known 9.3.0 NAT allocator issue with deferred-free accounting. We implemented the workaround from the article by enlarging the NAT pool with an additional public address and setting the translation timeout to 240 seconds so the allocator had more headroom. The customer restored service without changing software and agreed to watch for deferred-free pressure during future peak events."
+      },
+      {
+        "subject": "Outbound sessions failing after burst traffic on Aurora AR-900",
+        "description": "Prairie State College submitted this through the customer portal for an Aurora AR-900 running 9.3.0. They described students losing access to web apps for a few minutes after lab login storms, then everything recovering on its own. TAC asked for NAT state and saw only a small active set in `show nat translations`, which did not match the reported failures. The router logs also contained `ERR-NAT-4108`, indicating source-port allocation failures even though utilization was low at the time of review.",
+        "resolution": "TAC identified the issue as KB-2108 and advised the customer that this is a 9.3.0 NAT port accounting defect rather than true exhaustion. We applied the workaround by increasing the NAT pool size to add one more public address and setting the NAT translation timeout to 240 seconds. After the change, the college stopped seeing the short post-burst outage and no software upgrade was required."
+      },
+      {
+        "subject": "AR-900 NAT failures after bursty traffic on 9.3.0",
+        "description": "Redwood University worked with an on-site field engineer after their Aurora AR-900 on 9.3.0 started failing new NAT sessions during large virtual desktop login waves. The engineer initially suspected a firewall policy issue because only some sessions failed, but packet captures showed the router returning port allocation errors after bursts of short-lived connections. TAC reviewed the device state and confirmed `show nat translations` displayed far fewer active entries than the pool should have supported. The system log included `ERR-NAT-4108`, which matched the timing of the customer impact.",
+        "resolution": "TAC traced the behavior to KB-2108, where 9.3.0 defers freed NAT ports until the 240-second aging cycle completes. We applied the documented workaround by expanding the NAT pool with more public address capacity and keeping the translation timeout at 240 seconds. The immediate result was that new sessions were admitted normally after bursts, and the field engineer validated the fix during the next login window."
+      },
+      {
+        "subject": "Intermittent source-port allocation errors on AR-900",
+        "description": "HarborPoint Retail escalated through a partner after registers and handheld scanners behind an Aurora AR-900 running 9.3.0 started timing out in short waves. Their team reported that the problem was worst after batch uploads finished, even though NAT tables did not look full when they checked them. TAC confirmed the router was logging `ERR-NAT-4108` during the incident and that `show nat translations` showed only a limited active translation count. The symptoms were consistent with a burst-driven allocation failure rather than a sustained capacity problem.",
+        "resolution": "TAC matched the issue to KB-2108 and explained that 9.3.0 can misreport NAT port exhaustion while deferred ports are still counted as in use. We implemented the workaround by enlarging the NAT pool with additional public address space and setting the NAT translation timeout to 240 seconds. With the added headroom in place, the customer stopped seeing the 2-4 minute allocation failures after traffic spikes."
+      }
+    ]
+  }
+}

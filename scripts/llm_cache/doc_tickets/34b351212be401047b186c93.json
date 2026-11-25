@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-3110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "NF-300 session spikes after turning on asymmetric routing",
+        "description": "CivicWorks Public Agency opened an urgent escalation for a Nimbus NF-300 running 5.2.0. After enabling asymmetric path handling on a policy set for several large /24 networks, the firewall began showing intermittent 3 to 4 ms latency spikes on otherwise healthy flows. TAC reviewed the session-table summary and saw two shards climbing into the high 80 percent range while the remaining shards stayed under 40 percent, which matches the reported slowdown. The issue started after about 300,000 new sessions and did not correlate with CPU or HA state.",
+        "resolution": "TAC applied the workaround from KB-3110 by entering config mode, disabling asymmetric routing handling for the affected policy set, and committing the change. After the update, shard occupancy remained below 75 percent and the latency spikes stopped."
+      },
+      {
+        "subject": "Uneven session-table load on 5.2.0 firewall",
+        "description": "Cornerstone Supermarkets reported that their Nimbus NF-300 on 5.2.0 was slowing down during peak store traffic, but only for a subset of customer-facing flows. Their portal note mentioned that reloading policy briefly helped, then the problem returned after more sessions built up. TAC checked the system logs and confirmed the message \"%SESSION-4-HASH_SKEW\" while the session-table summary showed one hot shard at 88 percent occupancy and the rest well under 40 percent. The pattern was consistent with asymmetric routing enabled on traffic sourced from the same address blocks.",
+        "resolution": "TAC followed KB-3110 and disabled asymmetric routing handling for the affected policy set using config mode, then committed the change. That redistributed new sessions across the shards and cleared the imbalance without requiring an upgrade."
+      },
+      {
+        "subject": "Latency on selected flows, possible session hash skew",
+        "description": "Summit Logistics called in after seeing short latency bursts on shipment-tracking traffic through a Nimbus NF-300 running 5.2.0. Their team initially suspected an ISP path issue, but packet captures showed the same flows consistently landing on the same firewall worker queue. TAC verified the log entry \"%SESSION-4-HASH_SKEW\" and observed a persistent split where one shard stayed near 88 percent occupancy while the others remained below 40 percent. The issue appeared only after a few hundred thousand new sessions and was strongest on large-prefix traffic.",
+        "resolution": "TAC implemented the workaround from KB-3110 by disabling asymmetric routing handling for the impacted policy set and committing the configuration. With the skew removed, session distribution normalized and the intermittent latency spikes were no longer observed."
+      },
+      {
+        "subject": "NF-300 requires upgrade for session-table imbalance",
+        "description": "CivicWorks Public Agency submitted a follow-up case through the portal for the same Nimbus NF-300 appliance, still on 5.2.0. They reported that the firewall was stable for a while after a policy change, but later the session-table imbalance returned under a larger traffic burst. TAC reviewed the live state and saw the log message \"%SESSION-4-HASH_SKEW\" alongside one shard holding near 88 percent occupancy while the others remained below 40 percent. This behavior aligned with the known asymmetric-routing hashing defect on 5.2.0.",
+        "resolution": "TAC advised and assisted with an upgrade to 5.2.2 per KB-3110, which fixes session hashing to use the full 5-tuple and redistributes shards once occupancy exceeds 75 percent. After the upgrade, the shard imbalance did not recur during validation traffic."
+      },
+      {
+        "subject": "Periodic latency on firewall under heavy session churn",
+        "description": "Redwood University emailed the TAC mailbox about a Nimbus NF-300 running 5.2.0 that was introducing brief delays during registration and video traffic. They reported that the firewall was otherwise healthy and that the problem only showed up when many new flows were created at once. TAC compared the session-table counters and found a repeatable skew pattern with one shard significantly hotter than the rest, which is consistent with the issue described in KB-3110. The customer had not yet changed any session-handling settings, and the imbalance was consistent with the 5.2.0 hashing defect.",
+        "resolution": "TAC recommended an upgrade to 5.2.2 in accordance with KB-3110. The customer completed the upgrade, and post-change checks showed balanced shard occupancy with no further latency complaints during test traffic."
+      }
+    ]
+  }
+}

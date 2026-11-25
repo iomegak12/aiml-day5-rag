@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-4107",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "802.1X clients stuck authenticating after RADIUS challenge on OW-20 4.9",
+        "description": "Partner escalation on behalf of Lakeside Hospitality: wireless users on Orion OW-20 controllers running 4.9 are intermittently failing 802.1X at the second RADIUS step. The customer reported that the username prompt appears, then the client sits in authenticating for roughly 15-20 seconds before timing out and retrying. TAC reviewed the controller logs and found repeated '%RADIUS-4-ATTR_DROP' entries during Access-Challenge processing, which lined up with the failures. The issue was reproducible only against one external policy server, and only when the challenge packet carried a long attribute set.",
+        "resolution": "TAC identified the issue as KB-4107. We applied the workaround by reordering the RADIUS response so the Vendor-Specific attribute was sent first, which prevented it from being dropped during repacking. After the change, 802.1X completed normally on the OW-20 4.9 cluster."
+      },
+      {
+        "subject": "Intermittent wireless login failures on Orion OW-20 4.9",
+        "description": "TAC logged a phone call from HarborPoint Retail about sporadic wireless authentication failures on an Orion OW-20 controller running 4.9. Users could connect to SSID corp, but some devices never moved past authenticating and eventually fell back to the login prompt. Initial checks showed the controller forwarding the Access-Challenge and then receiving a follow-up response that the RADIUS server rejected as incomplete. No controller alarms were present, and the failure pattern suggested an attribute handling problem in the RADIUS exchange rather than a general AAA outage.",
+        "resolution": "TAC matched the symptoms to KB-4107 and recommended upgrading the controller from 4.9 to 5.0. After the upgrade, the Access-Challenge repacking behavior no longer truncated the attribute list, and 802.1X authentication completed consistently."
+      },
+      {
+        "subject": "802.1X auth timing out on wireless SSID after RADIUS challenge",
+        "description": "On-site field engineer report for Summit Logistics: handheld scanners on Orion OW-20 version 4.9 were timing out during wireless sign-on several times per hour. The engineer noted that the first EAP exchange succeeded, but clients then remained in authenticating for about 20 seconds before failing over to a different AP. TAC review of the controller logs showed '%RADIUS-4-ATTR_DROP' during Access-Challenge handling, and the issue only appeared when the upstream server returned a larger attribute set. This pointed away from RF coverage and toward the RADIUS reply contents.",
+        "resolution": "TAC mapped the behavior to KB-4107 and applied the documented workaround. We instructed the customer to move the Vendor-Specific attribute earlier in the RADIUS response order and, where possible, reduce the challenge to 12 or fewer attributes. After the server-side change, authentication completed successfully on the existing OW-20 4.9 deployment."
+      },
+      {
+        "subject": "Wireless 802.1X stalls on OW-20 4.9 when external RADIUS is used",
+        "description": "Partner escalation on behalf of Sunset Power Authority: employees reported that wireless login worked for some devices but failed randomly for others on Orion OW-20 controllers running 4.9. The customer initially suspected a certificate issue because the failure occurred after entering credentials, but the controller was consistently completing the initial request and then stalling on the next challenge. TAC examined the event log and found '%RADIUS-4-ATTR_DROP' tied to Access-Challenge repacking, which correlated with sessions that carried tunneled policy attributes. The failures were reproducible only when the challenge contained a larger attribute list from the external RADIUS server.",
+        "resolution": "TAC identified this as KB-4107 and applied the workaround from the article. The RADIUS policy was adjusted so the Vendor-Specific attribute was sent before the 12th position in the reply, avoiding the controller's attribute drop condition. Once that change was made, client authentication on OW-20 4.9 completed without further timeouts."
+      },
+      {
+        "subject": "Move OW-20 controllers from 4.9 to 5.0 to stop 802.1X failures",
+        "description": "On-site field engineer report for Redwood University: students were intermittently failing to join the secure wireless network on an Orion OW-20 controller running 4.9. The symptoms looked like a bad password to the help desk, but the same credentials would often succeed on the second or third attempt. TAC checked the controller state and saw clients lingering in authenticating while the RADIUS server sent a multi-attribute Access-Challenge sequence. The controller logs included '%RADIUS-4-ATTR_DROP', which pointed to an attribute handling defect rather than an endpoint or certificate problem.",
+        "resolution": "TAC tied the issue to KB-4107 and advised the customer to upgrade the OW-20 controller from 4.9 to 5.0. After the upgrade, Access-Challenge repacking preserved all attributes and the intermittent 802.1X failures stopped. The customer confirmed stable logins across multiple test devices after the change."
+      }
+    ]
+  }
+}

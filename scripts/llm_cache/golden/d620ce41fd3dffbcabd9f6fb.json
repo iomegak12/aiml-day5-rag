@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "multi_hop:KB-5106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "On Atlas SD-WAN 3.2, our IPsec tunnel to a peer never comes up: it keeps negotiating, retries every 10 seconds, and the remote side rejects the proposal. Which release fixes this, and what should we do until we can upgrade?",
+    "reference_answer": "This issue is fixed in Atlas SD-WAN 3.3, which emits a combined ESP proposal when the peer requires it. Until you can upgrade, configure the remote peer to accept an AES-GCM proposal without a separate integrity field, or use AES-CBC with SHA-384 if the peer allows alternate transforms. Verify the resulting SA proposal on both sides before restoring traffic."
+  }
+}

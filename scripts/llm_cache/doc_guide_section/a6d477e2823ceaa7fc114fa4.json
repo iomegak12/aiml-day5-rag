@@ -1,0 +1,53 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-OW#4",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "On Orion OW-20, the controller processes RADIUS Access-Challenge messages in the order received from the policy server, then applies local parsing rules to extract state, tunnel, and vendor-specific data before forwarding the challenge to the client. In normal operation, the order of attributes is not significant. However, in release 4.9, the parser can drop or omit Vendor-Specific attribute 26 when an Access-Challenge contains a long attribute list and the response exceeds the controller’s internal handling threshold. The practical symptom is an 802.1X exchange that stalls after the first challenge, then repeats until the client times out or falls back to a new authentication attempt.",
+      "The safest operational setting on 4.9 is to keep Access-Challenge replies at 12 or fewer attributes to avoid loss or omission of Vendor-Specific attribute 26. This is especially important for deployments that use tunneled authorization, multi-step MFA, or policy servers that add multiple Class, State, and vendor-specific TLVs to the same challenge. If the server must send more than 12 attributes, move Vendor-Specific attribute 26 earlier in the response order so the controller encounters it before the parser reaches the point where omission has been observed.",
+      "When troubleshooting intermittent 802.1X challenge processing, prefer a policy server that sends tunneled attributes first when troubleshooting intermittent 802.1X challenge processing. This ordering reduces the chance that the controller will parse a partial challenge and proceed without the data needed for the next exchange. In practice, tunneled attributes and state should be placed before less critical reply items such as informational attributes or optional policy hints. The goal is not to change authentication logic, but to make the controller’s interpretation deterministic across retransmissions and server retries.",
+      "Use the vendor-first attribute order setting before retesting client authentication. On OW-20, that setting instructs the controller to prefer Vendor-Specific attribute 26 early in its local handling path, which is helpful when the server’s response order cannot be changed immediately. This is a mitigation, not a substitute for server-side cleanup. If the challenge still fails after enabling vendor-first ordering, review the server-side Access-Challenge composition, especially the total attribute count and whether intermediate proxies are reordering or inserting attributes.",
+      "A common mistake is to assume the failure is caused by the supplicant, the AP, or RF conditions because the symptom appears as a generic 802.1X timeout. In these cases, the wireless side is often healthy; the controller simply does not complete the challenge loop. Another frequent issue is changing the server policy for Access-Accept messages only and leaving Access-Challenge formatting untouched. Access-Challenge and Access-Accept are handled differently, so validate the exact response type that the client receives during the failed exchange.",
+      "Operationally, make one change at a time and retest with a single client before broad rollout. Start by reducing the attribute count to 12 or fewer if possible. If that is not feasible, reorder the challenge so Vendor-Specific attribute 26 appears earlier, then enable the controller-side vendor-first option and test again. Keep packet captures or server logs aligned to the same client MAC and timestamp so that you can correlate the challenge sequence with controller behavior and confirm whether the response order changed as intended."
+    ],
+    "procedure_steps": [
+      "Check the failing client session and confirm that the authentication state stops after an Access-Challenge exchange.",
+      "If the policy server can be changed, reorder the Access-Challenge so it sends tunneled attributes first and move Vendor-Specific attribute 26 earlier in the response order.",
+      "If the server cannot be changed immediately, configure the controller with radius-server attribute-order vendor-first.",
+      "Retest authentication from a single client and watch for a completed 802.1X exchange instead of repeated challenges.",
+      "If the client still fails, review the controller log for challenge parsing errors and compare the server-side attribute count to the 12-attribute guidance for release 4.9."
+    ],
+    "table": {
+      "caption": "Access-Challenge ordering guidance",
+      "header": [
+        "Item",
+        "Guidance",
+        "Operational effect"
+      ],
+      "rows": [
+        [
+          "Attribute count",
+          "Keep Access-Challenge replies at 12 or fewer attributes to avoid loss or omission of Vendor-Specific attribute 26.",
+          "Reduces the chance of parser omission in release 4.9."
+        ],
+        [
+          "Vendor-Specific attribute 26",
+          "Move Vendor-Specific attribute 26 earlier in the response order if the server must send more than 12 attributes.",
+          "Helps the controller process the vendor-specific data before the parse limit is reached."
+        ],
+        [
+          "Tunneled attributes",
+          "Prefer a policy server that sends tunneled attributes first when troubleshooting intermittent 802.1X challenge processing.",
+          "Improves consistency of challenge handling across retries."
+        ],
+        [
+          "Controller setting",
+          "Use the vendor-first attribute order setting before retesting client authentication.",
+          "Provides a controller-side mitigation when server formatting cannot be changed immediately."
+        ]
+      ]
+    },
+    "verification": "Verify the change with show client detail <mac> on an affected client. A successful result should show the client progressing past the challenge stage and reaching an authenticated state, with no repeated Access-Challenge retries. Use show logging last 50 to confirm there are no new RADIUS challenge-processing errors and that the controller is no longer reporting missing or omitted Vendor-Specific attribute 26 references. If you enabled radius-server attribute-order vendor-first, confirm the setting is present in the running configuration and then repeat authentication from a single test client to ensure the behavior is stable."
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "stage": "doc_guide_front",
+  "label": "GUIDE-AR",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "about": "This guide provides configuration and troubleshooting procedures for the Aurora AR-900 edge router running releases 9.1.4, 9.1.6, 9.2.0, 9.2.1, 9.2.3, and 9.3.0. It focuses on the areas most commonly handled by TAC for this platform: BGP, BFD, OSPF, IPv6, QoS, control-plane protection, SNMP, NAT, and high CPU or memory conditions. Use this guide as a procedural companion to product knowledge-base articles and release notes. Knowledge-base articles are used for issue-specific defects, workarounds, and field symptoms, while release notes provide version-specific behavior changes, limitations, and resolved issues that may affect the procedures in this guide.",
+    "audience": "This guide is intended for network engineers and TAC support engineers who configure or troubleshoot Aurora AR-900 systems. Readers should be familiar with IPv4 and IPv6 routing, common edge-routing protocols and timer behavior, NAT and QoS concepts, SNMP operations, and standard operational CLI use. Before applying any procedure, confirm the device release, current configuration, and service impact of the change.",
+    "conventions": [
+      "Commands are shown in lower-case and match the product CLI syntax used on the device.",
+      "Hierarchical configuration mode is entered with configure; configuration examples include parent and child contexts as needed.",
+      "Operational commands begin with show, clear, or debug; for example, show bgp summary and show bfd neighbors detail.",
+      "Notes provide supporting information or expected behavior; warnings indicate actions that can disrupt traffic, adjacency formation, or management access.",
+      "Sample outputs use ISO 8601 UTC timestamps and documentation address ranges such as 192.0.2.0/24, 198.51.100.0/24, and 203.0.113.0/24."
+    ]
+  }
+}

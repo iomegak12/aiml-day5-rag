@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-4110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "OW-20 5.1 5 GHz radios stop changing channels after repeated DFS hits",
+        "description": "On-site field engineer reported that multiple APs on an Orion OW-20 running 5.1 stayed on the same 5 GHz channel after several radar hits in a short window. `show ap summary` showed the APs remained up, but neighboring cells continued to use a channel that should have been vacated and client retries rose during the event. TAC reviewed the RF state and confirmed the radar counter kept incrementing while no further channel-change entries were generated. The controller syslog also showed \"%RF-4-DFS_FREEZE\" at the time channel changes stopped.",
+        "resolution": "TAC applied the workaround from KB-4110: DFS was disabled on the affected radio group and the 5 GHz radios were pinned to a non-DFS channel set with adequate separation from adjacent cells. After the change, channel updates resumed normally and client retry rates returned to baseline."
+      },
+      {
+        "subject": "5 GHz DFS events leave APs pinned on OW-20 5.1",
+        "description": "Partner escalation on behalf of the customer reported that several outdoor APs on an Orion OW-20 running 5.1 stopped moving to new 5 GHz channels after repeated radar detections. The APs stayed reachable and `show ap summary` still listed them as up, so the customer initially suspected a backhaul problem. TAC triage found that the RF dashboard no longer showed channel-change activity even though DFS counters continued to rise. The behavior matched a controller-side RF manager stall rather than an AP join issue.",
+        "resolution": "TAC applied the workaround from KB-4110 by disabling DFS on the impacted radio group and setting the 5 GHz radios to a fixed non-DFS channel plan. Once the channel set was pinned, the APs stopped accumulating DFS-triggered stalls and service stabilized."
+      },
+      {
+        "subject": "Repeated radar events on 5.1 stop RF channel updates",
+        "description": "The NOC escalated that an Orion OW-20 running 5.1 was not reassigning 5 GHz channels after a cluster of radar detections. `show ap summary` showed the APs were still up, but the RF dashboard had no new channel-change messages after the first few events and clients were retransmitting more often than normal. TAC confirmed the radar counter kept increasing while the channel-selection queue appeared to stop draining. The controller log included \"%RF-4-DFS_FREEZE\" coincident with the last successful channel move.",
+        "resolution": "TAC followed KB-4110 and applied the workaround: DFS was disabled for the affected radio group, and the radios were pinned to a non-DFS channel set with at least 20 MHz separation from neighboring cells. After the workaround, channel updates were restored and retry rates fell back to normal levels."
+      },
+      {
+        "subject": "OW-20 5.1 RF manager stops moving 5 GHz APs after DFS activity",
+        "description": "On-site field engineer reported intermittent coverage gaps on an Orion OW-20 running 5.1 after several radar events on the 5 GHz band. The APs themselves remained online, and `show ap summary` showed normal join status, but the affected radios stayed on one channel far longer than expected. TAC verified that the radar counter continued to increment while no additional channel re-evaluation occurred. The issue appeared only after multiple DFS hits in a short interval and did not correlate with AP uptime or client authentication.",
+        "resolution": "TAC used the workaround documented in KB-4110. DFS was disabled on the impacted radio group and the 5 GHz radios were pinned to a non-DFS channel plan with proper channel separation from adjacent cells. That prevented the RF manager stall and restored predictable channel movement."
+      },
+      {
+        "subject": "Customer reports 5 GHz channels frozen after radar activity on OW-20 5.1",
+        "description": "The customer opened this through the portal for an Orion OW-20 running 5.1, saying wireless users were seeing slowdowns and that the access points seemed to “ignore” radar events. Initial triage showed the APs were still up in `show ap summary`, but neighboring APs remained on the same 5 GHz channel after several DFS detections and retries climbed during the busy period. TAC noted that the RF dashboard stopped showing channel-change activity even though the radar counter continued increasing. The pattern was consistent across the affected radio group.",
+        "resolution": "TAC applied the workaround from KB-4110: DFS was disabled on the affected radio group and the radios were pinned to a non-DFS channel set with sufficient separation from neighboring cells. After the change, the controller resumed stable channel behavior and the client retry increase was no longer observed."
+      }
+    ]
+  }
+}

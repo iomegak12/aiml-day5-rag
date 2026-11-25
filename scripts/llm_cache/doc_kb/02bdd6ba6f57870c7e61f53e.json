@@ -1,0 +1,26 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-2105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Aurora AR-900 running 9.2.1, a strict-priority egress class can briefly monopolize the transmit scheduler during microbursts on a 10 Gbps uplink. During the affected interval, best-effort traffic may drop to below 1 Mbps for 1-2 seconds even though the interface remains physically up and error-free.",
+    "symptoms": "Operators typically observe short, repeatable latency spikes for nonpriority traffic when the voice class carries sustained microbursts at roughly 40,000-60,000 packets per second. The interface shows no CRC, runts, or link flaps, and general throughput returns to normal after the burst ends.\n\n`show qos interface` indicates that the strict-priority queue is draining at 100% while the weighted queues remain nearly empty or do not advance as expected. In some deployments, the control-plane and L2/L3 forwarding counters remain stable, which can make the issue appear as an intermittent application problem rather than a scheduling defect.",
+    "diagnosis_steps": [
+      "Run `show qos interface <interface>` on the affected uplink and confirm that the strict-priority queue is at or near 100% drain while one or more weighted queues show little or no service during the same interval.",
+      "Run `show interface <interface>` and verify that the port is up with no physical errors, CRC increments, or output discards that would indicate a layer-1 fault.",
+      "Run `show policy-map interface <interface>` and check the voice class packet rate; values in the 40,000-60,000 pps range with a simultaneous starvation of best-effort classes are consistent with this issue.",
+      "Run `show logging | include SCHED-DEFICIT` and look for `%QOS-5-SCHED-DEFICIT` entries aligned with the latency spike window.",
+      "If needed, use `debug qos scheduler` for a short capture during the burst and confirm that weighted queue credits are not restored immediately after the strict-priority queue empties.",
+      "Compare the behavior on a second egress interface or a non-affected release; if the same traffic mix does not starve best-effort traffic, the problem is localized to the 9.2.1 scheduler path."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %QOS-5-SCHED-DEFICIT: egress scheduler on te0/1/0 failed to reinsert weighted quantum after strict-priority dequeue\n2026-03-14T02:13:07Z show qos interface te0/1/0\ninterface te0/1/0\n  scheduler mode                weighted-fair + strict-priority\n  priority queue drain          100%\n  priority queue packets        58214 pps\n  weighted queue 1 drain        0%\n  weighted queue 1 packets      84 pps\n  weighted queue 2 drain        2%\n  weighted queue 2 packets      121 pps\n  transmit window               4 ms\n  deficit counters              priority=0 weighted=128\n2026-03-14T02:13:11Z show interface te0/1/0\nte0/1/0 is up, line protocol is up\n  10G full-duplex, link up for 12d03h\n  input errors 0, CRC 0, output errors 0, output discards 0",
+    "root_cause": "The scheduler in 9.2.1 fails to reinsert a quantum for weighted queues after the strict-priority queue empties. When a burst fits inside a single scheduling epoch, the priority class can consume the entire transmit window and prevent best-effort queues from receiving service until the next scheduler tick.\n\nThe deficit is only cleared on the next 4 ms scheduler tick. That delay is long enough to cause a brief but visible starvation event for latency-sensitive best-effort traffic sharing the same egress port, especially on 10 Gbps links with short, high-rate voice bursts.",
+    "workaround_steps": [
+      "Limit the strict-priority class so it cannot consume the entire transmit window. The supported mitigation is to cap the voice class to 30% bandwidth on the affected egress policy.",
+      "If strict-priority semantics are not required, convert the class to low-latency queueing and apply an explicit policer of 300 Mbps on 10 Gbps links.",
+      "Where traffic design allows, move bulk or non-latency-sensitive flows to a separate egress interface so they do not share the same scheduler with the priority class.",
+      "After applying the policy change, monitor `show qos interface <interface>` during the next burst and confirm that weighted queues continue to receive service while the priority queue remains bounded."
+    ],
+    "resolution": "This defect is fixed in release 9.2.3. The scheduler now preserves weighted queue service credits after a priority burst, preventing starvation of best-effort traffic during microbursts."
+  }
+}

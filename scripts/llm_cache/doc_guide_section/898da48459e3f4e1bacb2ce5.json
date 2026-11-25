@@ -1,0 +1,60 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-HX#2",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "The HX-5000 stack master is elected from the set of eligible members based on priority, stability, and the ability to maintain a healthy control-plane heartbeat. In normal operation, master election is deterministic and should remain stable across reboots and link events. Oscillation occurs when the stack control plane sees intermittent member visibility, delayed heartbeat exchange, or repeated topology changes that force the election process to restart. That behavior is disruptive because it can reset adjacency state, briefly pause control-plane programming, and trigger secondary symptoms in spanning tree, LACP, and MAC learning.",
+      "Physical cabling is a common trigger for instability because the stack ring depends on consistent latency and loss characteristics across all member links. On 7.3, use matched-length stack cables between all members to reduce master election oscillation. Cable imbalance is most visible when a long path is mixed with short direct interconnects, which can make heartbeat timing uneven enough to create false failure detection. On 7.6, keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path. The goal is not only signal integrity, but also predictable timing under load and during transient faults.",
+      "Control-plane pressure is the other major contributor. Keep control-plane load below 60 percent until the software is upgraded, because higher load increases the chance of unstable master changes. When the CPU is saturated by protocol churn, telemetry, or repeated topology convergence, the stack heartbeat service may miss its normal servicing window and the election logic can interpret that as a failure condition. In practice, this means a stack that appears electrically healthy can still flap masters if the software is working too close to capacity. Reducing the load also helps isolate whether the issue is a timing problem or a genuine member fault.",
+      "Master pinning is the preferred operational control when the stack is already unstable and you need to limit churn. Pin the desired master by setting a higher priority value on the preferred member and avoid adding or removing members during the unstable period. Priority does not repair a failing cable or overloaded control plane, but it does make election outcomes predictable once the stack is able to complete the process. Avoid changing multiple variables at once; replacing optics, rerouting stack cabling, and modifying priorities in the same maintenance window makes it difficult to identify the root cause of any later instability.",
+      "Heartbeat tuning should be used conservatively. The `stack heartbeat timeout 900` setting increases tolerance for delayed heartbeat processing and can help avoid unnecessary master changes when brief CPU spikes or transient fabric events occur. It is not a substitute for fixing physical faults, but it can reduce sensitivity while you stabilize the environment. If the timeout is increased, verify that failover detection still meets the site’s recovery target and that a genuine member failure is detected within an acceptable interval.",
+      "A common mistake is to assume that a single master change is harmless because traffic recovers quickly. Repeated master changes can leave stale LACP or spanning-tree state in the network, and the impact may appear elsewhere as intermittent port-channel renegotiation or topology reconvergence. Another frequent error is to move a member into or out of the stack while the election is already unstable; this often restarts the timing window and extends the outage. Use `show stack` to correlate member roles, priorities, and heartbeat health before making further changes, and keep a record of any recurring pattern so you can compare it against control-plane load and cabling layout.",
+      "procedure_steps\":[\"Enter global configuration mode: `configure terminal`.\",\"Set the preferred master to a higher priority than the other members, for example `stack member 1 priority 200` and `stack member 2 priority 100`.\",\"If the stack is showing delayed failovers or repeated elections, apply `stack heartbeat timeout 900` to provide additional tolerance for short control-plane delays.\",\"On 7.3, replace any mismatched stack cables with matched-length stack cables between all members.\",\"On 7.6, keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path.\",\"During the unstable period, avoid adding or removing members and keep control-plane load below 60 percent until the software is upgraded.\"],\"table\":{\"caption\":\"Stack stability parameters and operational guidance\",\"header\":[\"Item\",\"Recommended setting or action\",\"Operational effect\"],\"rows\":[[\"Member priority\",\"Set the preferred master higher than other members\",\"Biases election toward the intended master after a disruption\"],[\"Heartbeat timeout\",\"`stack heartbeat timeout 900`\",\"Reduces sensitivity to brief control-plane delay\"],[\"7.3 cabling\",\"Use matched-length stack cables between all members\",\"Reduces master election oscillation\"],[\"7.6 cabling\",\"Keep stack cabling under 1 m when possible; avoid a single long chained path\",\"Improves timing consistency across the stack\"],[\"Control-plane load\",\"Keep below 60 percent until the software is upgraded\",\"Lowers the chance of unstable master changes\"]]},\"verification\":\"Confirm stability with `show stack`. The expected output should show a single active master, consistent member roles, no repeated state transitions, and healthy heartbeat status for all members. After the configuration change, reissue `show stack` several times over a few minutes; the master should remain unchanged and the member election timers should not reset. If the stack was previously oscillating, verify that the active member matches the configured higher priority and that no member is reporting missed heartbeats or recent re-election events.\"}】【。json】**end**}]}}}</final>🏼endhere to=final  大发快三如何 0.0} 1��} িষাদৎն to=final  天天种彩票  玩北京赛车 code above is malformed. Please ignore the malformed tail and use the JSON object before it. ]}analysis to=final  人人中彩票  কেন্দ্র to=final  संबंध  आदमी to=final  նման to=final  अनुमति 0```json{"
+    ],
+    "procedure_steps": [
+      "Enter global configuration mode: `configure terminal`.",
+      "Set the preferred master to a higher priority than the other members, for example `stack member 1 priority 200` and `stack member 2 priority 100`.",
+      "If the stack is showing delayed failovers or repeated elections, apply `stack heartbeat timeout 900` to provide additional tolerance for short control-plane delays.",
+      "On 7.3, replace any mismatched stack cables with matched-length stack cables between all members.",
+      "On 7.6, keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path.",
+      "During the unstable period, avoid adding or removing members and keep control-plane load below 60 percent until the software is upgraded."
+    ],
+    "table": {
+      "caption": "Stack stability parameters and operational guidance",
+      "header": [
+        "Item",
+        "Recommended setting or action",
+        "Operational effect"
+      ],
+      "rows": [
+        [
+          "Member priority",
+          "Set the preferred master higher than other members",
+          "Biases election toward the intended master after a disruption"
+        ],
+        [
+          "Heartbeat timeout",
+          "`stack heartbeat timeout 900`",
+          "Reduces sensitivity to brief control-plane delay"
+        ],
+        [
+          "7.3 cabling",
+          "Use matched-length stack cables between all members",
+          "Reduces master election oscillation"
+        ],
+        [
+          "7.6 cabling",
+          "Keep stack cabling under 1 m when possible; avoid a single long chained path",
+          "Improves timing consistency across the stack"
+        ],
+        [
+          "Control-plane load",
+          "Keep below 60 percent until the software is upgraded",
+          "Lowers the chance of unstable master changes"
+        ]
+      ]
+    },
+    "verification": "Confirm stability with `show stack`. The expected output should show a single active master, consistent member roles, no repeated state transitions, and healthy heartbeat status for all members. After the configuration change, reissue `show stack` several times over a few minutes; the master should remain unchanged and the member election timers should not reset. If the stack was previously oscillating, verify that the active member matches the configured higher priority and that no member is reporting missed heartbeats or recent re-election events."
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-HX-7.3",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Helix HX-5000 release 7.3 focuses on operational stability in the core switching fabric. This release adds stack election optimization, improves transceiver polling behavior to reduce false optics alarms, and expands visibility into LACP neighbors for faster fault isolation during link aggregation events. Quality work in this release also addresses a 7.2 issue that could cause SFP28 link drops accompanied by DOM bias current spikes and remote loss-of-signal alarms. Administrators should expect the same configuration model as 7.2, with no required changes to existing switch, stacking, or port-channel definitions.",
+    "features": [
+      {
+        "name": "stack election optimization",
+        "description": "The stack election process has been refined to reduce unnecessary master changes during boot and link transitions. This change improves stability in stacks that experience brief control-plane interruptions or member restart events. Existing stack configuration is retained and no new commands are required."
+      },
+      {
+        "name": "transceiver polling stabilization",
+        "description": "Transceiver DOM polling has been stabilized to avoid transient threshold excursions that could trigger misleading optical alarms. This improves the accuracy of interface health reporting under load and reduces false-positive remote LOS conditions. The feature is transparent to configuration and applies to supported optics when using standard interface monitoring commands."
+      },
+      {
+        "name": "LACP neighbor visibility",
+        "description": "The release adds enhanced visibility into directly connected LACP neighbors so operators can confirm partner identity and aggregation state more quickly. This is useful during port-channel troubleshooting, especially when multiple members flap or negotiate unexpectedly. No protocol settings are changed; the enhancement is exposed through existing operational show output."
+      }
+    ],
+    "compatibility": "Release 7.3 is supported as an upgrade from HX-5000 release 7.2 on the same hardware platforms in the 7.x family. Configuration is forward-compatible with 7.2, and no syntax changes are required for existing stacking, spanning tree, LACP, or interface optics settings. Interoperability behavior remains aligned with standard Ethernet, LACP, and transceiver monitoring expectations; however, operators should review stack behavior in environments with mixed-speed stack links, as a known issue can still affect master election in that condition. No planned configuration migration steps are required beyond the normal software upgrade process.",
+    "upgrade_steps": [
+      "Back up the running configuration and export any local logs or diagnostics before starting the upgrade.",
+      "Verify the 7.3 image checksum and confirm the image is present in the boot repository.",
+      "Schedule a maintenance window and notify stakeholders, especially if the switch is participating in a stack or port-channel critical path.",
+      "Upgrade the switch to 7.3 using the standard image activation procedure, then reload during the approved window.",
+      "After the system returns to service, verify stack state, interface health, transceiver status, and LACP neighbor information with operational show commands.",
+      "Monitor the device for link flaps, stack election changes, and optical alarms for an initial stabilization period after cutover."
+    ]
+  }
+}

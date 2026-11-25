@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-6112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why does memory keep climbing on 7.6 after EVPN refreshes, and when does it need a reboot?",
+    "reference_answer": "On Helix HX-5000 7.6, repeated EVPN route-refresh events trigger %MEM-4-LEAK because the refresh handler allocates a new per-peer attribute cache on each refresh and does not free the previous generation when back-to-back updates arrive. The leak is cumulative, so routing process RSS can rise from about 900 MB to more than 1.8 GB over 24 hours, and once free memory falls below 12 percent control-plane latency rises. Schedule a reload before free memory drops below 15 percent; the issue is fixed in 8.0."
+  }
+}

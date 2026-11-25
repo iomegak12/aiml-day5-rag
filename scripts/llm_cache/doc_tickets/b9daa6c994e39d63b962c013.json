@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-6111",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "HX-5000 upgrade from 7.2 aborts near 80% and rolls back",
+        "description": "HarborPoint Retail opened this through a partner escalation for an HX-5000 core switch running 7.2. They reported that an in-service upgrade to 7.4 repeatedly stalled around 80% and then rolled back after a management-plane restart. TAC reviewed the upgrade output and found the log entry \"ERR-UPG-2207\" at the point of failure. The switch has a high optic count, and `show interfaces transceiver detail` was slow to return after rollback, which matched the reported delay.",
+        "resolution": "TAC identified the issue as KB-6111 and advised the documented workaround for 7.2 systems with large transceiver history. The customer backed up the configuration, cleared nonessential DOM history with `no transceiver calibration-history`, saved the config, and retried the upgrade in a maintenance window after reseating the most recently installed optics. The upgrade completed on the next attempt without rollback."
+      },
+      {
+        "subject": "7.2 to 7.4 maintenance upgrade fails on HX-5000 core switch",
+        "description": "Evergreen Clinic Network’s NOC reported a failed maintenance upgrade on an HX-5000 core switch running 7.2. The process consistently stopped in the high 70s and the management plane came back after a brief restart, but the system returned to the previous image. Operators initially suspected a power issue because traffic stayed up during the attempt. TAC triage confirmed the behavior was limited to the upgrade path and noted that the platform had many populated transceivers, which increased migration time on post-rollback checks.",
+        "resolution": "TAC matched the symptoms to KB-6111 and applied the workaround from the article. The NOC backed up the configuration, removed nonessential DOM history, and used `configure terminal`, `no transceiver calibration-history`, `write memory`, and `reload` before retrying the upgrade from a quieter window. The second attempt completed successfully."
+      },
+      {
+        "subject": "HX-5000 upgrade rollback with calibration import failure",
+        "description": "MetroLink Telecom’s on-site field engineer opened the case after an HX-5000 core switch running 7.2 failed an in-service upgrade to 7.4. The engineer saw the upgrade progress halt between 78 and 82 percent, then the management plane restarted once and the switch rolled back to the old release. TAC asked for the upgrade trace and the log showed \"ERR-UPG-2207\" during the calibration import stage. The chassis has many optics installed, and post-rollback inventory commands were slow, especially `show interfaces transceiver detail`.",
+        "resolution": "TAC identified the failure as KB-6111 and instructed the field engineer to use the documented workaround on the 7.2 image. They cleared nonessential transceiver calibration history, wrote memory, and rebooted the switch so the calibration cache would rebuild smaller before retrying the upgrade. After that, the upgrade completed normally."
+      },
+      {
+        "subject": "P1 escalation: HX-5000 cannot complete software upgrade past 80%",
+        "description": "Redwood University submitted a portal case for an HX-5000 core switch running 7.2 after a scheduled upgrade window failed. The upgrade would advance into the low 80% range, pause, and then the management plane would restart before the unit rolled back to the previous image. The operations team believed the image file was corrupt, but TAC saw that the failure was repeatable on the same chassis and that the system had a large number of active optics. The upgrade logs contained \"ERR-UPG-2207\" at the migration step, which aligned with the rollback timing.",
+        "resolution": "TAC associated the case with KB-6111 and recommended the standard workaround for affected 7.2 systems. The customer cleared legacy transceiver calibration history, saved the configuration, and reloaded the switch before rescheduling the upgrade in a maintenance window. The next upgrade attempt completed successfully."
+      },
+      {
+        "subject": "HX-5000 upgrade stalls and reboots during transceiver calibration import",
+        "description": "Summit Logistics’ NOC escalated a repeated upgrade failure on an HX-5000 core switch running 7.2. During the move to 7.4, the progress bar consistently stopped around 80%, the management plane restarted once, and the system came back on the old image. The team first suspected stack instability, but TAC found no stack fault history and the behavior pointed to the upgrade parser. The trace included \"ERR-UPG-2207\", and the chassis had enough populated optics that `show interfaces transceiver detail` took noticeably longer after rollback than before the upgrade attempt.",
+        "resolution": "TAC traced the issue to KB-6111 and applied the workaround described there. The NOC backed up the configuration, removed nonessential DOM history, ran `configure terminal`, `no transceiver calibration-history`, `write memory`, and `reload`, then retried the upgrade after reseating the most recently installed optics. The upgrade completed without a rollback on the second attempt."
+      }
+    ]
+  }
+}

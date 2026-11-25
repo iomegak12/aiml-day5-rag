@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-6109",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "hx-5000 100g uplink drops during peak class changes",
+        "description": "Prairie State College opened this case through the customer portal after reporting intermittent packet loss on the campus core during class changes. The affected device is a Helix HX-5000 running 7.2, with two 100G uplinks carrying aggregated wireless and voice traffic. TAC reviewed `show queue counters` and found tail drops increasing steadily on the oversubscribed egress queues, while average interface utilization stayed in the 70 to 80 percent range. The customer initially suspected a transceiver issue, but the optics and error counters were clean and the loss pattern matched bursty congestion rather than hardware failure.",
+        "resolution": "TAC identified the condition as KB-6109 and applied the documented workaround. Prairie State College moved part of the workload to a second uplink and reduced burstiness upstream so no single 100G egress port remained above the 85 percent sustained threshold. For the latency-sensitive voice VLAN, TAC also placed traffic into a dedicated queue on the affected interface."
+      },
+      {
+        "subject": "critical core loss on hx-5000 7.2 requires immediate remediation",
+        "description": "CivicWorks Public Agency contacted TAC through NOC escalation for an active outage on a Helix HX-5000 running 7.2. The core switch was not down, but several application teams reported severe latency and intermittent drops on one oversubscribed 100G port feeding the data center edge. TAC confirmed the port was forwarding at line rate with bursty traffic, and `show queue counters` showed sustained tail drops climbing by several thousand packets per minute. The customer’s team had already ruled out link flaps and spanning tree events, so the symptoms pointed to an egress scheduling problem on the switch itself.",
+        "resolution": "TAC identified the condition as KB-6109 and guided CivicWorks Public Agency through an upgrade to 7.4. The updated release includes the scheduler reservation window expansion and earlier buffer watermark checks needed to correct the burst-loss behavior on oversubscribed 100G ports. After the upgrade, queue drops stopped climbing and latency returned to normal levels."
+      },
+      {
+        "subject": "microburst drops on 100g uplink after traffic shift",
+        "description": "Pinnacle Energy’s partner opened the case on behalf of the customer after users reported brief stalls on storage and backup traffic crossing the core. The device is a Helix HX-5000 running 7.2, and the issue only appeared during large copy windows when utilization stayed near 75 percent but bursts were much higher. TAC checked interface and queue statistics and saw the output queue filling faster than the scheduler could drain it, with tail drops rising in the affected class. The partner also provided a switch log that included '%BUF-3-OVERFLOW' during the busiest interval, which aligned with the burst-loss pattern on the 100G egress path.",
+        "resolution": "TAC identified the event as KB-6109 and applied the documented workaround. Pinnacle Energy reduced burstiness with upstream shaping, spread storage traffic across additional uplinks, and reserved a dedicated queue on the affected interface for the most sensitive flows. After the changes, queue drops stopped increasing and latency returned to expected levels."
+      },
+      {
+        "subject": "core switch latency spikes on 100g port",
+        "description": "Lakeside Hospitality called TAC after noticing delayed check-in and payment traffic across the main hotel network. The affected platform is a Helix HX-5000 running 7.2, and the issue was isolated to one oversubscribed 100G uplink on the core switch. TAC reviewed `show queue counters` and found that drops were increasing even though average bandwidth stayed below full line rate, which made the customer suspect a bad optic or cabling fault. No physical-layer alarms were present, and the pattern was consistent with microbursts overwhelming the egress queue on the switch.",
+        "resolution": "TAC mapped the behavior to KB-6109 and implemented the published workaround. Lakeside Hospitality split traffic across an additional uplink, applied upstream shaping to reduce burst depth, and reserved a dedicated queue for payment applications on the affected interface. These changes prevented the queue from staying above the 85 percent sustained utilization point and cleared the latency spikes."
+      },
+      {
+        "subject": "pinnacle energy hx-5000 dropping bursts on core uplink",
+        "description": "Pinnacle Energy called TAC by phone after monitoring showed rising packet loss on a core-facing 100G port. The switch is a Helix HX-5000 running 7.2, and the customer reported that the problem was most visible during scheduled backup and replication windows. TAC observed that average utilization remained in the low 70 percent range, but the output queue was still building and `show queue counters` showed tail drops climbing steadily. Initial suspicion was a design change in the WAN handoff, but the queueing profile matched a known scheduler limitation on this software release.",
+        "resolution": "TAC identified the issue as KB-6109 and recommended the upgrade path. Pinnacle Energy upgraded the HX-5000 from 7.2 to 7.4, which includes the scheduler reservation window expansion and earlier buffer watermark checks. After the upgrade, the customer confirmed that burst-related output drops on the 100G port stopped recurring."
+      }
+    ]
+  }
+}

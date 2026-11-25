@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-3105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Nimbus NF-300 5.1.5, a threat database update can temporarily stall packet processing while new signatures are activated. The issue is triggered when the downloaded signature bundle exceeds 128 MB, causing a short-lived but visible throughput drop during activation.",
+    "symptoms": "Administrators observe that a threat database update completes successfully, but traffic throughput falls sharply during signature activation. In affected cases, throughput drops from about 8 Gbps to under 1 Gbps for 30 to 90 seconds, then returns to normal without intervention.\n\nDuring the event, existing sessions continue to age out at normal rates, and `show session table summary` shows new sessions still being created. This indicates the dataplane is not fully down; instead, it is stalled while the threat inspection path waits for signature activation to finish.",
+    "diagnosis_steps": [
+      "Run `show threat database status` and confirm that a signature bundle download or activation is in progress. Look for an updated bundle timestamp and an activation state such as pending, loading, or activating.",
+      "Run `show session table summary` during the throughput drop. This issue is consistent with new sessions increasing normally while session aging counters continue to advance at the expected rate.",
+      "Check dataplane health counters and throughput telemetry if available. The symptom is a transient drop in forwarding rate, not a sustained session-table exhaustion condition.",
+      "If debug tracing is enabled, review threat-prevention logs for `%TP-4-SIGNATURE_STALL`. The log appears when signature activation holds the inspection mutex longer than the dataplane load window.",
+      "Correlate the stall with the size of the downloaded signature bundle. Bundles larger than 128 MB are the known trigger for this behavior on 5.1.5."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %TP-4-SIGNATURE_STALL: threat database activation is blocking inspection mutex; bundle=147 MB, state=loading\n2026-03-14T02:13:08Z show threat database status\nThreat database: current\nBundle version: 2026.03.14-0210\nDownload state: complete\nActivation state: loading\nBundle size: 147 MB\n2026-03-14T02:13:12Z show session table summary\nActive sessions: 18422\nNew sessions (last 60s): 913\nSessions aged out (last 60s): 876\nThroughput: 0.84 Gbps",
+    "root_cause": "The signature activation thread holds the inspection mutex while loading the new bundle into the classifier cache. On 5.1.5, bundles larger than 128 MB exceed the single-pass load window, so activation takes long enough that the dataplane waits on the mutex until the cache rebuild completes.\n\nBecause the stall is tied to signature activation rather than a crash or interface fault, forwarding resumes automatically once the rebuild is finished. Existing sessions are not dropped en masse, but new traffic is delayed while the inspection path is blocked.",
+    "workaround_steps": [
+      "Plan threat database updates during a maintenance window so the temporary throughput reduction does not affect production traffic.",
+      "If operationally possible, reduce the enabled feed set so the resulting signature bundle remains below 128 MB before the next update cycle.",
+      "If an update is already in progress, avoid initiating SSL inspection policy changes until activation has completed, since additional policy churn can extend the stall window.",
+      "Verify the update schedule with `show threat database status`, then configure a narrow update window with the provided commands and commit the change so future activations occur during the maintenance period."
+    ],
+    "resolution": "This defect is fixed in release 5.2.0. In that release, signature activation is chunked and no longer blocks the dataplane mutex for the full load duration, eliminating the throughput stall during large threat database updates."
+  }
+}

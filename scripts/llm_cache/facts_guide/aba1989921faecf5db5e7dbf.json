@@ -1,0 +1,139 @@
+{
+  "stage": "facts_guide",
+  "label": "AT",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "title": "Atlas SD-WAN Configuration and Troubleshooting Guide",
+    "sections": [
+      {
+        "heading": "SLA class stability and probe tuning",
+        "key_facts": [
+          "Use a probe window of at least five samples so a single 1-second loss spike does not clear the SLA class.",
+          "Set the hold-down to 5000 ms before allowing the class to recover, which prevents rapid down/up transitions on marginal links.",
+          "For links that are already close to threshold, raise the packet-loss threshold by 1 to 2 percent to avoid unnecessary path switching.",
+          "Keep the probe interval at 1000 ms for voice or other latency-sensitive classes unless a site-specific design requires a slower cadence."
+        ],
+        "commands": [
+          "app-route sla-class voice loss-threshold 5 latency-threshold 80 probe-interval 1000 hold-down 5000",
+          "commit",
+          "show app-route sla-class"
+        ],
+        "related_kbs": [
+          "KB-5101",
+          "KB-5105"
+        ]
+      },
+      {
+        "heading": "Certificate chain maintenance and edge re-registration",
+        "key_facts": [
+          "Reimport the full certificate chain, including the active intermediate CA, on the orchestrator before renewing any edge certificate.",
+          "Stage the new chain at least 24 hours before the old intermediate expires so renewal and re-registration do not fail during the cutover window.",
+          "If edge re-registration fails after renewal, verify that the orchestrator trust bundle contains the current intermediate and root chain in the same import set."
+        ],
+        "commands": [
+          "certificate import trust-bundle edge-chain.pem",
+          "commit",
+          "show certificate trust-bundle"
+        ],
+        "related_kbs": [
+          "KB-5102",
+          "KB-5108"
+        ]
+      },
+      {
+        "heading": "Policy push limits, CRL freshness, and route-map sizing",
+        "key_facts": [
+          "Keep each route-map at 256 entries or fewer; split larger maps into separate policy objects before the push.",
+          "If a tenant already has a larger route-map, remove 10 to 20 entries, commit the change, and re-add the remainder in a second commit to unblock policy push.",
+          "Refresh the CRL before it is older than 24 hours, or align CA publication to a 12 to 18 hour interval so the push window does not hit the hard-expiry check.",
+          "Confirm the updated CRL timestamp before retrying a failed policy push."
+        ],
+        "commands": [
+          "policy route-map RM-BRANCH-1 split-after 256",
+          "certificate import crl revocation-list.pem",
+          "commit",
+          "show policy push status"
+        ],
+        "related_kbs": [
+          "KB-5103",
+          "KB-5111"
+        ]
+      },
+      {
+        "heading": "LTE tunnel MTU and handoff tuning",
+        "key_facts": [
+          "After any 3.1 upgrade, reapply the LTE tunnel MTU on each dual-SIM edge because the upgrade may rewrite it to 1500.",
+          "For most carrier LTE links, use a tunnel MTU between 1400 and 1420 bytes; validate the path with 1472-byte pings before returning the site to service.",
+          "On 3.2 systems with custom APN profiles, recheck every LTE interface after migration because the per-interface tunnel MTU can be dropped.",
+          "For 3.3 edges with both modems enabled, set the LTE handoff debounce to 5000 ms to reduce CPU spikes during transient signal loss."
+        ],
+        "commands": [
+          "interface lte0 tunnel-mtu 1400",
+          "interface lte0 handoff-debounce 5000",
+          "commit",
+          "show sdwan tunnels"
+        ],
+        "related_kbs": [
+          "KB-5104",
+          "KB-5110",
+          "KB-5112"
+        ]
+      },
+      {
+        "heading": "Overlay tunnel queueing and routing-cache hygiene",
+        "key_facts": [
+          "Place SLA probes into a high-priority queue on busy links so burst traffic does not delay probe packets and flap the overlay tunnel.",
+          "If shaping is already enabled, reduce the bulk-traffic class to 60 to 70 percent so control traffic is not queued behind large data bursts.",
+          "After a planned underlay withdrawal, trigger a route-refresh or shorten the app-route cache age-time to 60 seconds during the maintenance window.",
+          "Confirm that withdrawn routes disappear from the cache before moving traffic to the backup link."
+        ],
+        "commands": [
+          "app-route sla-class voice probe-queue priority",
+          "app-route cache age-time 60",
+          "commit",
+          "show sdwan tunnels"
+        ],
+        "related_kbs": [
+          "KB-5105",
+          "KB-5109"
+        ]
+      },
+      {
+        "heading": "Reporting load control and operational verification",
+        "key_facts": [
+          "Reduce flow-history retention to 5 days when reporting jobs are consuming excessive CPU on 3.3 systems.",
+          "If the environment requires longer retention, split reports into narrower 24-hour jobs and schedule them during a low-change maintenance window.",
+          "Use reporting window changes to avoid contention with policy updates on the same CPU cores.",
+          "Verify tunnel state and application-route status after report tuning so operational troubleshooting is not confused by delayed analytics processing."
+        ],
+        "commands": [
+          "reporting flow-history retention 5d",
+          "commit",
+          "show sdwan tunnels",
+          "show app-route sla-class"
+        ],
+        "related_kbs": [
+          "KB-5107"
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "question": "How do I keep SLA classes from flapping during brief loss spikes on a marginal WAN link?",
+        "section_index": 0,
+        "related_kbs": [
+          "KB-5101",
+          "KB-5105"
+        ]
+      },
+      {
+        "question": "What should I change after an upgrade if LTE tunnels or handoff behavior changes on dual-SIM edges?",
+        "section_index": 3,
+        "related_kbs": [
+          "KB-5104",
+          "KB-5112"
+        ]
+      }
+    ]
+  }
+}

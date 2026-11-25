@@ -1,0 +1,59 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-OW#3",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "802.11r fast transition is intended to reduce the authentication delay that occurs when a client moves between APs in the same mobility domain. On the Orion OW-20, successful roaming depends on two separate conditions: the SSID must have FT enabled, and the controller must be able to process key derivation, accounting, and client-state cleanup quickly enough to keep the roam in the sub-100 ms range expected by voice and interactive applications. When roaming tests are used as a validation method, the controller load profile matters as much as the WLAN settings, because excessive control-plane work can make an otherwise correct FT configuration appear unstable.",
+      "For initial validation, enable FT only on the SSIDs that require it and test with a small client set before scaling up. Use `wlan corp ft enable` on the target SSID, then confirm that the client is associated to the expected WLAN and that the controller reports FT-capable roam behavior in the client record. If the SSID also carries accounting, keep the accounting timer aligned with the mobility profile. Lower the client accounting interval to 60 seconds on latency-sensitive SSIDs when 802.11r is enabled. This reduces the amount of stale session state that can accumulate during repeated roam cycles and helps the controller refresh usage counters without creating excessive accounting churn.",
+      "Controller resource headroom is a major variable in release 4.9. For 4.9, keep controller CPU below 70% during roaming tests to reduce fast-transition key installation delays. If CPU rises above that level while the client is roaming, the FT exchange can complete but the client may experience extended packet loss because reassociation and key installation are serialized behind other control-plane tasks. Common causes include running AP join tests at the same time, bulk configuration commits, and aggressive monitoring polls. In practice, it is better to validate roaming on a quiet controller and then repeat the test under a realistic but controlled load profile.",
+      "Release 5.0 requires a different tuning approach because cleanup of previous roam state can lag behind the next roam attempt. For 5.0, stagger roaming tests or reduce the client cleanup batch size so the FT flush completes within 150 ms. If the cleanup path remains busy, the controller may retain transient client entries long enough to interfere with the next FT handshake, which shows up as intermittent roam failures rather than a consistent protocol error. Reducing the batch size also helps isolate whether a failure is caused by key exchange timing or by stale state in the client database. Use `roam batch-size 8` when you need to limit the number of clients processed per cleanup cycle during test runs.",
+      "When testing voice-critical SSIDs, do not generate large roam bursts from many endpoints at the same moment. Cap roam bursts below 30 clients per 10 seconds on voice-critical SSIDs until the affected release is updated. This limit avoids synchronized reassociation, RADIUS reauthorization spikes, and AP-side queue growth that can make a valid FT deployment fail under burst conditions. A common mistake is to validate 802.11r with one client and assume the same timing will hold for dozens of phones or handhelds moving through the same hallway. Always test both single-client behavior and burst behavior, then compare roam latency, authentication retries, and any increase in retransmissions or missed voice packets.",
+      "During troubleshooting, use client detail data to distinguish protocol failure from capacity pressure. `show client detail <mac>` should show the client on the expected SSID, the current AP, and recent roam history with the FT status that corresponds to the latest transition. If the roam succeeds but user traffic stalls, inspect whether accounting updates, cleanup activity, or CPU saturation aligns with the roam timestamp. If the roam fails repeatedly only during load tests, reduce test concurrency first; if failures persist at low load, verify that FT is enabled on every participating SSID and that the client is not falling back to a non-FT transition path."
+    ],
+    "procedure_steps": [
+      "Enable FT on the target SSID with `wlan corp ft enable`.",
+      "If the SSID is latency sensitive, set accounting to 60 seconds with `wlan corp accounting interval 60`.",
+      "For release 5.0 roaming validation, set `roam batch-size 8` to limit cleanup bursts.",
+      "Run the roam test with a small client set first, then increase concurrency in controlled increments.",
+      "Keep controller CPU below 70% during roaming tests on 4.9, and cap roam bursts below 30 clients per 10 seconds on voice-critical SSIDs until the affected release is updated.",
+      "After each roam cycle, check the client record for FT status and roaming continuity before increasing test load."
+    ],
+    "table": {
+      "caption": "802.11r roaming validation parameters and guidance",
+      "header": [
+        "Item",
+        "Recommended value or limit",
+        "Scope",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "Accounting interval",
+          "60 seconds",
+          "Latency-sensitive SSIDs with 802.11r enabled",
+          "Reduces stale session state and keeps accounting refreshes predictable."
+        ],
+        [
+          "Controller CPU during tests",
+          "Below 70%",
+          "Release 4.9 roaming validation",
+          "Helps avoid fast-transition key installation delays."
+        ],
+        [
+          "FT cleanup batch size",
+          "8",
+          "Release 5.0 roaming validation",
+          "Use when staggered tests are not practical; keeps FT flush within 150 ms."
+        ],
+        [
+          "Roam burst rate",
+          "Below 30 clients per 10 seconds",
+          "Voice-critical SSIDs until the affected release is updated",
+          "Prevents synchronized reassociation and control-plane spikes."
+        ]
+      ]
+    },
+    "verification": "Confirm FT is enabled on the SSID with `show client detail <mac>` after a roam and verify that the client remains associated to the expected WLAN and AP without falling back to a full reauthentication path. The output should show a recent roam event, the current AP, and FT-related status consistent with a fast transition. During the test, watch for steady client connectivity, no repeated roam failures, and no increase in roam latency when controller CPU remains below 70% on 4.9. For 5.0, verify that cleanup activity completes between bursts and that the client record clears and repopulates cleanly after each roam cycle without residual stale entries."
+  }
+}

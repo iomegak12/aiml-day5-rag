@@ -1,0 +1,2432 @@
+{
+  "vendor": {
+    "name": "Veridane Networks",
+    "team": "Veridane Technical Assistance Center (TAC)",
+    "domain": "enterprise networking: routing, security, wireless, SD-WAN and data-center switching",
+    "audience": "network engineers at enterprise customers, and TAC support engineers"
+  },
+  "products": {
+    "AR": {
+      "code": "AR",
+      "name": "Aurora AR-900",
+      "kind": "edge router",
+      "versions": [
+        "9.1.4",
+        "9.1.6",
+        "9.2.0",
+        "9.2.1",
+        "9.2.3",
+        "9.3.0"
+      ],
+      "features": {
+        "9.1.4": [
+          "BGP next-hop recursion cache",
+          "BFD transmit scheduler",
+          "BGP add-path session state"
+        ],
+        "9.1.6": [
+          "BGP route refresh handling",
+          "BFD counter wrap handling",
+          "Upgrade state migration"
+        ],
+        "9.2.0": [
+          "OSPF DBD MTU negotiation",
+          "IPv6 SLAAC lifetime tracking",
+          "Recursive static-route notification"
+        ],
+        "9.2.1": [
+          "QoS scheduler credits",
+          "BGP soft-clear scaling",
+          "OSPF adjacency interop"
+        ],
+        "9.2.3": [
+          "Control-plane punt accounting",
+          "BGP recursive route notification",
+          "Scheduler fairness fixes"
+        ],
+        "9.3.0": [
+          "NAT allocator aging",
+          "IPv6 control-plane protection accounting",
+          "BGP recursion re-notification"
+        ]
+      },
+      "guide": {
+        "id": "GUIDE-AR",
+        "title": "Aurora AR-900 Configuration and Troubleshooting Guide",
+        "sections": [
+          {
+            "heading": "BGP configuration and next-hop resolution",
+            "key_facts": [
+              "On 9.1.4 and 9.1.6, clear the BGP process for the affected IPv4 unicast address family if the next-hop remains unresolved after an underlay route withdrawal.",
+              "If the affected path is critical during a maintenance window, prefer a static discard route with a lower administrative distance than the learned underlay route so recursion remains stable.",
+              "On 9.2.3, issue a soft clear of the affected BGP address family after changing recursive static routes, and if a clear must be avoided, withdraw the old static route for at least 5 seconds before installing the replacement.",
+              "Avoid repeated soft clears during peak update periods, because the routing process can spike to 95% CPU on 9.2.1."
+            ],
+            "commands": [
+              "clear bgp ipv4 unicast 65001",
+              "clear bgp ipv4 unicast 65001 soft",
+              "clear ip route 198.51.100.0/24",
+              "clear ip route 203.0.113.0/24"
+            ],
+            "related_kbs": [
+              "KB-2101",
+              "KB-2107",
+              "KB-2110"
+            ]
+          },
+          {
+            "heading": "BFD timer tuning and long-uptime maintenance",
+            "key_facts": [
+              "On 9.1.4, restart the BFD process or reload the router during a maintenance window before platform uptime reaches 49 days.",
+              "As temporary containment on noncritical peers, set the BFD transmit interval to 200 ms and the detection multiplier to 5.",
+              "Use the same 200/200/5 timer profile consistently on peers where transient loss is acceptable, and verify the session state after the change.",
+              "If BFD stops transmitting after long uptime, treat it as a process recovery issue rather than a link-layer fault and plan a controlled restart."
+            ],
+            "commands": [
+              "configure",
+              "router bfd",
+              "timers 200 200 5",
+              "show bfd neighbors detail"
+            ],
+            "related_kbs": [
+              "KB-2102"
+            ]
+          },
+          {
+            "heading": "OSPF adjacency stability on multiaccess segments",
+            "key_facts": [
+              "On 9.2.0, match the MTU on both sides of a multiaccess segment to prevent repeated OSPF adjacency resets.",
+              "If the topology permits, configure the neighbor or interface as point-to-point instead of multiaccess to avoid MTU negotiation instability.",
+              "When MTU cannot be matched during the maintenance window, enable `ip ospf mtu-ignore` on both peers.",
+              "After applying the workaround, confirm the adjacency reaches full state and does not restart on the next hello dead interval."
+            ],
+            "commands": [
+              "configure",
+              "interface ethernet 1/1",
+              "ip ospf mtu-ignore",
+              "show ospf neighbor"
+            ],
+            "related_kbs": [
+              "KB-2103"
+            ]
+          },
+          {
+            "heading": "IPv6 neighbor discovery and router advertisement handling",
+            "key_facts": [
+              "Do not suppress router advertisements on the active user VLAN when SLAAC is in use, because prefixes can be removed too early after suppression.",
+              "If RA suppression is required, use DHCPv6 stateful addressing on the affected segment rather than relying on SLAAC.",
+              "Keep the RA hold timer above the preferred lifetime so hosts do not age out prefixes prematurely.",
+              "Review the VLAN interface configuration before changing suppression behavior to ensure the access segment keeps a valid IPv6 addressing method."
+            ],
+            "commands": [
+              "configure",
+              "interface vlan 10",
+              "ipv6 nd ra-suppress",
+              "show ipv6 interface vlan 10"
+            ],
+            "related_kbs": [
+              "KB-2104"
+            ]
+          },
+          {
+            "heading": "QoS and control-plane protection thresholds",
+            "key_facts": [
+              "On 9.2.1, cap the strict-priority class at 30% bandwidth to prevent best-effort starvation during microbursts.",
+              "Where strict priority is not required, convert the service class to low-latency queueing with an explicit policer of 300 Mbps on 10 Gbps links.",
+              "On 9.2.3, set the control-plane policer for IPv6 ND to 2,000 pps until the traffic source is identified.",
+              "Reduce IPv6 ND load at the edge with RA guard or storm control on the access VLAN, and if necessary shut the offending access port for 30 seconds to let neighbor state recover."
+            ],
+            "commands": [
+              "configure",
+              "policy-map wan-egress",
+              "class voice",
+              "priority percent 30",
+              "control-plane"
+            ],
+            "related_kbs": [
+              "KB-2105",
+              "KB-2106",
+              "KB-2112"
+            ]
+          },
+          {
+            "heading": "SNMP trap reliability and NAT capacity management",
+            "key_facts": [
+              "If trap history must be complete, shorten the SNMP polling interval to 30 seconds and treat traps as advisory when link flap storms are present.",
+              "Enable link debounce of 500 ms on unstable access ports to reduce linkUp trap loss when the trap queue exceeds 1024 entries.",
+              "On 9.3.0, increase the NAT pool size or add at least one additional public address if dynamic NAT port exhaustion is reported incorrectly after teardown.",
+              "If session churn is predictable, increase application keepalive intervals to 60 seconds or more and set the NAT translation timeout to 240 seconds to reduce allocator churn."
+            ],
+            "commands": [
+              "configure",
+              "interface ethernet 1/1",
+              "link-debounce 500",
+              "ip nat pool edge-pool 198.51.100.10 198.51.100.30",
+              "ip nat translation timeout 240"
+            ],
+            "related_kbs": [
+              "KB-2108",
+              "KB-2109"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "question": "How should I recover BGP next-hop resolution after an underlay or recursive static route change?",
+            "section_index": 0,
+            "related_kbs": [
+              "KB-2101",
+              "KB-2107"
+            ]
+          },
+          {
+            "question": "How do I tune BFD timers to reduce false failures on long-lived peers?",
+            "section_index": 1,
+            "related_kbs": [
+              "KB-2102"
+            ]
+          }
+        ]
+      }
+    },
+    "NF": {
+      "code": "NF",
+      "name": "Nimbus NF-300",
+      "kind": "next-generation firewall",
+      "versions": [
+        "5.0.8",
+        "5.0.9",
+        "5.1.3",
+        "5.1.5",
+        "5.2.0",
+        "5.2.2"
+      ],
+      "features": {
+        "5.0.8": [
+          "Baseline NF-300 firewall services",
+          "Initial IKEv2 and HA implementation",
+          "HTTPS image staging"
+        ],
+        "5.0.9": [
+          "Boot loader verification update",
+          "Child SA rekey stability improvements",
+          "HA replay logging"
+        ],
+        "5.1.3": [
+          "Expanded VPN transform support",
+          "Configuration checkpoint migration",
+          "Session-table instrumentation"
+        ],
+        "5.1.5": [
+          "Threat prevention signature cache changes",
+          "SSL inspection policy scaling",
+          "HA resync telemetry"
+        ],
+        "5.2.0": [
+          "Asymmetric session hashing",
+          "Chunked signature activation",
+          "Improved VPN policy parsing"
+        ],
+        "5.2.2": [
+          "Session-table rebalance tuning",
+          "HA recovery sequencing",
+          "TLS inspection cache controls"
+        ]
+      },
+      "guide": {
+        "id": "GUIDE-NF",
+        "title": "nimbus nf-300 configuration and troubleshooting guide",
+        "sections": [
+          {
+            "heading": "ipsec and ikev2 tunnel setup",
+            "key_facts": [
+              "For policy-based IKEv2 tunnels, avoid local selectors narrower than /30; use route-based VPN for host-to-host designs and enforce restrictions with firewall policy instead.",
+              "On 5.1.3 and 5.1.5, pin a single DH group on both peers, preferably group 14, and avoid mixed transform sets to prevent phase 2 resets.",
+              "On 5.0.8 and 5.0.9, keep the PFS group unchanged on both peers; if a change is required, apply the same group on both sides and clear the SA after the change.",
+              "If the platform is rekeying active traffic and a child SA change is required on 5.0.8 or 5.0.9, disable child SA rekey and schedule a manual tunnel restart during a maintenance window."
+            ],
+            "commands": [
+              "config",
+              "vpn ikev2 policy-based disable",
+              "crypto ikev2 proposal default dh-group 14",
+              "crypto ikev2 child-sa rekey disable",
+              "commit"
+            ],
+            "related_kbs": [
+              "KB-3101",
+              "KB-3102",
+              "KB-3108"
+            ]
+          },
+          {
+            "heading": "ha pair stability and resynchronization",
+            "key_facts": [
+              "Place HA heartbeat links on a dedicated L2 segment that is independent of monitored interfaces to prevent oscillation.",
+              "If dedicated cabling is not immediately possible, set the HA monitor interval to 10 seconds so transient link events are less likely to trigger repeated failover.",
+              "On 5.0.9 after split-brain recovery, perform a full HA resync instead of relying on incremental replay.",
+              "After node return, keep failover links stable for at least 120 seconds so the replay queue can drain before you validate session state."
+            ],
+            "commands": [
+              "show ha status",
+              "config",
+              "ha monitor-interval 10",
+              "ha resync full",
+              "commit"
+            ],
+            "related_kbs": [
+              "KB-3103",
+              "KB-3107"
+            ]
+          },
+          {
+            "heading": "session-table tuning for asymmetric traffic",
+            "key_facts": [
+              "On 5.2.0, if asymmetric routing is enabled for large-prefix traffic, disable it for the affected policy set when shard imbalance appears.",
+              "For concentrated /24 traffic, split the prefix into smaller policy groups so sessions distribute more evenly across shards.",
+              "Keep the busiest shard below 75 percent occupancy until a software fix is available, and verify distribution after each policy change.",
+              "Use session-table summary output to confirm that the hottest shard is not trending upward across successive samples."
+            ],
+            "commands": [
+              "show session table summary",
+              "config",
+              "session-table asymmetric-routing disable",
+              "commit"
+            ],
+            "related_kbs": [
+              "KB-3109",
+              "KB-3110"
+            ]
+          },
+          {
+            "heading": "ssl inspection cache and policy change handling",
+            "key_facts": [
+              "On 5.2.0 and 5.2.2, increase the SSL inspection certificate cache size to 4096 entries to reduce eviction-driven bypass events.",
+              "If outbound TLS inspection starts bypassing intermittently after cache eviction, restart SSL inspection to clear stale pointers as a temporary recovery step.",
+              "Disable outbound inspection for the affected server group only if the cache increase does not keep evictions below 1,000 entries per hour.",
+              "Avoid changing SSL inspection policy while a threat database update is active, because activation can stall packet processing on 5.1.5."
+            ],
+            "commands": [
+              "config",
+              "ssl inspection cache size 4096",
+              "commit",
+              "show threat database status"
+            ],
+            "related_kbs": [
+              "KB-3105",
+              "KB-3106"
+            ]
+          },
+          {
+            "heading": "firmware upgrade preparation and image staging",
+            "key_facts": [
+              "Before upgrading from 5.0.x to 5.1.3 or 5.1.5, keep each checkpoint file under 4,000 entries and verify the running configuration immediately after reboot.",
+              "If the configuration contains more than 4,096 replay entries, split the upgrade into smaller chunks or export and re-import policy objects after first boot.",
+              "On 5.0.8, stage 5.0.9 images with SCP or USB rather than HTTPS so the boot loader does not reject a valid image because of padding.",
+              "Always verify the staged image hash before scheduling the reboot and confirm the image appears in software inventory."
+            ],
+            "commands": [
+              "show configuration checkpoint summary",
+              "copy running-config backup://198.51.100.20/nf300-preupgrade.cfg",
+              "copy scp://198.51.100.10/nf300-5.0.9.bin system image",
+              "show software image"
+            ],
+            "related_kbs": [
+              "KB-3104",
+              "KB-3111"
+            ]
+          },
+          {
+            "heading": "threat database updates and timing control",
+            "key_facts": [
+              "On 5.1.5, schedule threat database updates during a maintenance window and keep the signature bundle below 128 MB to avoid packet-processing stalls.",
+              "Set the update window to 02:00 through 02:15 when operationally feasible, and avoid SSL inspection policy changes until activation completes.",
+              "Use the threat database status output to confirm whether an update is active before making any inspection or policy changes.",
+              "If a large bundle is unavoidable, defer nonessential traffic-policy edits until the update has fully applied and the dataplane has returned to steady state."
+            ],
+            "commands": [
+              "show threat database status",
+              "config",
+              "threat update window 02:00 02:15",
+              "commit"
+            ],
+            "related_kbs": [
+              "KB-3105"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "question": "How should I configure ikev2 tunnels to avoid phase 2 renegotiation and selector-related failures?",
+            "section_index": 0,
+            "related_kbs": [
+              "KB-3102",
+              "KB-3108"
+            ]
+          },
+          {
+            "question": "How do I stage an upgrade and reduce the chance of configuration loss or image rejection?",
+            "section_index": 4,
+            "related_kbs": [
+              "KB-3104",
+              "KB-3111"
+            ]
+          }
+        ]
+      }
+    },
+    "OW": {
+      "code": "OW",
+      "name": "Orion OW-20",
+      "kind": "wireless LAN controller",
+      "versions": [
+        "4.6",
+        "4.7",
+        "4.8",
+        "4.9",
+        "5.0",
+        "5.1"
+      ],
+      "features": {
+        "4.6": [
+          "CAPWAP join baseline",
+          "guest portal object model",
+          "configuration database commit queue"
+        ],
+        "4.7": [
+          "AP join retry handling",
+          "redundancy sync improvements",
+          "RADIUS attribute normalization"
+        ],
+        "4.8": [
+          "AP join state-machine rework",
+          "incremental config sync",
+          "roaming telemetry"
+        ],
+        "4.9": [
+          "802.11r FT enhancements",
+          "guest portal session continuity",
+          "DFS event logging"
+        ],
+        "5.0": [
+          "RADIUS challenge repacking",
+          "fast roaming queue priority",
+          "upgrade migration checks"
+        ],
+        "5.1": [
+          "RF channel worker tuning",
+          "guest ACL migration",
+          "configuration backup validation"
+        ]
+      },
+      "guide": {
+        "id": "GUIDE-OW",
+        "title": "Orion OW-20 Configuration and Troubleshooting Guide",
+        "sections": [
+          {
+            "heading": "AP join baseline and retry tuning",
+            "key_facts": [
+              "For AP join failures on 4.6, remove any RF profile override from the AP group so the controller does not emit a zero-length RF profile TLV.",
+              "On 4.7, set the AP join retry interval to 2 seconds so the controller keeps the transaction active through capability revalidation.",
+              "On 4.8, set the AP join timeout to 180 seconds when join stalls occur during the second capability exchange.",
+              "For remote APs, keep one-way latency under 80 ms on 4.7 systems and keep uplink loss below 0.5% during 4.8 join operations."
+            ],
+            "commands": [
+              "show ap summary",
+              "ap-group default rf-profile none",
+              "ap join retry-interval 2",
+              "ap join timeout 180",
+              "show logging last 50"
+            ],
+            "related_kbs": [
+              "KB-4101",
+              "KB-4102",
+              "KB-4103"
+            ]
+          },
+          {
+            "heading": "Controller redundancy and configuration database hygiene",
+            "key_facts": [
+              "Keep the configuration database below 30,000 rows before enabling redundancy to avoid sync stalls at the 32,768-row threshold.",
+              "Remove unused AP groups, WLAN profiles, and stale guest accounts before enabling active-standby operation.",
+              "If immediate failover is required after a large configuration change, schedule a full config resync during a maintenance window.",
+              "Use redundancy force-resync only after confirming the database has been reduced and the commit queue is clear."
+            ],
+            "commands": [
+              "show redundancy status",
+              "show configuration database summary",
+              "redundancy force-resync",
+              "show logging last 50"
+            ],
+            "related_kbs": [
+              "KB-4104",
+              "KB-4112"
+            ]
+          },
+          {
+            "heading": "802.11r roaming validation and load control",
+            "key_facts": [
+              "For 4.9, keep controller CPU below 70% during roaming tests to reduce fast-transition key installation delays.",
+              "Lower the client accounting interval to 60 seconds on latency-sensitive SSIDs when 802.11r is enabled.",
+              "For 5.0, stagger roaming tests or reduce the client cleanup batch size so the FT flush completes within 150 ms.",
+              "Cap roam bursts below 30 clients per 10 seconds on voice-critical SSIDs until the affected release is updated."
+            ],
+            "commands": [
+              "show client detail <mac>",
+              "wlan corp ft enable",
+              "wlan corp accounting interval 60",
+              "roam batch-size 8"
+            ],
+            "related_kbs": [
+              "KB-4105",
+              "KB-4106"
+            ]
+          },
+          {
+            "heading": "RADIUS Access-Challenge attribute ordering",
+            "key_facts": [
+              "On 4.9, keep Access-Challenge replies at 12 or fewer attributes to avoid loss or omission of Vendor-Specific attribute 26.",
+              "If the server must send more than 12 attributes, move Vendor-Specific attribute 26 earlier in the response order.",
+              "Prefer a policy server that sends tunneled attributes first when troubleshooting intermittent 802.1X challenge processing.",
+              "Use the vendor-first attribute order setting before retesting client authentication."
+            ],
+            "commands": [
+              "show client detail <mac>",
+              "radius-server attribute-order vendor-first",
+              "show logging last 50"
+            ],
+            "related_kbs": [
+              "KB-4107",
+              "KB-4108"
+            ]
+          },
+          {
+            "heading": "Guest portal sessions across failover",
+            "key_facts": [
+              "During guest registration windows, keep failover inhibited so portal cookies remain pinned to the active node UUID.",
+              "For planned maintenance, set guest portal session timeout to 15 minutes before invoking failover.",
+              "If a switchover already occurred, clear the portal cookie and require the guest to reauthenticate.",
+              "Expire guest sessions before a planned redundancy failover when guest access continuity matters."
+            ],
+            "commands": [
+              "show redundancy status",
+              "guest-portal session timeout 15",
+              "redundancy failover inhibit"
+            ],
+            "related_kbs": [
+              "KB-4109"
+            ]
+          },
+          {
+            "heading": "5.1 RF manager and upgrade readiness",
+            "key_facts": [
+              "On 5.1, disable DFS on affected radio groups if repeated DFS events stop channel updates.",
+              "Pin radios to a non-DFS channel set such as 36,40,44,48 with at least 20 MHz separation from neighboring cells.",
+              "Keep radar events below 3 per 10 minutes during peak usage if DFS must remain enabled.",
+              "Before upgrading from 4.6 to 5.0, delete unused legacy guest portal ACL objects and verify the configuration database contains only normalized entries."
+            ],
+            "commands": [
+              "show ap summary",
+              "ap group dfs disable",
+              "rf channel set 36,40,44,48",
+              "show guest acl summary",
+              "upgrade apply 5.0"
+            ],
+            "related_kbs": [
+              "KB-4110",
+              "KB-4111"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "question": "How should I tune AP join behavior so remote APs finish registration reliably on affected releases?",
+            "section_index": 0,
+            "related_kbs": [
+              "KB-4102",
+              "KB-4103"
+            ]
+          },
+          {
+            "question": "What do I need to change before enabling redundancy if the configuration database is large?",
+            "section_index": 1,
+            "related_kbs": [
+              "KB-4104",
+              "KB-4112"
+            ]
+          }
+        ]
+      }
+    },
+    "AT": {
+      "code": "AT",
+      "name": "Atlas SD-WAN",
+      "kind": "SD-WAN orchestrator and edge",
+      "versions": [
+        "2.8",
+        "2.9",
+        "3.0",
+        "3.1",
+        "3.2",
+        "3.3"
+      ],
+      "features": {
+        "2.8": [
+          "Initial overlay tunnel formation",
+          "Basic application-aware routing",
+          "Certificate-based edge registration"
+        ],
+        "2.9": [
+          "SLA class hold-down tuning",
+          "LTE transport profile support",
+          "Policy push preflight validation"
+        ],
+        "3.0": [
+          "Policy compiler overhaul",
+          "Improved trust-store handling",
+          "SLA probe queue separation"
+        ],
+        "3.1": [
+          "Route-cache aging controls",
+          "Upgrade migration for LTE profiles",
+          "Reporting retention configuration"
+        ],
+        "3.2": [
+          "Immediate route-withdrawal invalidation",
+          "Dual-SIM LTE upgrade preservation",
+          "IPSec proposal negotiation updates"
+        ],
+        "3.3": [
+          "Expanded flow-history reporting",
+          "LTE handoff telemetry",
+          "Certificate validation tightening"
+        ]
+      },
+      "guide": {
+        "id": "GUIDE-AT",
+        "title": "Atlas SD-WAN Configuration and Troubleshooting Guide",
+        "sections": [
+          {
+            "heading": "SLA class stability and probe tuning",
+            "key_facts": [
+              "Use a probe window of at least five samples so a single 1-second loss spike does not clear the SLA class.",
+              "Set the hold-down to 5000 ms before allowing the class to recover, which prevents rapid down/up transitions on marginal links.",
+              "For links that are already close to threshold, raise the packet-loss threshold by 1 to 2 percent to avoid unnecessary path switching.",
+              "Keep the probe interval at 1000 ms for voice or other latency-sensitive classes unless a site-specific design requires a slower cadence."
+            ],
+            "commands": [
+              "app-route sla-class voice loss-threshold 5 latency-threshold 80 probe-interval 1000 hold-down 5000",
+              "commit",
+              "show app-route sla-class"
+            ],
+            "related_kbs": [
+              "KB-5101",
+              "KB-5105"
+            ]
+          },
+          {
+            "heading": "Certificate chain maintenance and edge re-registration",
+            "key_facts": [
+              "Reimport the full certificate chain, including the active intermediate CA, on the orchestrator before renewing any edge certificate.",
+              "Stage the new chain at least 24 hours before the old intermediate expires so renewal and re-registration do not fail during the cutover window.",
+              "If edge re-registration fails after renewal, verify that the orchestrator trust bundle contains the current intermediate and root chain in the same import set."
+            ],
+            "commands": [
+              "certificate import trust-bundle edge-chain.pem",
+              "commit",
+              "show certificate trust-bundle"
+            ],
+            "related_kbs": [
+              "KB-5102",
+              "KB-5108"
+            ]
+          },
+          {
+            "heading": "Policy push limits, CRL freshness, and route-map sizing",
+            "key_facts": [
+              "Keep each route-map at 256 entries or fewer; split larger maps into separate policy objects before the push.",
+              "If a tenant already has a larger route-map, remove 10 to 20 entries, commit the change, and re-add the remainder in a second commit to unblock policy push.",
+              "Refresh the CRL before it is older than 24 hours, or align CA publication to a 12 to 18 hour interval so the push window does not hit the hard-expiry check.",
+              "Confirm the updated CRL timestamp before retrying a failed policy push."
+            ],
+            "commands": [
+              "policy route-map RM-BRANCH-1 split-after 256",
+              "certificate import crl revocation-list.pem",
+              "commit",
+              "show policy push status"
+            ],
+            "related_kbs": [
+              "KB-5103",
+              "KB-5111"
+            ]
+          },
+          {
+            "heading": "LTE tunnel MTU and handoff tuning",
+            "key_facts": [
+              "After any 3.1 upgrade, reapply the LTE tunnel MTU on each dual-SIM edge because the upgrade may rewrite it to 1500.",
+              "For most carrier LTE links, use a tunnel MTU between 1400 and 1420 bytes; validate the path with 1472-byte pings before returning the site to service.",
+              "On 3.2 systems with custom APN profiles, recheck every LTE interface after migration because the per-interface tunnel MTU can be dropped.",
+              "For 3.3 edges with both modems enabled, set the LTE handoff debounce to 5000 ms to reduce CPU spikes during transient signal loss."
+            ],
+            "commands": [
+              "interface lte0 tunnel-mtu 1400",
+              "interface lte0 handoff-debounce 5000",
+              "commit",
+              "show sdwan tunnels"
+            ],
+            "related_kbs": [
+              "KB-5104",
+              "KB-5110",
+              "KB-5112"
+            ]
+          },
+          {
+            "heading": "Overlay tunnel queueing and routing-cache hygiene",
+            "key_facts": [
+              "Place SLA probes into a high-priority queue on busy links so burst traffic does not delay probe packets and flap the overlay tunnel.",
+              "If shaping is already enabled, reduce the bulk-traffic class to 60 to 70 percent so control traffic is not queued behind large data bursts.",
+              "After a planned underlay withdrawal, trigger a route-refresh or shorten the app-route cache age-time to 60 seconds during the maintenance window.",
+              "Confirm that withdrawn routes disappear from the cache before moving traffic to the backup link."
+            ],
+            "commands": [
+              "app-route sla-class voice probe-queue priority",
+              "app-route cache age-time 60",
+              "commit",
+              "show sdwan tunnels"
+            ],
+            "related_kbs": [
+              "KB-5105",
+              "KB-5109"
+            ]
+          },
+          {
+            "heading": "Reporting load control and operational verification",
+            "key_facts": [
+              "Reduce flow-history retention to 5 days when reporting jobs are consuming excessive CPU on 3.3 systems.",
+              "If the environment requires longer retention, split reports into narrower 24-hour jobs and schedule them during a low-change maintenance window.",
+              "Use reporting window changes to avoid contention with policy updates on the same CPU cores.",
+              "Verify tunnel state and application-route status after report tuning so operational troubleshooting is not confused by delayed analytics processing."
+            ],
+            "commands": [
+              "reporting flow-history retention 5d",
+              "commit",
+              "show sdwan tunnels",
+              "show app-route sla-class"
+            ],
+            "related_kbs": [
+              "KB-5107"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "question": "How do I keep SLA classes from flapping during brief loss spikes on a marginal WAN link?",
+            "section_index": 0,
+            "related_kbs": [
+              "KB-5101",
+              "KB-5105"
+            ]
+          },
+          {
+            "question": "What should I change after an upgrade if LTE tunnels or handoff behavior changes on dual-SIM edges?",
+            "section_index": 3,
+            "related_kbs": [
+              "KB-5104",
+              "KB-5112"
+            ]
+          }
+        ]
+      }
+    },
+    "HX": {
+      "code": "HX",
+      "name": "Helix HX-5000",
+      "kind": "core switch",
+      "versions": [
+        "7.2",
+        "7.3",
+        "7.4",
+        "7.5",
+        "7.6",
+        "8.0"
+      ],
+      "features": {
+        "7.2": [
+          "25G optical DOM telemetry",
+          "enhanced queue counters",
+          "basic rapid-pvst support"
+        ],
+        "7.3": [
+          "stack election optimization",
+          "transceiver polling stabilization",
+          "LACP neighbor visibility"
+        ],
+        "7.4": [
+          "expanded buffer scheduling",
+          "dom threshold validation",
+          "upgrade migration checks"
+        ],
+        "7.5": [
+          "LACP marker handling",
+          "transceiver debounce tuning",
+          "configuration parser hardening"
+        ],
+        "7.6": [
+          "EVPN route-refresh support",
+          "stack heartbeat refinements",
+          "multicast buffer accounting"
+        ],
+        "8.0": [
+          "EVPN type-5 refresh fixes",
+          "stack failure detection",
+          "memory management cleanup"
+        ]
+      },
+      "guide": {
+        "id": "GUIDE-HX",
+        "title": "Helix HX-5000 Configuration and Troubleshooting Guide",
+        "sections": [
+          {
+            "heading": "Optics and transceiver health checks",
+            "key_facts": [
+              "On 7.2, reduce DOM polling on affected SFP28 ports by setting the transceiver monitoring interval to 120 seconds.",
+              "Keep optics below 50 C case temperature when possible, especially on ports showing bias current spikes or remote LOS alarms.",
+              "If a port continues to flap under load, move the optic to a later-release port or replace the module with one that has a stable bias current profile."
+            ],
+            "commands": [
+              "configure terminal",
+              "interface ethernet 1/1",
+              "transceiver monitoring interval 120",
+              "show interfaces transceiver detail"
+            ],
+            "related_kbs": [
+              "KB-6101",
+              "KB-6111"
+            ]
+          },
+          {
+            "heading": "Stack stability and master election",
+            "key_facts": [
+              "On 7.3, use matched-length stack cables between all members to reduce master election oscillation.",
+              "Keep control-plane load below 60 percent until the software is upgraded, because higher load increases the chance of unstable master changes.",
+              "Pin the desired master by setting a higher priority value on the preferred member and avoid adding or removing members during the unstable period.",
+              "On 7.6, keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path."
+            ],
+            "commands": [
+              "configure terminal",
+              "stack member 1 priority 200",
+              "stack member 2 priority 100",
+              "stack heartbeat timeout 900",
+              "show stack"
+            ],
+            "related_kbs": [
+              "KB-6103",
+              "KB-6104"
+            ]
+          },
+          {
+            "heading": "Spanning tree behavior on access ports",
+            "key_facts": [
+              "Do not run rapid-pvst on ports facing devices that legitimately move multiple MAC addresses, such as virtualization hosts or clustered appliances.",
+              "Use a dedicated edge VLAN design or restrict the port to a single access device when rapid-pvst is required.",
+              "Apply portfast on edge ports to reduce convergence delay, but only on interfaces that do not participate in downstream bridging.",
+              "Monitor for continuous topology-change notifications on 10G access ports and reclassify the port role if the notifications persist."
+            ],
+            "commands": [
+              "configure terminal",
+              "spanning-tree mode rapid-pvst",
+              "interface ethernet 1/10",
+              "spanning-tree portfast",
+              "show spanning-tree detail"
+            ],
+            "related_kbs": [
+              "KB-6105"
+            ]
+          },
+          {
+            "heading": "LACP and EtherChannel member handling",
+            "key_facts": [
+              "On 7.4, configure both ends of the bundle for fast LACP timers if the design permits it.",
+              "If the peer advertises slow timers and the bundle mis-bundles or suspends members, switch the local port-channel to fast LACP timers.",
+              "When the bundle must remain on slow timers, do not flap individual member links during maintenance and clear the EtherChannel only after link restoration."
+            ],
+            "commands": [
+              "configure terminal",
+              "interface port-channel 10",
+              "lacp rate fast",
+              "show lacp neighbor",
+              "show etherchannel summary"
+            ],
+            "related_kbs": [
+              "KB-6106",
+              "KB-6107"
+            ]
+          },
+          {
+            "heading": "EVPN route handling and memory protection",
+            "key_facts": [
+              "On 7.6, trigger a controlled EVPN route refresh after moving the anycast gateway MAC.",
+              "Avoid gateway MAC mobility during periods when the fabric is carrying active type-5 routes, and keep the gateway anchored on a single leaf pair when possible.",
+              "On 7.6, reduce unnecessary neighbor resets and schedule a reload before free memory drops below 15 percent.",
+              "If route-refresh events are unavoidable, keep EVPN adjacency changes out of peak traffic windows."
+            ],
+            "commands": [
+              "configure terminal",
+              "router evpn",
+              "address-family l2vpn evpn",
+              "route-refresh",
+              "neighbor 198.51.100.1 route-refresh disable",
+              "show system resources"
+            ],
+            "related_kbs": [
+              "KB-6108",
+              "KB-6112"
+            ]
+          },
+          {
+            "heading": "Queue, buffer, and burst management",
+            "key_facts": [
+              "On 7.2, reduce burstiness with upstream shaping or spread load across additional uplinks so no single egress port stays above 85 percent sustained utilization.",
+              "For critical low-latency flows on oversubscribed 100G egress ports, reserve a dedicated queue on the affected interface.",
+              "On 8.0, limit multicast fanout on busy leafs or move replication-heavy workloads onto a separate uplink group to protect the shared buffer pool.",
+              "If multicast bursts are predictable, schedule the traffic outside congestion-sensitive windows and tune the multicast reservation to 12 percent with a 4096 cell queue limit where required."
+            ],
+            "commands": [
+              "configure terminal",
+              "interface ethernet 1/52",
+              "queue-set 3",
+              "priority-flow-control disable",
+              "hardware buffer multicast-reservation 12",
+              "interface port-channel 20",
+              "queue-limit 4096",
+              "show interfaces counters"
+            ],
+            "related_kbs": [
+              "KB-6109",
+              "KB-6110"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "question": "How should I tune optics and DOM monitoring on HX-5000 ports that are showing link drops or LOS alarms?",
+            "section_index": 0,
+            "related_kbs": [
+              "KB-6101"
+            ]
+          },
+          {
+            "question": "What should I change on HX-5000 if a stack is oscillating or briefly separating between members?",
+            "section_index": 1,
+            "related_kbs": [
+              "KB-6103",
+              "KB-6104"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "issues": [
+    {
+      "kb": "KB-2101",
+      "p": "AR",
+      "category": "Routing",
+      "code": "%BGP-4-NH-RESOLVE",
+      "title": "Aurora AR-900 9.1.4 and 9.1.6 BGP IPv4 next-hop stays unresolved after underlay route withdrawal",
+      "symptoms": "On 9.1.4 and 9.1.6, eBGP IPv4 prefixes remain in the table with a valid AS path, but the selected next hop shows as unresolved after the connected underlay route is removed and re-added. The condition usually appears within 5-10 seconds of a track or interface flap and affects roughly 50-200 prefixes until BGP is cleared. `show bgp summary` stays Established, but `show ip route bgp` omits the affected routes.",
+      "root_cause": "The BGP next-hop recursion cache in the 9.1 family can retain a stale negative resolution entry when the resolving route is withdrawn and relearned within the 30-second hold interval. The session remains up, but the best-path process will not retry recursion until the next incremental update or a manual refresh.",
+      "workaround": "Clear the BGP process for the affected address family, or remove and re-add the underlay static/connected route so recursion is recomputed. If the path is critical, prefer a static discard route with a lower distance than the learned underlay during the maintenance window.",
+      "workaround_commands": [
+        "clear bgp ipv4 unicast 65001",
+        "clear ip route 198.51.100.0/24"
+      ],
+      "fix": "Fixed in 9.2.0: BGP now invalidates the next-hop recursion cache whenever the resolving route changes state.",
+      "affected": [
+        "9.1.4",
+        "9.1.6"
+      ],
+      "fixed_in": "9.2.0",
+      "q": "In 9.1.6, why do some eBGP routes stay in the table but show unresolved next hop after the connected route flaps?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-2107",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2102",
+      "p": "AR",
+      "category": "BFD",
+      "code": "ERR-BFD-2201",
+      "title": "Aurora AR-900 9.1.4 BFD sessions stop transmitting after 64-bit counter wrap on long-lived peers",
+      "symptoms": "After roughly 49.7 days of continuous operation with 50 ms transmit intervals, one or more BFD sessions stop sending control packets while the remote side continues to reply to the last valid state. `show bfd neighbors detail` shows the local discriminator as Up, but the transmit counter is frozen and the peer times out after 300 ms to 900 ms depending on the negotiated multiplier. The problem typically affects a small set of long-lived sessions first and then repeats on others after the system uptime crosses the wrap point.",
+      "root_cause": "In 9.1.4, the BFD scheduler used a signed comparison when calculating the next transmit deadline from a 64-bit monotonic counter. Once the counter crossed the sign bit boundary, the transmit wheel stopped advancing for affected sessions even though the receive path remained active.",
+      "workaround": "Restart the BFD process or reload during a maintenance window before the platform uptime reaches 49 days. As a temporary containment measure, increase the detection multiplier to 5 and the transmit interval to 200 ms on noncritical peers.",
+      "workaround_commands": [
+        "configure",
+        "router bfd",
+        "timers 200 200 5"
+      ],
+      "fix": "Fixed in 9.1.6: BFD transmit scheduling now handles 64-bit counter wrap correctly.",
+      "affected": [
+        "9.1.4"
+      ],
+      "fixed_in": "9.1.6",
+      "q": "On 9.1.4, why do BFD peers suddenly stop sending packets after the router has been up for weeks?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2103",
+      "p": "AR",
+      "category": "OSPF",
+      "code": "%OSPF-4-ADJ-EXSTART",
+      "title": "Aurora AR-900 9.2.0 OSPF adjacency repeatedly resets on multiaccess networks with MTU mismatch",
+      "symptoms": "On broadcast segments, OSPF neighbors between AR-900 9.2.0 and a peer with a smaller interface MTU cycle between ExStart and Down every 20-30 seconds. The neighbor table never reaches Full, and LSDB churn increases by 100-300 LSAs per minute during the flap. The issue is most visible when the local interface is 1500 bytes and the peer advertises 1492 bytes or lower.",
+      "root_cause": "The 9.2.0 OSPF DBD exchange code incorrectly reuses the cached local MTU value after the first negotiation attempt. When the remote MTU is lower, the router accepts the initial DBD but then rejects subsequent packets as inconsistent, which forces the adjacency back to ExStart.",
+      "workaround": "Set a matching MTU on both sides or configure the neighbor on the interface as point-to-point if the topology permits. If changing MTU is not possible, use `ip ospf mtu-ignore` on both peers during the maintenance window.",
+      "workaround_commands": [
+        "configure",
+        "interface ethernet 1/1",
+        "ip ospf mtu-ignore"
+      ],
+      "fix": "Fixed in 9.2.1: OSPF now re-evaluates the remote MTU on every DBD exchange.",
+      "affected": [
+        "9.2.0"
+      ],
+      "fixed_in": "9.2.1",
+      "q": "Why does OSPF keep dropping back to ExStart on 9.2.0 when the neighbor MTU is lower?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2104",
+      "p": "AR",
+      "category": "IPv6",
+      "code": "%IPV6-4-RA-LIFETIME",
+      "title": "Aurora AR-900 IPv6 SLAAC prefixes are removed too early after router advertisement suppression",
+      "symptoms": "Hosts on an access VLAN lose their global IPv6 address about 180 seconds after the last valid router advertisement is filtered or suppressed, even though the configured valid lifetime is 7200 seconds. The AR-900 itself still shows the delegated prefix in the configuration, but connected clients begin to fail new TCP sessions and Neighbor Discovery lookups after the preferred lifetime expires. The issue is reproducible on any release when RA suppression is used for maintenance or upstream filtering.",
+      "root_cause": "The router tracks SLAAC prefix lifetimes from received advertisements instead of from the locally configured valid and preferred timers when RA suppression is active. Once the upstream advertisements stop, the local prefix state is aged out by the 3-minute hold timer rather than the advertised lifetime, which prematurely withdraws host configuration.",
+      "workaround": "Do not suppress router advertisements on the active user VLAN. If suppression is required, use DHCPv6 stateful addressing for the affected segment or raise the RA hold timer to exceed the preferred lifetime.",
+      "workaround_commands": [
+        "configure",
+        "interface vlan 10",
+        "ipv6 nd ra-suppress"
+      ],
+      "fix": "No software fix required; this is a design constraint when RA suppression is used with SLAAC on Aurora AR-900.",
+      "affected": "all",
+      "fixed_in": null,
+      "q": "Why are clients losing their IPv6 address a few minutes after I suppress router advertisements?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2105",
+      "p": "AR",
+      "category": "QoS",
+      "code": "%QOS-5-SCHED-DEFICIT",
+      "title": "Aurora AR-900 9.2.1 strict-priority queue can starve best-effort traffic during microbursts",
+      "symptoms": "With a 10 Gbps uplink and a strict-priority voice queue, best-effort traffic can drop to below 1 Mbps for 1-2 second bursts when the priority queue is carrying 40,000-60,000 packets per second. Interface counters show no physical errors, but `show qos interface` reports the priority queue draining at 100% while the weighted queues remain almost empty. The symptom is a short but repeatable latency spike for nonpriority flows during microbursts.",
+      "root_cause": "The scheduler in 9.2.1 fails to reinsert a quantum for weighted queues after the priority queue empties, so a burst that fits inside one scheduling epoch can consume the entire transmit window. The deficit is only cleared on the next 4 ms scheduler tick, which is too late for latency-sensitive best-effort traffic sharing the same egress port.",
+      "workaround": "Cap the strict-priority class to 30% bandwidth or convert it to low-latency queueing with an explicit policer of 300 Mbps on 10 Gbps links. If possible, move bulk traffic to a separate egress interface to avoid shared scheduler contention.",
+      "workaround_commands": [
+        "configure",
+        "policy-map wan-egress",
+        "class voice",
+        "priority percent 30"
+      ],
+      "fix": "Fixed in 9.2.3: the scheduler now preserves weighted queue service credits after a priority burst.",
+      "affected": [
+        "9.2.1"
+      ],
+      "fixed_in": "9.2.3",
+      "q": "On 9.2.1, why does best-effort traffic get crushed whenever the voice queue bursts?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2106",
+      "p": "AR",
+      "category": "Control-plane protection",
+      "code": "ERR-CPP-4412",
+      "title": "Aurora AR-900 9.2.3 control-plane policer can undercount IPv6 ND punts during burst traffic",
+      "symptoms": "On 9.2.3, sustained neighbor discovery traffic can exceed the configured control-plane limit without incrementing the drop counter. In observed cases, `show control-plane protection statistics` reports 0 drops for 30-60 seconds while the CPU rises from 15% to 85% and IPv6 neighbors intermittently transition to Stale. The condition is most visible when 5,000-8,000 NS/NA packets arrive in short bursts from a single access VLAN.",
+      "root_cause": "The punt policer accounts IPv6 ND packets in a 32-bit per-queue counter that is sampled once per 250 ms. Under burst load, the counter wraps between samples and the excess traffic bypasses the drop decision path, so the CPU sees more packets than the intended policer rate allows.",
+      "workaround": "Lower the IPv6 ND rate at the edge by enabling RA guard or storm control on the access VLAN, and reduce the control-plane policer to a conservative value such as 2,000 pps until the traffic source is identified. If necessary, shut the offending access port for 30 seconds to let neighbor state recover.",
+      "workaround_commands": [
+        "configure",
+        "control-plane",
+        "police ipv6-nd 2000"
+      ],
+      "fix": "Fixed in 9.3.0: control-plane protection now samples IPv6 ND punts with lossless accounting.",
+      "affected": [
+        "9.2.3"
+      ],
+      "fixed_in": "9.3.0",
+      "q": "Why is the CPU climbing on 9.2.3 even though the control-plane drop counter stays at zero?",
+      "traps": [
+        "near_duplicate"
+      ],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2107",
+      "p": "AR",
+      "category": "Routing",
+      "code": "%BGP-4-NH-RESOLVE",
+      "title": "Aurora AR-900 9.2.3 BGP next-hop remains unresolved after recursive static route changes",
+      "symptoms": "In 9.2.3, BGP IPv4 routes can disappear from the forwarding table after a static route used for recursion is replaced with another static route to the same prefix. The BGP session stays Established and updates continue to arrive, but `show ip route bgp` shows the affected prefixes as inactive until the route is refreshed or BGP is cleared. The problem typically affects 20-100 prefixes that point to the changed recursive path.",
+      "root_cause": "The route manager in 9.2.3 does not notify the BGP recursion engine when a static route changes its administrative distance but keeps the same destination prefix. As a result, BGP retains the old resolved next hop and marks the path unusable even though a valid recursive path exists.",
+      "workaround": "Issue a soft clear of the affected BGP address family after changing recursive static routes. If you must avoid a clear, withdraw the old static route for at least 5 seconds before installing the replacement so the recursion engine rebuilds the dependency graph.",
+      "workaround_commands": [
+        "clear bgp ipv4 unicast 65001 soft",
+        "clear ip route 203.0.113.0/24"
+      ],
+      "fix": "Fixed in 9.3.0: BGP is now re-notified whenever a recursive static route changes attributes.",
+      "affected": [
+        "9.2.3"
+      ],
+      "fixed_in": "9.3.0",
+      "q": "In 9.2.3, why do BGP routes drop out after I swap one static route for another?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-2101",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2108",
+      "p": "AR",
+      "category": "NAT",
+      "code": "ERR-NAT-4108",
+      "title": "Aurora AR-900 9.3.0 dynamic NAT port exhaustion is reported incorrectly after session teardown",
+      "symptoms": "On 9.3.0, the router can report NAT port exhaustion even when fewer than 10% of the available ports are active. `show nat translations` shows only a small active set, but new flows fail with source-port allocation errors for 2-4 minutes after a burst of short-lived connections. The condition is reproducible on pools with 64 or fewer public addresses and is most obvious when 20,000-30,000 sessions per minute are created and torn down.",
+      "root_cause": "The NAT allocator in 9.3.0 defers return of freed ports until the end of a 240-second aging cycle, but the exhaustion check counts deferred ports as still in use. During a burst, the allocator can reject new sessions even though the ports have already been logically released by the forwarding plane.",
+      "workaround": "Increase the NAT pool size or add at least one additional public address so the active allocator has headroom above the deferred-free window. If the traffic pattern is predictable, reduce the session churn by increasing application keepalive intervals to 60 seconds or more.",
+      "workaround_commands": [
+        "configure",
+        "ip nat pool edge-pool 198.51.100.10 198.51.100.30",
+        "ip nat translation timeout 240"
+      ],
+      "fix": "No software fix required; monitor NAT pool headroom and size pools to tolerate the 240-second deferred-free window.",
+      "affected": [
+        "9.3.0"
+      ],
+      "fixed_in": null,
+      "q": "Why do new NAT sessions fail on 9.3.0 when the translation table looks mostly empty?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2109",
+      "p": "AR",
+      "category": "SNMP",
+      "code": "ERR-SNMP-3019",
+      "title": "Aurora AR-900 SNMP linkUp traps are lost when the trap queue exceeds 1024 entries",
+      "symptoms": "Across all releases, SNMP managers may miss linkUp and linkDown traps during an interface flap storm. When more than 1024 events are queued in 10 seconds, the router drops later traps silently and only increments the generic event counter by 1 per 64 discarded messages. Polling still works, but the NMS sees gaps in interface state history and alerts arrive out of order.",
+      "root_cause": "The SNMP trap daemon uses a fixed-depth queue of 1024 entries for all notification types, with no backpressure to the originating event sources. During bursty link events, newer traps are dropped once the queue is full, and the daemon does not persist the overflow condition in a dedicated counter.",
+      "workaround": "Reduce flap storms by enabling debounce on access ports or by fixing the physical layer issue generating the events. If the NMS depends on complete trap history, shorten the polling interval to 30 seconds and treat traps as advisory rather than authoritative.",
+      "workaround_commands": [
+        "configure",
+        "interface ethernet 1/1",
+        "link-debounce 500"
+      ],
+      "fix": "No software fix required; this is a capacity limit of the SNMP trap queue and must be handled by event-rate control or polling.",
+      "affected": "all",
+      "fixed_in": null,
+      "q": "Why are some link traps missing when a bunch of ports flap at once?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2110",
+      "p": "AR",
+      "category": "Performance",
+      "code": "ERR-CPU-7781",
+      "title": "Aurora AR-900 9.2.1 routing process can spike to 95% CPU during repeated BGP soft clears",
+      "symptoms": "On 9.2.1, running `clear bgp ipv4 unicast 65001 soft` repeatedly on a busy edge router can drive the routing process above 95% CPU for 30-90 seconds. During the spike, convergence slows and `show process cpu` shows the routing task consuming most of the scheduler slice, although data-plane forwarding remains mostly intact. The issue is more visible when the table has more than 250,000 prefixes and updates are arriving at the same time.",
+      "root_cause": "The soft-clear path in 9.2.1 rebuilds the outbound update queue from scratch on every refresh request instead of reusing the existing prefix state. With a large table, each clear triggers an O(n) walk plus duplicate best-path serialization, which saturates the single routing worker thread.",
+      "workaround": "Avoid repeated soft clears during peak update periods. If a refresh is required, prefer one hard clear during a maintenance window, or stage the clear after inbound route churn has settled for at least 60 seconds.",
+      "workaround_commands": [
+        "clear bgp ipv4 unicast 65001",
+        "show process cpu"
+      ],
+      "fix": "Fixed in 9.2.3: BGP refresh now reuses prefix state and no longer rebuilds the entire outbound queue on every soft clear.",
+      "affected": [
+        "9.2.1"
+      ],
+      "fixed_in": "9.2.3",
+      "q": "Why does the router peg CPU when I keep doing BGP soft clears on 9.2.1?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2111",
+      "p": "AR",
+      "category": "Upgrade",
+      "code": "ERR-UPG-1307",
+      "title": "Aurora AR-900 9.1.x upgrade to 9.2.0 fails when BGP add-path is enabled",
+      "symptoms": "During an in-service upgrade from 9.1.4 or 9.1.6 to 9.2.0, the installer can abort after staging the image and the router remains on the old release. The log shows an add-path state migration failure, and the rollback leaves BGP sessions down for 1-2 minutes until they reestablish. The failure occurs only when BGP add-path is configured on at least one neighbor and the device has more than 1,000 advertised paths.",
+      "root_cause": "The upgrade migrator in the 9.1 family does not translate the add-path capability bitmap into the 9.2.0 session schema. When the precheck encounters a stale capability record, the installer aborts rather than converting the session database in place.",
+      "workaround": "Disable BGP add-path before starting the upgrade, then re-enable it after the router is running 9.2.0. If the box is already stuck in rollback, complete the boot on the previous release, remove add-path configuration, and retry the upgrade.",
+      "workaround_commands": [
+        "configure",
+        "router bgp 65001",
+        "no neighbor 203.0.113.2 add-path send"
+      ],
+      "fix": "Fixed in 9.2.1: the upgrade migrator now converts add-path state during the image transition.",
+      "affected": [
+        "9.1.4",
+        "9.1.6"
+      ],
+      "fixed_in": "9.2.1",
+      "q": "Why does the 9.1 to 9.2 upgrade fail when add-path is turned on?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-2112",
+      "p": "AR",
+      "category": "Control-plane protection",
+      "code": "ERR-CPP-4412",
+      "title": "Aurora AR-900 9.2.3 control-plane protection may miss IPv6 ND drops during traffic bursts",
+      "symptoms": "On 9.2.3, a burst of IPv6 neighbor discovery traffic can push the control-plane above the configured limit while the drop counter remains unchanged. In the cases observed, `show control-plane protection statistics` held at 0 drops for 30-60 seconds, CPU usage climbed from 15% to 85%, and IPv6 neighbors would periodically move to Stale. The issue is most apparent when 5,000-8,000 NS/NA packets arrive in short bursts from a single access VLAN.",
+      "root_cause": "The punt policer tracks IPv6 ND packets in a 32-bit per-queue counter that is sampled every 250 ms. When traffic arrives in bursts, the counter can wrap between samples, and the excess packets do not take the drop decision path. As a result, the CPU receives more traffic than the intended policer rate permits.",
+      "workaround": "Reduce IPv6 ND load at the edge by enabling RA guard or storm control on the access VLAN, and temporarily lower the control-plane policer to a conservative value such as 2,000 pps until the source is isolated. If needed, shut the offending access port for 30 seconds to allow neighbor state to recover.",
+      "workaround_commands": [
+        "configure",
+        "control-plane",
+        "police ipv6-nd 2000"
+      ],
+      "fix": "Fixed in 9.3.0: control-plane protection now samples IPv6 ND punts with lossless accounting.",
+      "affected": [
+        "9.2.3"
+      ],
+      "fixed_in": "9.3.0",
+      "q": null,
+      "traps": [
+        "near_duplicate"
+      ],
+      "twin_of": null,
+      "duplicate_of": "KB-2106"
+    },
+    {
+      "kb": "KB-3101",
+      "p": "NF",
+      "category": "VPN",
+      "code": "%IKEV2-3-PROPOSAL_MISMATCH",
+      "title": "Nimbus NF-300 5.0.8 and 5.0.9: ikev2 child-sa renegotiation fails after pfs group change when rekey traffic is active",
+      "symptoms": "On 5.0.8 and 5.0.9, an existing site-to-site tunnel stays up for hours, then the child SA drops during rekey and traffic blackholes for 10 to 20 seconds. `show crypto ikev2 sa` shows the IKE SA in ESTABLISHED while the child SA counter resets, and the peer reports repeated ESP rekey failures.",
+      "root_cause": "The IKEv2 rekey path reuses the last negotiated PFS group from the old child SA instead of rebuilding the proposal list after a policy change. If the peer rekeys from group 14 to group 19, the local responder sends a stale proposal set and rejects the inbound CREATE_CHILD_SA exchange.",
+      "workaround": "Keep the PFS group unchanged on both peers, or disable child SA rekey and force a manual tunnel restart during a maintenance window. If you must change the group, apply the same group on both sides and clear the SA after the change.",
+      "workaround_commands": [
+        "config",
+        "crypto ikev2 child-sa rekey disable",
+        "commit"
+      ],
+      "fix": "Fixed in 5.1.3: the child SA proposal list is rebuilt on every rekey exchange.",
+      "affected": [
+        "5.0.8",
+        "5.0.9"
+      ],
+      "fixed_in": "5.1.3",
+      "q": "Why does my tunnel on 5.0.9 drop for a few seconds whenever the child SA rekeys after I change the PFS group?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-3102",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-3102",
+      "p": "NF",
+      "category": "VPN",
+      "code": "%IKEV2-3-PROPOSAL_MISMATCH",
+      "title": "Nimbus NF-300 5.1.3 and 5.1.5: IKEv2 phase 2 resets when responder selects a different DH group than the initiator",
+      "symptoms": "On 5.1.3 and 5.1.5, some tunnels flap every 30 to 60 minutes, especially when the peer uses multiple transform sets. `show crypto ikev2 sa` shows alternating child SA lifetimes, and the peer logs proposal rejection immediately after a rekey attempt.",
+      "root_cause": "The responder accepts the peer's child-SA proposal but caches the initiator's DH group number in the rekey state machine. When the peer picks a different acceptable group on the next exchange, the local engine compares against the cached value instead of the negotiated one and tears down the child SA.",
+      "workaround": "Pin a single DH group for the tunnel, preferably group 14, on both peers and avoid mixed transform sets. If the peer cannot be changed, shorten the lifetime to 1800 seconds so rekeys occur at predictable intervals and can be monitored.",
+      "workaround_commands": [
+        "config",
+        "crypto ikev2 proposal default dh-group 14",
+        "commit"
+      ],
+      "fix": "Fixed in 5.2.0: the responder uses the negotiated DH group from the active child SA context.",
+      "affected": [
+        "5.1.3",
+        "5.1.5"
+      ],
+      "fixed_in": "5.2.0",
+      "q": "Why does my tunnel on 5.1.5 keep resetting during phase 2 rekey when the peer offers more than one DH group?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-3101",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-3103",
+      "p": "NF",
+      "category": "High Availability",
+      "code": "%HA-4-RSYNC_STALE_SEQ",
+      "title": "Nimbus NF-300 5.0.9: standby drops replicated sessions after split-brain recovery",
+      "symptoms": "After a brief split-brain event, the standby unit comes back online but 5 to 15 percent of sessions are missing from the replicated table. `show ha status` reports synced, yet `show session table summary` on the standby is lower by 20,000 to 40,000 entries compared with the active unit for several minutes.",
+      "root_cause": "During split-brain recovery the replication agent accepts the peer's sequence number before draining the local replay queue. If the queue still contains older updates, the standby discards them as stale and the session table converges only after the next full sync cycle.",
+      "workaround": "Manually force a full HA resync after recovery instead of relying on the incremental replay. Keep failover links stable for at least 120 seconds after node return so the replay queue can drain.",
+      "workaround_commands": [
+        "show ha status",
+        "config",
+        "ha resync full",
+        "commit"
+      ],
+      "fix": "Fixed in 5.2.2: the standby defers sequence-number advancement until the replay queue is empty.",
+      "affected": [
+        "5.0.9"
+      ],
+      "fixed_in": "5.2.2",
+      "q": "After a split-brain, why does my standby on 5.0.9 come back synced but still miss part of the session table?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-3104",
+      "p": "NF",
+      "category": "Software",
+      "code": "%UPGRADE-3-IMAGE_VERIFY_FAIL",
+      "title": "Nimbus NF-300 5.0.8: boot loader rejects a valid 5.0.9 image after HTTPS stage download",
+      "symptoms": "When upgrading from 5.0.8 by HTTPS stage download, the appliance downloads the 5.0.9 image successfully, but the next boot stops in image verification and rolls back to the previous release. The console shows a checksum verification failure even though the image hash matches the published SHA-256 value.",
+      "root_cause": "The 5.0.8 boot loader computes the verification digest over the padded image length rather than the actual payload length. Images transferred over HTTPS are padded to a 4 KB boundary, so the digest comparison fails even though the image file is intact.",
+      "workaround": "Use SCP or USB staging so the image is written without HTTPS padding, or upgrade first through an intermediate loader that understands the 4 KB-aligned payload. Verify the image hash before scheduling the reboot.",
+      "workaround_commands": [
+        "copy scp://198.51.100.10/nf300-5.0.9.bin system image",
+        "show software image"
+      ],
+      "fix": "Fixed in 5.0.9: the boot loader hashes only the unpadded payload.",
+      "affected": [
+        "5.0.8"
+      ],
+      "fixed_in": "5.0.9",
+      "q": "Why does a 5.0.9 upgrade downloaded over HTTPS keep failing verification on a 5.0.8 box?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-3105",
+      "p": "NF",
+      "category": "Threat Prevention",
+      "code": "%TP-4-SIGNATURE_STALL",
+      "title": "Nimbus NF-300 5.1.5: threat database update can stall packet processing when signature bundle exceeds 128 MB",
+      "symptoms": "On 5.1.5, a large threat database update completes, but throughput drops from about 8 Gbps to under 1 Gbps for 30 to 90 seconds while the new signatures are activated. During the stall, `show session table summary` shows new sessions increasing but existing sessions age out at normal rates.",
+      "root_cause": "The signature activation thread holds the inspection mutex while loading the new bundle into the classifier cache. Bundles larger than 128 MB exceed the single-pass load window, so the dataplane waits on the mutex until the cache rebuild finishes.",
+      "workaround": "Schedule threat database updates during a maintenance window and, if possible, reduce the feed set so the bundle stays below 128 MB. If an update is already in progress, avoid initiating SSL inspection policy changes until activation is complete.",
+      "workaround_commands": [
+        "show threat database status",
+        "config",
+        "threat update window 02:00 02:15",
+        "commit"
+      ],
+      "fix": "Fixed in 5.2.0: signature activation is chunked and no longer blocks the dataplane mutex for the full load duration.",
+      "affected": [
+        "5.1.5"
+      ],
+      "fixed_in": "5.2.0",
+      "q": "Why does traffic on 5.1.5 almost stop for a minute when the threat signatures update?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-3106",
+      "p": "NF",
+      "category": "SSL Inspection",
+      "code": "%SSL-5-CERT_CHAIN_CACHE",
+      "title": "Nimbus NF-300 5.2.0 and 5.2.2: outbound TLS sessions intermittently bypass inspection after certificate cache eviction",
+      "symptoms": "On 5.2.0 and 5.2.2, some HTTPS flows are forwarded without decryption after the certificate cache has been under pressure for 5 to 10 minutes. `show ssl inspection statistics` shows cache evictions increasing above 5,000 per hour, and affected clients receive the server certificate instead of the forged inspection certificate.",
+      "root_cause": "The cache eviction routine removes the leaf certificate entry but leaves the associated policy pointer in the fast-path lookup table until the next timer sweep. When a new TLS session hashes to that stale pointer, the engine assumes inspection already completed and passes the flow in clear mode.",
+      "workaround": "Increase the certificate cache size so eviction stays below 1,000 entries per hour, or disable outbound inspection for the affected server group until a fix is applied. Restarting SSL inspection clears the stale pointers temporarily.",
+      "workaround_commands": [
+        "config",
+        "ssl inspection cache size 4096",
+        "commit"
+      ],
+      "fix": "No software fix required; this is a configuration-sensitive bypass condition and the supported workaround is to raise the cache size and reduce eviction pressure.",
+      "affected": [
+        "5.2.0",
+        "5.2.2"
+      ],
+      "fixed_in": null,
+      "q": "Why are a few HTTPS sessions on 5.2.2 suddenly skipping SSL inspection after the cache fills up?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-3107",
+      "p": "NF",
+      "category": "High Availability",
+      "code": "%HA-3-LINK_MONITOR_FLAP",
+      "title": "Nimbus NF-300 all versions: HA failover pair can oscillate if heartbeat and monitored interface share the same L2 switch",
+      "symptoms": "A pair configured with active-standby HA may fail over every 15 to 30 seconds when both units connect to the same upstream access switch. The event log shows repeated monitor loss and restoration messages, and `show ha status` alternates between active and standby several times per minute.",
+      "root_cause": "The design ties heartbeat and interface-monitor traffic to the same broadcast domain, so a single Layer 2 forwarding glitch or STP recalculation can suppress both signals at once. Because the monitor timer is only 3 seconds by default, one missed heartbeat plus one missed poll is enough to trigger failover.",
+      "workaround": "Place the heartbeat links on a dedicated L2 segment that is independent of the monitored interfaces, or increase the monitor interval to 10 seconds if cabling changes are not immediately possible. Keep both nodes attached to separate switch ports with independent upstream paths.",
+      "workaround_commands": [
+        "config",
+        "ha monitor-interval 10",
+        "commit"
+      ],
+      "fix": "No software fix required; this is a topology requirement for all releases.",
+      "affected": "all",
+      "fixed_in": null,
+      "q": "My HA pair keeps flipping back and forth every few seconds when both units sit on the same switch. Is that expected?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-3108",
+      "p": "NF",
+      "category": "VPN",
+      "code": "%IKEV2-3-TS_UNSUPPORTED",
+      "title": "Nimbus NF-300 all versions: policy-based IKEv2 tunnel fails when local selector is narrower than /30",
+      "symptoms": "A policy-based VPN comes up only when the local selector is set to a /30 or larger. If the selector is narrowed to a /31 or host route, the IKE SA establishes but the child SA never installs, and traffic counters remain at zero while the peer retries every 10 seconds.",
+      "root_cause": "The selector compiler assumes at least two addresses in the local subnet and generates an out-of-range upper bound for a /31 or host route. That invalid traffic-selector pair is rejected during CHILD_SA negotiation even though the policy is otherwise valid.",
+      "workaround": "Use route-based VPN for host-to-host tunnels, or widen the local selector to /30 and restrict traffic with a firewall policy instead. If the peer supports it, define a single-address object on the remote side and map it through a broader local subnet.",
+      "workaround_commands": [
+        "config",
+        "vpn ikev2 policy-based disable",
+        "commit"
+      ],
+      "fix": "No software fix required; this is a configuration limitation that applies to every release.",
+      "affected": "all",
+      "fixed_in": null,
+      "q": "Why will my IKEv2 tunnel on any release never install the child SA when I use a /31 selector?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-3109",
+      "p": "NF",
+      "category": "Session Tables",
+      "code": "%SESSION-4-HASH_SKEW",
+      "title": "Nimbus NF-300 5.2.0 uneven session-table distribution with asymmetric routing on concentrated /24 traffic",
+      "symptoms": "On 5.2.0, turning on asymmetric path handling can drive one or two session-table shards to 88 percent occupancy while the remaining shards remain below 40 percent. The condition typically appears after about 300,000 new sessions and is accompanied by intermittent latency spikes of 3 to 4 milliseconds for flows assigned to the overloaded shard.",
+      "root_cause": "When asymmetric routing is enabled, the shard allocator fails to mix the low-order bits of the 5-tuple, causing traffic from the same /24 prefix to be mapped to the same worker queue. In addition, the load-balancer redistribution threshold is configured too high, so the imbalance remains localized instead of being spread across the other shards.",
+      "workaround": "Disable asymmetric routing handling for the affected policy set, or split the large prefix into smaller policy groups so sessions are distributed more evenly. Continue monitoring the busiest shard and keep occupancy below 75 percent until a software fix is available.\nconfig\nsession-table asymmetric-routing disable\ncommit",
+      "workaround_commands": [
+        "config",
+        "session-table asymmetric-routing disable",
+        "commit"
+      ],
+      "fix": "Fixed in 5.2.2: session hashing uses the full 5-tuple and shard redistribution is triggered once occupancy exceeds 75 percent.",
+      "affected": [
+        "5.2.0"
+      ],
+      "fixed_in": "5.2.2",
+      "q": null,
+      "traps": [
+        "near_duplicate"
+      ],
+      "twin_of": null,
+      "duplicate_of": "KB-3110"
+    },
+    {
+      "kb": "KB-3110",
+      "p": "NF",
+      "category": "Session Tables",
+      "code": "%SESSION-4-HASH_SKEW",
+      "title": "Nimbus NF-300 5.2.0 session-table imbalance after enabling asymmetric routing on large-prefix traffic",
+      "symptoms": "On 5.2.0, enabling asymmetric path handling can leave one or two session-table shards at 88 percent occupancy while the remaining shards stay below 40 percent. The imbalance appears after roughly 300,000 new sessions and causes intermittent latency spikes of 3 to 4 milliseconds on flows that land in the hot shard.",
+      "root_cause": "The shard allocator does not mix the low-order bits of the 5-tuple when asymmetric routing is enabled, so prefixes from the same /24 are directed to the same worker queue. The load-balancer threshold for redistribution is set too high, so the skew persists instead of being spread across the other shards.",
+      "workaround": "Disable asymmetric routing handling for the affected policy set, or break the large prefix into smaller policy groups so the sessions distribute more evenly. Monitor the hottest shard and keep occupancy below 75 percent until a software fix is available.",
+      "workaround_commands": [
+        "config",
+        "session-table asymmetric-routing disable",
+        "commit"
+      ],
+      "fix": "Fixed in 5.2.2: session hashing incorporates the full 5-tuple and redistributes shards once occupancy exceeds 75 percent.",
+      "affected": [
+        "5.2.0"
+      ],
+      "fixed_in": "5.2.2",
+      "q": "Why does 5.2.0 build a hot session-table shard after I enable asymmetric routing for a /24?",
+      "traps": [
+        "near_duplicate"
+      ],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-3111",
+      "p": "NF",
+      "category": "Software",
+      "code": "%UPGRADE-4-REPLAY_CURSOR",
+      "title": "Nimbus NF-300 5.1.3 and 5.1.5: upgrade from 5.0.x may reset configuration objects if checkpoint replay exceeds 4,096 entries",
+      "symptoms": "When upgrading a heavily configured system from 5.0.x to 5.1.3 or 5.1.5, the boot process completes but some objects are missing after the first login. Customers usually report 50 to 200 absent policy entries, and `show running-config` shows default values where custom objects used to exist.",
+      "root_cause": "The migration engine replays configuration checkpoints in 4,096-entry batches and loses its cursor after the first full batch if the destination schema adds a new object type. The remaining batches are accepted but not committed to the runtime database, so part of the configuration is silently reset.",
+      "workaround": "Break the configuration into smaller chunks before upgrading, or export and re-import the policy objects after the first boot. For large deployments, keep each checkpoint file under 4,000 entries and verify the running configuration immediately after reboot.",
+      "workaround_commands": [
+        "show configuration checkpoint summary",
+        "copy running-config backup://198.51.100.20/nf300-preupgrade.cfg"
+      ],
+      "fix": "Fixed in 5.2.0: replay cursor state is preserved across all checkpoint batches.",
+      "affected": [
+        "5.1.3",
+        "5.1.5"
+      ],
+      "fixed_in": "5.2.0",
+      "q": "After upgrading to 5.1.5, why did a bunch of firewall objects disappear even though the boot finished cleanly?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-3112",
+      "p": "NF",
+      "category": "VPN",
+      "code": "%IKEV2-4-REKEY_TIMER",
+      "title": "Nimbus NF-300 5.2.2: route-based IPsec tunnels may briefly blackhole traffic when dpd and rekey timers are both 10 seconds",
+      "symptoms": "On 5.2.2, a route-based tunnel with aggressive liveness settings can stop forwarding for 1 to 2 seconds every few minutes. `show crypto ikev2 sa` remains ESTABLISHED, but packet counters pause during the overlap between DPD probe handling and child-SA rekey, especially when both timers are configured to 10 seconds.",
+      "root_cause": "The DPD timer and child-SA rekey timer share a single scheduler slot in 5.2.2. When both expire in the same tick, the engine sends the liveness probe first and defers the rekey state transition, leaving the installed route pointing at the old SPI until the next scheduler cycle.",
+      "workaround": "Stagger the timers so DPD is at least 3 seconds shorter or longer than the rekey interval, for example `crypto ikev2 dpd 10 3` with a 300-second rekey. Avoid setting both timers to the same 10-second value on route-based tunnels.",
+      "workaround_commands": [
+        "config",
+        "crypto ikev2 dpd 10 3",
+        "commit"
+      ],
+      "fix": "No software fix required; use non-aligned DPD and rekey timers to avoid the scheduler overlap.",
+      "affected": [
+        "5.2.2"
+      ],
+      "fixed_in": null,
+      "q": "Why do my route-based tunnels on 5.2.2 pause for a second whenever DPD and rekey hit at the same time?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4101",
+      "p": "OW",
+      "category": "AP Join",
+      "code": "%CAPWAP-3-JOIN_REJECT",
+      "title": "Orion OW-20 4.6 rejects AP joins when the join request includes a zero-length RF profile TLV",
+      "symptoms": "After upgrading to 4.6, some APs stay in the discovery state for 30-60 seconds and then retry join in a loop. The controller logs repeated join rejects, and `show ap summary` shows the APs as `down/joining` with no radios enabled. Affected APs typically have a valid management IP and can reach the controller UDP 5246/5247, but never complete CAPWAP association.",
+      "root_cause": "In 4.6, the CAPWAP parser incorrectly treats an empty RF profile TLV as a fatal join condition instead of skipping it. The defect is triggered by AP models that send the TLV with length 0 during initial capability exchange, causing the controller to reject the join before configuration download.",
+      "workaround": "Remove the RF profile override from the AP group so the controller stops emitting the empty TLV, or migrate the APs to a group with no custom RF settings. If the fleet is mixed, disable the affected APs' per-radio override until the upgrade is complete.",
+      "workaround_commands": [
+        "show ap summary",
+        "ap-group default rf-profile none",
+        "show logging last 50"
+      ],
+      "fix": "Fixed in 4.7: the join parser ignores zero-length RF profile TLVs during CAPWAP negotiation.",
+      "affected": [
+        "4.6"
+      ],
+      "fixed_in": "4.7",
+      "q": "Why do APs fail to join only on 4.6 when the CAPWAP exchange includes an empty RF profile TLV?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4102",
+      "p": "OW",
+      "category": "AP Join",
+      "code": "ERR-APJ-4417",
+      "title": "Orion OW-20 4.7 may drop AP join retries after radio capability revalidation",
+      "symptoms": "On 4.7, a subset of APs intermittently stop after the third join retry and remain offline for 5-10 minutes before the next discovery cycle. The event log shows join retries followed by a capability revalidation step, then no further CAPWAP messages from the AP. `show ap detail <name>` reports `last-seen` advancing only after the AP is power-cycled or the join database is cleared.",
+      "root_cause": "The 4.7 AP-join state machine can advance the retry counter before the radio capability revalidation completes. When the AP responds slowly to the second capability query, the controller marks the join transaction as expired and removes it from the retransmit queue, leaving the AP to wait for the next discovery window.",
+      "workaround": "Reduce the AP join retry interval from 5 seconds to 2 seconds so the controller keeps the transaction active long enough for revalidation. If the APs are remote, also verify one-way latency is under 80 ms and packet loss is below 1%.",
+      "workaround_commands": [
+        "show ap detail <name>",
+        "ap join retry-interval 2",
+        "show logging last 50"
+      ],
+      "fix": "Fixed in 4.8: join retries are not consumed until capability revalidation returns or times out.",
+      "affected": [
+        "4.7"
+      ],
+      "fixed_in": "4.8",
+      "q": "Why do some APs on 4.7 disappear after a few join retries and then only come back much later?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-4103",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4103",
+      "p": "OW",
+      "category": "AP Join",
+      "code": "ERR-APJ-4417",
+      "title": "Orion OW-20 4.8 AP join stalls when the second capability exchange is delayed",
+      "symptoms": "On 4.8, APs can sit in `joining` for 2-4 minutes and then reset their CAPWAP session without ever reaching `authorized`. The controller shows the same join retry counter incrementing twice, then stopping, and `show ap summary` reports a growing number of APs with `join pending`. The issue is more visible on links with 60-100 ms RTT and brief retransmit bursts.",
+      "root_cause": "The 4.8 join path waits for the second capability exchange on a separate worker, but the worker can be pre-empted by the retransmit timer and never re-arm the join session correctly. The AP is still reachable, but the controller has already moved the join context to an orphaned state and does not resume processing when the delayed response arrives.",
+      "workaround": "Temporarily increase the join timeout to 180 seconds and keep AP uplink loss under 0.5% during join. If the branch link is unstable, stage the APs locally and move them after the initial registration completes.",
+      "workaround_commands": [
+        "show ap summary",
+        "ap join timeout 180",
+        "show logging last 50"
+      ],
+      "fix": "Fixed in 4.9: delayed capability responses are matched to the active join session before the session can age out.",
+      "affected": [
+        "4.8"
+      ],
+      "fixed_in": "4.9",
+      "q": "Why do APs on 4.8 get stuck joining for minutes even though the controller still sees them on the network?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-4102",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4104",
+      "p": "OW",
+      "category": "Controller Redundancy",
+      "code": "%REDUNDANCY-4-SYNC_STALL",
+      "title": "Orion OW-20 4.8 active-standby sync stalls when the configuration database exceeds 32,768 rows",
+      "symptoms": "In 4.8 redundancy pairs, the standby stops receiving incremental updates after the configuration database grows past about 32,768 rows. Failover still triggers, but the standby comes up with stale WLAN and client-policy state, and clients may reauthenticate for 30-90 seconds after switchover. `show redundancy status` shows `sync state: partial` and the event log repeats the sync stall message every 10 seconds.",
+      "root_cause": "The incremental sync encoder uses a 15-bit row index in 4.8, so configuration objects beyond row 32,767 wrap and are treated as already synchronized. The standby never receives the wrapped rows, which leaves the replicated database incomplete even though the link between peers remains up.",
+      "workaround": "Reduce the configuration database below 30,000 rows by deleting unused AP groups, WLAN profiles, and stale guest accounts before enabling redundancy. If immediate failover is required, force a full config resync during a maintenance window.",
+      "workaround_commands": [
+        "show redundancy status",
+        "show configuration database summary",
+        "redundancy force-resync"
+      ],
+      "fix": "Fixed in 4.9: incremental synchronization uses a 32-bit object index and no longer stalls above 32,768 rows.",
+      "affected": [
+        "4.8"
+      ],
+      "fixed_in": "4.9",
+      "q": "Why does 4.8 redundancy go partially out of sync once the config database gets large?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4105",
+      "p": "OW",
+      "category": "Roaming",
+      "code": "%ROAM-5-FT_KEYTIMEOUT",
+      "title": "Orion OW-20 4.9 can delay 802.11r key installation during fast transition roaming",
+      "symptoms": "With 802.11r enabled, clients moving between APs on 4.9 often pause for 200-400 ms before traffic resumes, and some voice calls show one or two audible gaps per roam. `show client detail <mac>` reports successful reassociation, but the FT key install timer expires and the client falls back to a slower key derivation path. The problem is most visible when the roam occurs while the controller is under moderate CPU load above 70%.",
+      "root_cause": "The 4.9 FT handler waits on a shared key-install queue that is also used by periodic client accounting updates. Under load, the queue can defer the PMK-R1 push long enough for the 300 ms FT timer to expire, which forces the client to complete the roam without the pre-installed key material.",
+      "workaround": "Lower the client accounting interval to 60 seconds to reduce queue pressure, and keep controller CPU below 70% during roaming tests. For latency-sensitive SSIDs, disable 802.11r until the maintenance window.",
+      "workaround_commands": [
+        "show client detail <mac>",
+        "wlan corp ft enable",
+        "wlan corp accounting interval 60"
+      ],
+      "fix": "Fixed in 5.0: FT key installation is handled on a dedicated queue with priority over accounting updates.",
+      "affected": [
+        "4.9"
+      ],
+      "fixed_in": "5.0",
+      "q": "Why do 4.9 clients pause during fast roaming even though 802.11r is enabled?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-4106",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4106",
+      "p": "OW",
+      "category": "Roaming",
+      "code": "%ROAM-5-FT_KEYTIMEOUT",
+      "title": "Orion OW-20 5.0 may miss FT key pushes during heavy 802.11r roaming",
+      "symptoms": "In 5.0, voice and handheld clients can roam successfully but still incur 150-300 ms service gaps every few moves. The controller shows reassociation success, then an FT key timeout, and `show client detail <mac>` reports `ft fallback: yes` for clients that should have stayed on the fast transition path. The issue is reproducible when more than 40 clients roam within a 10-second interval.",
+      "root_cause": "The 5.0 roaming daemon batches FT key pushes to reduce CPU usage, but the batch flush can be delayed by the per-client state cleanup thread. When roaming density exceeds about 40 clients per 10 seconds, the key push may miss the 300 ms completion window and the client reverts to a slower transition sequence.",
+      "workaround": "Stagger roaming tests or reduce the client cleanup batch size so the FT flush completes within 150 ms. If the SSID is voice-critical, cap roam bursts below 30 clients per 10 seconds until the release is updated.",
+      "workaround_commands": [
+        "show client detail <mac>",
+        "wlan corp ft enable",
+        "roam batch-size 8"
+      ],
+      "fix": "Fixed in 5.1: FT key pushes are sent immediately when the client enters reassociation, regardless of cleanup batching.",
+      "affected": [
+        "5.0"
+      ],
+      "fixed_in": "5.1",
+      "q": "Why does 5.0 still show roam pauses on 802.11r clients when many devices move at once?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-4105",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4107",
+      "p": "OW",
+      "category": "RADIUS/802.1X",
+      "code": "%RADIUS-4-ATTR_DROP",
+      "title": "Orion OW-20 4.9 drops Vendor-Specific attribute 26 on Access-Challenge replies with more than 12 attributes",
+      "symptoms": "802.1X authentication against external RADIUS servers fails intermittently on 4.9, usually after the second Access-Challenge. The controller sends the request, but the server rejects the next step because the tunneled policy attributes are missing, and clients remain stuck in `authenticating` for 15-20 seconds before timing out. This is easiest to reproduce when the Access-Challenge carries 13 or more attributes.",
+      "root_cause": "The 4.9 RADIUS encoder truncates the attribute list at 12 entries when it repacks Access-Challenge packets for internal policy processing. Vendor-Specific attribute 26 is often placed after the 12th slot and is silently dropped, which breaks tunneled EAP methods that depend on it.",
+      "workaround": "Trim the RADIUS challenge to 12 or fewer attributes, or move the Vendor-Specific attribute earlier in the server response order. If possible, use a dedicated policy server that sends the tunneled attributes first.",
+      "workaround_commands": [
+        "show client detail <mac>",
+        "radius-server attribute-order vendor-first",
+        "show logging last 50"
+      ],
+      "fix": "Fixed in 5.0: Access-Challenge repacking preserves all attributes and no longer truncates at 12 entries.",
+      "affected": [
+        "4.9"
+      ],
+      "fixed_in": "5.0",
+      "q": "Why do 4.9 802.1X logins fail only when the RADIUS challenge has a long attribute list?",
+      "traps": [
+        "near_duplicate"
+      ],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4108",
+      "p": "OW",
+      "category": "RADIUS/802.1X",
+      "code": "%RADIUS-4-ATTR_DROP",
+      "title": "Orion OW-20 4.9 may omit Vendor-Specific attribute 26 from Access-Challenge processing when the reply contains 13 attributes",
+      "symptoms": "Intermittent 802.1X failures have been observed on Orion OW-20 controllers running 4.9 when authenticating against external RADIUS servers. The exchange often progresses through the first challenge, but after the second Access-Challenge the next step fails because the tunneled policy attributes are no longer present. Clients can remain in `authenticating` for 15-20 seconds before the session times out. The failure is most consistently reproduced when the Access-Challenge includes 13 or more attributes.",
+      "root_cause": "In 4.9, the RADIUS encoder used during Access-Challenge repacking for internal policy handling truncates the attribute list after 12 entries. Vendor-Specific attribute 26 is commonly positioned beyond that limit and is dropped without logging, which prevents tunneled EAP methods from receiving the policy data they require.",
+      "workaround": "Reduce the RADIUS challenge to 12 or fewer attributes, or reorder the server response so that the Vendor-Specific attribute appears earlier. If available, direct the request to a policy server that places the tunneled attributes first.",
+      "workaround_commands": [
+        "show client detail <mac>",
+        "radius-server attribute-order vendor-first",
+        "show logging last 50"
+      ],
+      "fix": "Fixed in 5.0: Access-Challenge repacking retains all attributes and no longer truncates the list at 12 entries.",
+      "affected": [
+        "4.9"
+      ],
+      "fixed_in": "5.0",
+      "q": null,
+      "traps": [
+        "near_duplicate"
+      ],
+      "twin_of": null,
+      "duplicate_of": "KB-4107"
+    },
+    {
+      "kb": "KB-4109",
+      "p": "OW",
+      "category": "Guest Portal",
+      "code": "%PORTAL-5-COOKIE_MISMATCH",
+      "title": "Orion OW-20 guest portal sessions fail after standby failover when the portal cookie is pinned to the active node UUID",
+      "symptoms": "Guest users can authenticate successfully on the active controller, but after a redundancy failover the browser redirects back to the login page and the guest session never reaches `authorized`. The redirect loop typically appears within 1-2 seconds of the standby taking over, and the portal status page shows repeated cookie validation failures. Existing sessions are lost even though the guest database itself remains intact.",
+      "root_cause": "The guest portal cookie in 4.9 is signed with the active node UUID as part of the session token. After failover, the standby presents a different UUID, so the cookie signature no longer matches and the portal rejects an otherwise valid session.",
+      "workaround": "Keep guest portal traffic pinned to the active node by disabling failover during guest registration windows, or clear the cookie and reauthenticate after each switchover. For planned maintenance, expire guest sessions before invoking redundancy failover.",
+      "workaround_commands": [
+        "show redundancy status",
+        "guest-portal session timeout 15",
+        "redundancy failover inhibit"
+      ],
+      "fix": "Fixed in 5.0: guest portal cookies are validated against the redundancy cluster identity instead of the active node UUID.",
+      "affected": [
+        "4.9"
+      ],
+      "fixed_in": "5.0",
+      "q": "Why do guest users on 4.9 get kicked back to the portal after a controller failover?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4110",
+      "p": "OW",
+      "category": "RF Management",
+      "code": "%RF-4-DFS_FREEZE",
+      "title": "Orion OW-20 5.1 RF manager may stop channel updates after repeated DFS events on 5 GHz radios",
+      "symptoms": "On 5.1, AP radios in DFS-enabled channels can remain pinned to a single channel after 3-5 radar hits within 10 minutes. `show ap summary` still reports the APs as up, but neighboring APs keep transmitting on a channel that should have been vacated, and client retries increase by 8-12% during the event window. The RF dashboard shows no further channel-change messages even though the radar counter continues to increment.",
+      "root_cause": "The 5.1 RF manager can deadlock its channel re-evaluation worker when DFS channel history is updated concurrently with AP power tuning. Once the worker blocks, the channel-selection queue stops draining, so subsequent radar detections increment counters but never trigger a move to a new channel.",
+      "workaround": "Disable DFS on the affected radio group and pin the radios to a non-DFS channel set with at least 20 MHz separation from neighboring cells. If DFS must remain enabled, limit the environment to fewer than 3 radar events per 10 minutes during peak usage.",
+      "workaround_commands": [
+        "show ap summary",
+        "ap group dfs disable",
+        "rf channel set 36,40,44,48"
+      ],
+      "fix": "Fixed in 5.1 maintenance update: DFS history updates no longer block the channel re-evaluation worker.",
+      "affected": [
+        "5.1"
+      ],
+      "fixed_in": null,
+      "q": "Why does RF on 5.1 stop changing channels after a few DFS hits even though the APs stay up?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4111",
+      "p": "OW",
+      "category": "Upgrade",
+      "code": "ERR-UPG-2204",
+      "title": "Orion OW-20 upgrade from 4.6 to 5.0 can fail if the configuration database contains legacy guest portal ACL objects",
+      "symptoms": "During a direct upgrade from 4.6, the controller reboots into the new image but fails the post-upgrade database migration and rolls back after 8-12 minutes. The upgrade log stops at guest portal object conversion, and the controller may come back with the previous image still active. The problem usually appears when the config database includes more than 50 legacy guest ACL objects created before 4.7.",
+      "root_cause": "The 5.0 migration tool expects guest portal ACL entries to be normalized into the post-4.7 schema, but 4.6 databases can still contain the older ACL object form with empty destination fields. The converter treats the legacy object as malformed and aborts the migration instead of translating it.",
+      "workaround": "Delete unused legacy guest portal ACL objects before starting the upgrade, and export the configuration for review so the database contains only normalized entries. If the upgrade already failed, boot the old image and rerun the migration after pruning the stale ACL objects.",
+      "workaround_commands": [
+        "show configuration database summary",
+        "show guest acl summary",
+        "upgrade apply 5.0"
+      ],
+      "fix": "Fixed in 5.1: the migration tool translates legacy guest portal ACL objects instead of aborting on the older schema.",
+      "affected": [
+        "5.0"
+      ],
+      "fixed_in": "5.1",
+      "q": "Why does a 4.6-to-5.0 upgrade roll back when the controller has old guest ACL entries?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-4112",
+      "p": "OW",
+      "category": "Configuration Database",
+      "code": "ERR-DB-1809",
+      "title": "Orion OW-20 configuration database backup omits pending WLAN edits when the commit queue is non-empty",
+      "symptoms": "A manual configuration backup can restore successfully, but recent WLAN changes made in the last 2-3 minutes are missing after the restore. Operators notice that `show configuration database summary` reports a non-empty commit queue at the time of backup, and the restored system reverts the last SSID or RF change without any corruption warning. The problem is most obvious when multiple edits are staged before a single commit.",
+      "root_cause": "The backup routine snapshots the persisted database only and does not wait for the in-memory commit queue to drain. If a WLAN edit is still staged, the backup contains the previous committed state, so the restored image is consistent but incomplete from the operator's point of view.",
+      "workaround": "Wait until the commit queue is empty before taking a backup, or force a commit and verify the change is present in `show configuration database summary`. For scheduled backups, require at least 30 seconds of idle time after the last WLAN edit.",
+      "workaround_commands": [
+        "show configuration database summary",
+        "commit",
+        "backup configuration"
+      ],
+      "fix": "No software fix required; take backups only after the commit queue drains to zero.",
+      "affected": "all",
+      "fixed_in": null,
+      "q": "Why does a backup on OW-20 sometimes miss the last WLAN change even though the system says it completed?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5101",
+      "p": "AT",
+      "category": "Routing",
+      "code": "%SDWAN-4-SLA-DOWN",
+      "title": "Atlas SD-WAN 2.8: application-aware routing marks SLA class down after a 1-second probe loss spike",
+      "symptoms": "On Atlas SD-WAN 2.8, branches with short brownouts can see tunnel state change from up to degraded for 10 to 20 seconds after a single missed probe interval. `show app-route sla-class` reports the class as down even when packet loss remains below 2% over the next several intervals, and active flows are moved away from the preferred path. The issue is easiest to reproduce on LTE links with 1-second probes and a 3/5 hold-down.",
+      "root_cause": "The 2.8 SLA evaluator applies the hold-down timer to the most recent probe result instead of the rolling window when the probe count is below five samples. A single timeout therefore clears the class state and starts a full recovery timer, which is not consistent with the configured loss and latency thresholds.",
+      "workaround": "Increase the SLA probe window to at least five samples and extend the hold-down so one missed probe does not clear the class. If the link is already marginal, raise the packet-loss threshold by 1 to 2 percent to prevent unnecessary path switching.",
+      "workaround_commands": [
+        "app-route sla-class voice loss-threshold 5 latency-threshold 80 probe-interval 1000 hold-down 5000",
+        "commit"
+      ],
+      "fix": "Fixed in 2.9: the SLA evaluator uses the configured rolling window before changing class state.",
+      "affected": [
+        "2.8"
+      ],
+      "fixed_in": "2.9",
+      "q": "On 2.8, why does my SLA class go down after one missed probe even though the link recovers right away?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-5105",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5102",
+      "p": "AT",
+      "category": "Certificates",
+      "code": "%PKI-3-CHAIN-UNTRUSTED",
+      "title": "Atlas SD-WAN 2.8: orchestrator rejects edge certificate renewal when the intermediate CA is not reimported",
+      "symptoms": "Edges that renewed successfully before an orchestrator change can stop checking in after certificate rotation. The orchestrator UI shows the edge as disconnected within 2 to 6 minutes, and policy pushes to that site fail with certificate validation errors. In the edge log, the renewal completes locally, but the next registration attempt is denied because the chain cannot be built to a trusted root.",
+      "root_cause": "The orchestrator stores the edge trust bundle separately from the active device certificate and does not automatically repopulate the intermediate CA list after a renewal. If the intermediate expires or is replaced, the orchestrator continues to validate against the old chain until the bundle is manually refreshed.",
+      "workaround": "Reimport the full certificate chain, including the active intermediate CA, on the orchestrator before renewing the edge certificate. For large deployments, stage the new chain at least 24 hours before the old intermediate expires.",
+      "workaround_commands": [
+        "certificate import trust-bundle edge-chain.pem",
+        "commit"
+      ],
+      "fix": "Fixed in 2.9: certificate renewal now refreshes the stored intermediate chain automatically.",
+      "affected": [
+        "2.8"
+      ],
+      "fixed_in": "2.9",
+      "q": "After we renewed the edge cert, why did 2.8 start rejecting the device until we reloaded the CA chain?",
+      "traps": [
+        "near_duplicate"
+      ],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5103",
+      "p": "AT",
+      "category": "Software",
+      "code": "ERR-ORCH-4412",
+      "title": "Atlas SD-WAN 3.0: policy push hangs when a route-map contains more than 256 entries",
+      "symptoms": "On orchestrators running 3.0, a policy push can remain in 'processing' for 8 to 15 minutes and then fail on large tenants. The affected tenant typically has one route-map with 257 or more rules, and the orchestrator CPU on the policy worker stays above 90 percent during the attempt. Edges keep their previous policy, so the intended change never reaches the branch.",
+      "root_cause": "The 3.0 policy compiler allocates a fixed 256-entry array for route-map expansion and then retries serialization when the list overflows. The retry path never clears the partial buffer, so the worker loops until the orchestration watchdog aborts the push.",
+      "workaround": "Split large route-maps into two smaller maps of 256 entries or fewer and reference them from separate policy objects. If the existing tenant already has a larger map, remove 10 to 20 entries, push the change, and then re-add the remainder in a second commit.",
+      "workaround_commands": [
+        "policy route-map RM-BRANCH-1 split-after 256",
+        "commit"
+      ],
+      "fix": "Fixed in 3.1: the policy compiler uses a dynamically sized route-map serializer.",
+      "affected": [
+        "3.0"
+      ],
+      "fixed_in": "3.1",
+      "q": "Why does a 3.0 policy push never finish once the route-map gets bigger than 256 lines?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5104",
+      "p": "AT",
+      "category": "Upgrade",
+      "code": "%UPG-5-MTU-MIGRATE",
+      "title": "Atlas SD-WAN 3.1: upgrade rewrites LTE tunnel MTU to 1500 on dual-SIM edges",
+      "symptoms": "After upgrading an edge from 3.0 to 3.1, some LTE-based tunnels start dropping large packets and the overlay shows intermittent fragmentation alerts. `show sdwan tunnels` reports the tunnel as up, but traffic with payloads above 1420 bytes fails, and the edge log records repeated MTU mismatch notices. The problem appears only on devices with an explicitly configured LTE tunnel MTU below 1500 before the upgrade.",
+      "root_cause": "The 3.1 migration script copies the LTE profile but falls back to the default tunnel MTU when it sees two modem profiles on the same interface. The saved value is not preserved in the upgraded running configuration, so the edge advertises a larger encapsulation size than the link can carry.",
+      "workaround": "After the upgrade, manually reapply the tunnel MTU on each LTE interface and verify that the configured value matches the pre-upgrade setting. Use 1400 to 1420 bytes for most carrier LTE links, and retest with 1472-byte pings before returning the site to service.",
+      "workaround_commands": [
+        "interface lte0 tunnel-mtu 1400",
+        "commit"
+      ],
+      "fix": "Fixed in 3.2: the migration preserves the configured LTE tunnel MTU across dual-SIM upgrades.",
+      "affected": [
+        "3.1"
+      ],
+      "fixed_in": "3.2",
+      "q": "Why did my LTE tunnel MTU reset to 1500 after a 3.1 upgrade?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-5110",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5105",
+      "p": "AT",
+      "category": "Routing",
+      "code": "%SDWAN-4-SLA-DOWN",
+      "title": "Atlas SD-WAN 2.9: overlay tunnel flaps when SLA probes share the data-plane queue with burst traffic",
+      "symptoms": "On 2.9 edges under sustained backup traffic, overlay tunnels can move between up and degraded every 30 to 60 seconds even though the transport link stays physically up. `show sdwan tunnels` shows rising loss counters during upload bursts, and application steering diverts voice and interactive sessions away from the preferred path. The same circuit is stable if the traffic load stays below about 70 percent.",
+      "root_cause": "The 2.9 datapath schedules SLA probes in the same egress queue as best-effort application traffic. Under bursty load, probe packets are delayed long enough to exceed the 50 ms latency threshold and trip tunnel health evaluation, even though user traffic would still meet the path SLA.",
+      "workaround": "Place SLA probes into a high-priority queue or reserve at least 10 percent bandwidth for control traffic on busy links. If shaping is already enabled, lower the bulk-traffic class to 60 to 70 percent so probes are not delayed behind large data bursts.",
+      "workaround_commands": [
+        "app-route sla-class voice probe-queue priority",
+        "commit"
+      ],
+      "fix": "Fixed in 3.0: SLA probes are sent on a dedicated control queue and no longer inherit bulk-traffic delay.",
+      "affected": [
+        "2.9"
+      ],
+      "fixed_in": "3.0",
+      "q": "On 2.9, why do tunnels keep bouncing when the link is busy even though the circuit itself is fine?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-5101",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5106",
+      "p": "AT",
+      "category": "Interoperability",
+      "code": "%IKE-3-PROPOSAL-MISMATCH",
+      "title": "Atlas SD-WAN 3.2: IPSec tunnel negotiation fails with peers that require AES-GCM and SHA-384 on the same proposal",
+      "symptoms": "When an Atlas edge in 3.2 peers with a remote device that insists on a single combined ESP proposal, the tunnel never reaches established. The edge retries every 10 seconds, and `show sdwan tunnels` remains stuck in negotiating while the peer rejects the transform set. Sites using separate integrity and encryption proposals do not show the issue.",
+      "root_cause": "The 3.2 negotiator advertises AES-GCM as an encryption-only suite when the peer requests a single proposal containing both encryption and integrity attributes. Some peers require the combined form defined in their policy, so they never accept the Atlas proposal even though the cryptographic primitives are compatible.",
+      "workaround": "Configure the remote peer to accept an AES-GCM proposal without a separate integrity field, or use AES-CBC with SHA-384 if the peer allows alternate transforms. Verify the resulting SA proposal on both sides before restoring traffic.",
+      "workaround_commands": [
+        "tunnel ipsec proposal set aes-gcm-256 sha384",
+        "commit"
+      ],
+      "fix": "Fixed in 3.3: the negotiator emits a combined ESP proposal when required by the peer.",
+      "affected": [
+        "3.2"
+      ],
+      "fixed_in": "3.3",
+      "q": "Why won't a 3.2 edge bring up the IPSec tunnel against a peer that insists on AES-GCM plus SHA-384?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5107",
+      "p": "AT",
+      "category": "Performance",
+      "code": "ERR-ORCH-5178",
+      "title": "Atlas SD-WAN 3.3: reporting jobs consume excessive CPU when flow history exceeds 7 days",
+      "symptoms": "On 3.3 orchestrators with long retention, scheduled reports start taking 20 to 30 minutes instead of 3 to 4 minutes once flow history grows past roughly 7 days. CPU on the reporting service can stay above 85 percent during the job window, and dashboard updates lag by several minutes. The system remains functional, but concurrent policy changes may be delayed while the report runs.",
+      "root_cause": "The 3.3 report generator performs a full in-memory sort of the entire flow-history set before filtering by tenant and time range. With more than about 5 million rows, the memory footprint and garbage collection overhead dominate the job runtime, even when the final report only needs a small subset of records.",
+      "workaround": "Reduce the flow-history retention window to 3 to 5 days or split reporting into narrower 24-hour jobs. If the dataset must stay large, run reports during a low-change maintenance window so policy updates are not contending with the same CPU cores.",
+      "workaround_commands": [
+        "reporting flow-history retention 5d",
+        "commit"
+      ],
+      "fix": "No software fix required; this is a scaling limit in 3.3 reporting and must be mitigated by reducing retention or job size.",
+      "affected": [
+        "3.3"
+      ],
+      "fixed_in": null,
+      "q": "Why do 3.3 reports crawl once flow history gets past a week?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5108",
+      "p": "AT",
+      "category": "Certificates",
+      "code": "%PKI-3-CHAIN-UNTRUSTED",
+      "title": "Atlas SD-WAN 2.8: edge re-registration fails after certificate renewal if the orchestrator trust bundle is not updated",
+      "symptoms": "Edges that had been renewing certificates normally can lose connectivity after a certificate rotation. In the orchestrator UI, the edge changes to disconnected within 2 to 6 minutes, and subsequent policy pushes to that site fail with certificate validation errors. On the edge, the renewal itself completes, but the following registration attempt is rejected because the certificate chain cannot be validated back to a trusted root.",
+      "root_cause": "The orchestrator keeps the edge trust bundle separate from the active device certificate and does not automatically refresh the intermediate CA list after renewal. If the intermediate is replaced or expires, the orchestrator continues to validate the edge against the previous chain until the trust bundle is manually updated.",
+      "workaround": "Import the complete certificate chain, including the current intermediate CA, into the orchestrator before renewing the edge certificate. In large deployments, load the new chain at least 24 hours before the previous intermediate expires.",
+      "workaround_commands": [
+        "certificate import trust-bundle edge-chain.pem",
+        "commit"
+      ],
+      "fix": "Fixed in 2.9: certificate renewal now refreshes the stored intermediate chain automatically.",
+      "affected": [
+        "2.8"
+      ],
+      "fixed_in": "2.9",
+      "q": null,
+      "traps": [
+        "near_duplicate"
+      ],
+      "twin_of": null,
+      "duplicate_of": "KB-5102"
+    },
+    {
+      "kb": "KB-5109",
+      "p": "AT",
+      "category": "Routing",
+      "code": "%SDWAN-4-ROUTE-CACHE",
+      "title": "Atlas SD-WAN 3.1: app-aware routing keeps using a withdrawn route until the cache ages out",
+      "symptoms": "When a preferred underlay route is withdrawn on a 3.1 edge, application-aware routing can continue forwarding to the stale next-hop for up to 180 seconds. `show app-route sla-class` still shows the route as eligible after the withdrawal, and only a manual policy refresh forces the edge to select the backup path. The problem is most visible during WAN maintenance windows or BGP reconvergence events.",
+      "root_cause": "The 3.1 route cache listens for withdrawal events but only invalidates entries when the route metric changes, not when the route is removed entirely. As a result, the application policy reads a stale cached candidate until the normal aging timer expires.",
+      "workaround": "Trigger a route-refresh after any planned underlay withdrawal, or shorten the route-cache timer to 60 seconds during maintenance windows. Confirm that the stale candidate disappears before changing traffic to the backup link.",
+      "workaround_commands": [
+        "app-route cache age-time 60",
+        "commit"
+      ],
+      "fix": "Fixed in 3.2: route withdrawals now invalidate the application-routing cache immediately.",
+      "affected": [
+        "3.1"
+      ],
+      "fixed_in": "3.2",
+      "q": "On 3.1, why does app-aware routing keep sending traffic to a path that was already withdrawn?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5110",
+      "p": "AT",
+      "category": "Upgrade",
+      "code": "%UPG-5-MTU-MIGRATE",
+      "title": "Atlas SD-WAN 3.2: migration drops per-interface LTE tunnel MTU when the profile uses a nondefault APN",
+      "symptoms": "After upgrading a branch from 3.1 to 3.2, some LTE circuits come up but immediately fragment packets larger than about 1418 bytes. The edge shows the tunnel as established, yet the post-upgrade configuration no longer contains the preexisting MTU override on interfaces bound to a custom APN. Branches using the default APN keep the correct setting.",
+      "root_cause": "The 3.2 migration parser only copies the LTE tunnel MTU when the APN name matches the default profile. If a custom APN is in use, the parser preserves the interface object but silently omits the MTU field, so the overlay inherits the platform default value instead of the configured one.",
+      "workaround": "Reapply the tunnel MTU manually on every LTE interface that uses a custom APN after upgrading to 3.2. Validate the resulting encapsulation size with 1400-byte and 1472-byte probes before returning the circuit to production.",
+      "workaround_commands": [
+        "interface lte0 tunnel-mtu 1400",
+        "commit"
+      ],
+      "fix": "Fixed in 3.3: the migration preserves LTE tunnel MTU values for default and nondefault APNs.",
+      "affected": [
+        "3.2"
+      ],
+      "fixed_in": "3.3",
+      "q": "Why did a 3.2 upgrade lose my LTE MTU only on the custom APN links?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-5104",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5111",
+      "p": "AT",
+      "category": "Security",
+      "code": "%PKI-4-CRL-EXPIRED",
+      "title": "Atlas SD-WAN 2.9: orchestrator blocks policy push when the CRL update is older than 24 hours",
+      "symptoms": "On 2.9 orchestrators, policy pushes begin failing as soon as the revocation list ages past 24 hours, even if no certificates have actually been revoked. The job stops before it reaches the edges, and the orchestrator log shows the certificate check failing during preflight validation. Existing tunnels stay up, but any configuration change that requires a policy push is blocked until the CRL timestamp is refreshed.",
+      "root_cause": "The preflight validator treats the CRL as hard-expired exactly 24 hours after the last update, regardless of the CA's nextUpdate field. If the external PKI publishes CRLs on a 48-hour schedule, the orchestrator rejects otherwise valid pushes halfway through the intended interval.",
+      "workaround": "Refresh the CRL on the orchestrator before the 24-hour mark, or align the CA publication interval to 12 to 18 hours so the push window never overlaps the hard-expiry check. Confirm the updated CRL timestamp before retrying the policy push.",
+      "workaround_commands": [
+        "certificate import crl revocation-list.pem",
+        "commit"
+      ],
+      "fix": "Fixed in 3.1: the validator honors the CRL nextUpdate field instead of a fixed 24-hour timer.",
+      "affected": [
+        "2.9"
+      ],
+      "fixed_in": "3.1",
+      "q": "Why do policy pushes stop working on 2.9 once the CRL gets a day old?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-5112",
+      "p": "AT",
+      "category": "Performance",
+      "code": "ERR-LTE-2201",
+      "title": "Atlas SD-WAN 3.3: edge CPU spikes during LTE handoff when both modems are enabled",
+      "symptoms": "On dual-modem 3.3 edges, LTE handoff can drive control-plane CPU to 95 to 100 percent for 15 to 30 seconds. During that interval, tunnel keepalives are delayed and some sites briefly show degraded overlay status, especially when the handoff coincides with a policy refresh. Single-modem deployments do not exhibit the spike.",
+      "root_cause": "The 3.3 LTE manager processes both modem state machines synchronously during a handoff and repeatedly reevaluates the same transport profile on each link-state notification. When both modems are enabled, the duplicate notifications create a burst of unnecessary control-plane work and starve tunnel maintenance timers.",
+      "workaround": "Stagger the modem failover by disabling the standby modem during maintenance windows, or raise the LTE handoff debounce to 5 seconds so the state machines do not oscillate on transient signal loss. If possible, avoid pushing policy changes during a carrier switchover.",
+      "workaround_commands": [
+        "interface lte0 handoff-debounce 5000",
+        "commit"
+      ],
+      "fix": "No software fix required; the workaround is to dampen LTE handoff events on dual-modem 3.3 edges.",
+      "affected": [
+        "3.3"
+      ],
+      "fixed_in": null,
+      "q": "Why does CPU peg on a 3.3 edge whenever the LTE modems hand off?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6101",
+      "p": "HX",
+      "category": "Optics",
+      "code": "%TRANSCEIVER-4-LOS",
+      "title": "HX-5000 7.2 SFP28 link drops with DOM bias current spike and remote LOS alarms",
+      "symptoms": "On HX-5000 systems running 7.2, 25G ports with specific SFP28 optics drop link every 8 to 12 minutes under steady traffic. `show interfaces transceiver detail` shows a bias current jump from about 6.1 mA to 11.4 mA immediately before the port goes down, and the far-end device reports LOS within 1 second.",
+      "root_cause": "The 7.2 optical polling path latches an incorrect DOM snapshot when the module temperature changes by more than 7 C during a 30-second sampling window. The switch then asserts a false low-power condition and clears the SerDes lane, which produces a transient LOS event even though the optic remains seated and powered.",
+      "workaround": "Reduce DOM polling activity on the affected ports and keep the optics below 50 C case temperature if possible. If the port is flapping under load, move the optic to a port running a later release or replace it with a module that has a stable bias current profile.",
+      "workaround_commands": [
+        "configure terminal",
+        "interface ethernet 1/1",
+        "transceiver monitoring interval 120"
+      ],
+      "fix": "Fixed in 7.3: the DOM sampling logic now validates consecutive readings before acting on bias current excursions.",
+      "affected": [
+        "7.2"
+      ],
+      "fixed_in": "7.3",
+      "q": "On 7.2, why does a 25G port keep dropping with transceiver alarms even though the optic looks seated fine?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-6102",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6102",
+      "p": "HX",
+      "category": "Optics",
+      "code": "%TRANSCEIVER-4-LOS",
+      "title": "HX-5000 7.5 QSFP28 uplinks report intermittent LOS after DOM threshold recalculation",
+      "symptoms": "On 7.5, 100G uplinks using QSFP28 optics can show a brief down/up cycle after a temperature or voltage alarm clears. `show interfaces transceiver detail` shows the module recovering, but the port is withdrawn for 3 to 5 seconds and the remote switch records a clean LOS transition.",
+      "root_cause": "The 7.5 transceiver manager recalculates alarm thresholds after a DOM read and briefly re-evaluates link state against the new limits before the debounce timer expires. That causes a spurious LOS assertion on optics that are otherwise operating within vendor specifications.",
+      "workaround": "Disable aggressive DOM alarm action on the affected interface and leave the port in service if the module readings stay inside the normal operating range. If the uplink is critical, move it to a release that contains the corrected debounce handling.",
+      "workaround_commands": [
+        "configure terminal",
+        "interface ethernet 1/49",
+        "transceiver alarm-action link-down disable"
+      ],
+      "fix": "Fixed in 7.6: threshold recomputation no longer triggers link-state reevaluation until the 5-second debounce timer completes.",
+      "affected": [
+        "7.5"
+      ],
+      "fixed_in": "7.6",
+      "q": "In 7.5, why do my 100G optics briefly bounce after a transceiver warning clears?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-6101",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6103",
+      "p": "HX",
+      "category": "Stacking",
+      "code": "%STACK-3-SPLIT-BRAIN",
+      "title": "HX-5000 stack master election oscillates in 7.3 when stack cables negotiate at mixed speed",
+      "symptoms": "In 7.3 stacks with mixed 50 cm and 1 m stack cables, the master can change 2 to 4 times per hour under moderate control-plane load. `show stack` shows the members briefly in separate election domains, and the log records repeated stack re-election events without a physical cable loss.",
+      "root_cause": "The 7.3 stack election code incorrectly prefers the lowest latency sample from the last three keepalive intervals instead of the current two-way adjacency score. When one member experiences a 20 ms scheduling delay, the election result can flip and the stack re-runs master selection even though both links remain operational.",
+      "workaround": "Use matched-length stack cables between all members and keep control-plane load below 60 percent until the software is upgraded. If possible, pin the desired master with a higher priority value and avoid adding or removing members during the unstable period.",
+      "workaround_commands": [
+        "configure terminal",
+        "stack member 1 priority 200",
+        "stack member 2 priority 100"
+      ],
+      "fix": "Fixed in 7.4: master election now uses the current adjacency score and ignores transient scheduler delay spikes.",
+      "affected": [
+        "7.3"
+      ],
+      "fixed_in": "7.4",
+      "q": "On 7.3, why does the stack keep changing masters even though the cables are fine?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-6104",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6104",
+      "p": "HX",
+      "category": "Stacking",
+      "code": "%STACK-3-SPLIT-BRAIN",
+      "title": "HX-5000 7.6 stack members briefly separate after dual-path heartbeat jitter on long cable runs",
+      "symptoms": "On 7.6 stacks built with 2 m stack cables, the master can remain up while one member disappears from `show stack` for 10 to 15 seconds and then rejoins automatically. Operators usually see a short burst of `split-brain` messages during the event, but the physical links never go down.",
+      "root_cause": "The 7.6 stack heartbeat code treats a single delayed heartbeat as a missed neighbor and immediately clears the adjacency state on long cable runs where propagation and scheduler jitter can align. This differs from 7.3 because the adjacency timer is too aggressive rather than the election algorithm being unstable.",
+      "workaround": "Keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path. If the installation must use 2 m cables, place the stack on a release with the corrected heartbeat hold-down timer.",
+      "workaround_commands": [
+        "configure terminal",
+        "stack heartbeat timeout 900"
+      ],
+      "fix": "Fixed in 8.0: stack heartbeat processing now requires three consecutive missed intervals before adjacency teardown.",
+      "affected": [
+        "7.6"
+      ],
+      "fixed_in": "8.0",
+      "q": "Why does my 7.6 stack briefly split even though none of the stack links are dropping?",
+      "traps": [
+        "version_twin"
+      ],
+      "twin_of": "KB-6103",
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6105",
+      "p": "HX",
+      "category": "Spanning Tree",
+      "code": "%STP-5-TCN-STORM",
+      "title": "Rapid-PVST generates continuous topology-change notifications on 10G access ports in all releases",
+      "symptoms": "After a single downstream host reboots, some access switches emit a new topology-change notification every 2 to 4 seconds for several minutes. `show spanning-tree detail` shows the same port repeatedly reentering forwarding even though the edge device never changes attachment, and the MAC table ages out much faster than the configured 300-second timer.",
+      "root_cause": "This is a design limitation in the access-edge loop guard behavior when rapid-pvst is used on ports that also learn moving MAC addresses from downstream virtual devices. Each learned MAC move resets the topology-change state, so the switch keeps generating notifications even though the physical topology is stable.",
+      "workaround": "Do not run rapid-pvst on ports facing devices that legitimately move multiple MAC addresses, such as downstream virtualization hosts or clustered appliances. Use a dedicated edge VLAN design or restrict the port to a single access device.",
+      "workaround_commands": [
+        "configure terminal",
+        "spanning-tree mode rapid-pvst",
+        "interface ethernet 1/10",
+        "spanning-tree portfast"
+      ],
+      "fix": "No software fix required; this is a configuration and design constraint of rapid-pvst on multi-MAC edge ports.",
+      "affected": "all",
+      "fixed_in": null,
+      "q": "Why do my access ports keep firing topology-change events after a normal host reboot?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6106",
+      "p": "HX",
+      "category": "LACP",
+      "code": "%LACP-4-MISBUNDLE",
+      "title": "HX-5000 7.4 EtherChannel mis-bundles member ports when partner uses slow LACP timers",
+      "symptoms": "In 7.4, a 4-link LACP bundle to a neighboring switch can come up with only 2 active members, and the missing links appear as suspended for 30 to 90 seconds. `show lacp neighbor` shows the partner in sync state, but `show interfaces port-channel` reports repeated collect/distribute mismatch events after a link flap.",
+      "root_cause": "The 7.4 LACP state machine starts collecting traffic before it has confirmed the partner's timeout bit when the peer is using slow LACP timers. That creates a transient aggregation mismatch, so the local system suspends links that should have joined the bundle.",
+      "workaround": "Configure the peer and local bundle for fast LACP timers if the design permits it, or manually clear the affected EtherChannel after link restoration. If the bundle must stay on slow timers, avoid flapping individual member links during maintenance.",
+      "workaround_commands": [
+        "configure terminal",
+        "interface port-channel 10",
+        "lacp rate fast"
+      ],
+      "fix": "Fixed in 7.5: member ports now wait for partner timer confirmation before entering collect/distribute.",
+      "affected": [
+        "7.4"
+      ],
+      "fixed_in": "7.5",
+      "q": "On 7.4, why does my port-channel lose members when the far end is using slow LACP?",
+      "traps": [
+        "near_duplicate"
+      ],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6107",
+      "p": "HX",
+      "category": "LACP",
+      "code": "%LACP-4-MISBUNDLE",
+      "title": "HX-5000 7.4 LACP bundle can suspend member links when the peer advertises slow timers",
+      "symptoms": "On 7.4, a 4-member LACP EtherChannel to an adjacent switch may initialize with only 2 forwarding members, while the other ports remain suspended for 30 to 90 seconds. `show lacp neighbor` reports the partner as synchronized, but `show interfaces port-channel` shows recurring collect/distribute mismatch messages after a member link flap.",
+      "root_cause": "In 7.4, the LACP state machine begins collect/distribute before the local system has verified the partner timeout bit when the peer operates with slow LACP timers. This produces a brief aggregation mismatch, causing ports that should join the bundle to be held in a suspended state.",
+      "workaround": "If the design allows it, configure both ends of the bundle for fast LACP timers. If fast timers are not an option, manually clear the affected EtherChannel after the link comes back. When the bundle must remain on slow timers, do not flap individual member links during maintenance.",
+      "workaround_commands": [
+        "configure terminal",
+        "interface port-channel 10",
+        "lacp rate fast"
+      ],
+      "fix": "Fixed in 7.5: member ports now wait for partner timer confirmation before entering collect/distribute.",
+      "affected": [
+        "7.4"
+      ],
+      "fixed_in": "7.5",
+      "q": null,
+      "traps": [
+        "near_duplicate"
+      ],
+      "twin_of": null,
+      "duplicate_of": "KB-6106"
+    },
+    {
+      "kb": "KB-6108",
+      "p": "HX",
+      "category": "VXLAN/EVPN",
+      "code": "%EVPN-4-RT5-STALL",
+      "title": "HX-5000 7.6 EVPN type-5 routes stop advertising after anycast gateway MAC move",
+      "symptoms": "On 7.6 VXLAN fabrics, type-5 prefixes can stop updating for 5 to 20 minutes after an anycast gateway MAC moves between leafs. `show evpn route-type 5` still lists the prefix locally, but remote VTEPs keep the old next hop and new host traffic blackholes until the route is refreshed manually.",
+      "root_cause": "The 7.6 EVPN process incorrectly ties type-5 advertisement refresh to the gateway MAC mobility timer instead of the prefix change event. When the MAC moves, the route reflector suppresses a needed update and leaves remote peers with stale VTEP information.",
+      "workaround": "Trigger a controlled EVPN route refresh after moving the anycast gateway, or avoid gateway MAC mobility during periods when the fabric is carrying active type-5 routes. If operationally possible, keep the gateway anchored on a single leaf pair until the software is upgraded.",
+      "workaround_commands": [
+        "configure terminal",
+        "router evpn",
+        "address-family l2vpn evpn",
+        "route-refresh"
+      ],
+      "fix": "Fixed in 8.0: type-5 advertisements are refreshed on prefix change independent of gateway MAC mobility.",
+      "affected": [
+        "7.6"
+      ],
+      "fixed_in": "8.0",
+      "q": "In 7.6, why do EVPN routes go stale after the anycast gateway moves?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6109",
+      "p": "HX",
+      "category": "Performance",
+      "code": "%BUF-3-OVERFLOW",
+      "title": "HX-5000 7.2 oversubscribed 100G egress queues drop bursts above 85 percent utilization",
+      "symptoms": "On 7.2, line-rate traffic with microbursts larger than 48 KB can produce sustained output drops on oversubscribed 100G ports even when average utilization is only 70 to 80 percent. `show queue counters` shows tail drops climbing by several thousand packets per minute, and latency on neighboring flows increases from under 1 ms to more than 12 ms.",
+      "root_cause": "The 7.2 egress scheduler uses a fixed 8-cell reservation window that underestimates burst depth on 100G ports with multiple active priority groups. Once the queue occupancy exceeds 85 percent, the local buffer watermark is hit too late to preserve the burst, so frames are discarded instead of being shaped.",
+      "workaround": "Reduce burstiness with traffic shaping upstream, or spread the workload across additional uplinks so no single egress port remains above 85 percent sustained utilization. For critical low-latency flows, reserve a dedicated queue on the affected interface.",
+      "workaround_commands": [
+        "configure terminal",
+        "interface ethernet 1/52",
+        "queue-set 3",
+        "priority-flow-control disable"
+      ],
+      "fix": "Fixed in 7.4: the scheduler reservation window was expanded and buffer watermark checks run earlier in the transmit path.",
+      "affected": [
+        "7.2"
+      ],
+      "fixed_in": "7.4",
+      "q": "On 7.2, why am I seeing drops on a 100G port even though average traffic is only around 75 percent?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6110",
+      "p": "HX",
+      "category": "Performance",
+      "code": "%BUF-3-OVERFLOW",
+      "title": "HX-5000 8.0 multicast replication can starve uplink buffers during short bursts",
+      "symptoms": "On 8.0, a fabric leaf under heavy VXLAN multicast replication can show brief output loss on unrelated unicast flows every few minutes. `show queue counters` reports bursts of discard increments on the uplink queue, typically 200 to 600 packets per event, while interface utilization remains below 80 percent.",
+      "root_cause": "The 8.0 replication engine reserves too much shared buffer for multicast fanout and does not return the reservation quickly enough after a burst ends. That leaves the unicast egress queue with insufficient headroom and causes a drop even though the port is not continuously oversubscribed.",
+      "workaround": "Limit multicast fanout on the busiest leafs, or move replication-heavy workloads onto a separate uplink group so the shared buffer pool is not exhausted. If the burst is predictable, schedule the traffic outside congestion-sensitive windows.",
+      "workaround_commands": [
+        "configure terminal",
+        "hardware buffer multicast-reservation 12",
+        "interface port-channel 20",
+        "queue-limit 4096"
+      ],
+      "fix": "No software fix available yet; the issue remains open in 8.0.",
+      "affected": [
+        "8.0"
+      ],
+      "fixed_in": null,
+      "q": "Why does 8.0 drop some unicast traffic when multicast bursts happen, even though the link is not full?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6111",
+      "p": "HX",
+      "category": "Upgrade",
+      "code": "ERR-UPG-2207",
+      "title": "Upgrade from 7.2 to 7.4 can fail when saved transceiver calibration data exceeds 32 KB",
+      "symptoms": "During an in-service upgrade from 7.2 to 7.4, the process can halt at 78 to 82 percent and the management plane restarts once before rolling back. The upgrade log shows a calibration import failure, and after rollback `show interfaces transceiver detail` may take 20 to 30 seconds to return on systems with many populated optics.",
+      "root_cause": "The 7.4 image expects a compact transceiver calibration record, but some 7.2 systems store expanded DOM history blocks that exceed 32 KB per chassis. The upgrade parser does not trim the legacy records before migration, so the boot loader rejects the converted configuration and aborts the upgrade.",
+      "workaround": "Back up the configuration, clear nonessential DOM history, and retry the upgrade from a maintenance window with fewer populated optics. If the system has many optics, remove and reseat the most recently installed modules before retrying so the calibration cache is rebuilt smaller.",
+      "workaround_commands": [
+        "configure terminal",
+        "no transceiver calibration-history",
+        "write memory",
+        "reload"
+      ],
+      "fix": "Fixed in 7.5: the migration process now truncates legacy transceiver history before the target image is committed.",
+      "affected": [
+        "7.2"
+      ],
+      "fixed_in": "7.5",
+      "q": "Why does the 7.2-to-7.4 upgrade stop around 80 percent on a chassis with lots of optics?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    },
+    {
+      "kb": "KB-6112",
+      "p": "HX",
+      "category": "Software",
+      "code": "%MEM-4-LEAK",
+      "title": "HX-5000 7.6 routing process leaks memory after repeated EVPN route-refresh events",
+      "symptoms": "On 7.6, the routing process RSS can grow from about 900 MB to more than 1.8 GB over 24 hours when the fabric receives frequent EVPN route-refresh messages. Once free memory falls below 12 percent, control-plane latency rises and `show process memory` reports steady growth in the same daemon.",
+      "root_cause": "The 7.6 EVPN refresh handler allocates a new per-peer attribute cache on every refresh and fails to release the previous generation when the remote peer sends back-to-back updates. The leak is cumulative, so the process recovers only after a reload or after the refresh storm stops for long enough to drain the cache.",
+      "workaround": "Reduce the frequency of route-refresh events by limiting unnecessary neighbor resets and schedule a reload before free memory drops below 15 percent. If the fabric is stable, keep EVPN adjacency changes out of peak traffic windows.",
+      "workaround_commands": [
+        "configure terminal",
+        "router evpn",
+        "neighbor 198.51.100.1 route-refresh disable"
+      ],
+      "fix": "Fixed in 8.0: the refresh handler now reuses attribute cache objects and frees stale generations immediately.",
+      "affected": [
+        "7.6"
+      ],
+      "fixed_in": "8.0",
+      "q": "Why does memory keep climbing on 7.6 after EVPN refreshes, and when does it need a reboot?",
+      "traps": [],
+      "twin_of": null,
+      "duplicate_of": null
+    }
+  ],
+  "customers": [
+    "Northstar Bank",
+    "Crescent Health Group",
+    "HarborPoint Retail",
+    "Summit Logistics",
+    "Redwood University",
+    "Pinnacle Energy",
+    "Lakeside Hospitality",
+    "MetroLink Telecom",
+    "CivicWorks Public Agency",
+    "BlueRiver Credit Union",
+    "Evergreen Clinic Network",
+    "Cornerstone Supermarkets",
+    "IronGate Freight",
+    "Prairie State College",
+    "Sunset Power Authority"
+  ],
+  "unanswerable": [
+    "What is the list price and annual support cost for Aurora AR-900, Nimbus NF-300, Orion OW-20, Atlas SD-WAN, and Helix HX-5000 by region?",
+    "What licensing tiers and feature bundles will Atlas SD-WAN and Nimbus NF-300 have in the next release?",
+    "When will Aurora AR-900 and Helix HX-5000 reach end of sale and end of support?",
+    "Does Orion OW-20 integrate with Acme CloudWatcher, and is that integration officially supported?",
+    "How does Nimbus NF-300 compare with competitor firewalls on throughput, SSL inspection, and VPN scalability?",
+    "Is there a confirmed roadmap date for the next major software release across Aurora AR-900, Orion OW-20, and Atlas SD-WAN?"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-4110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Orion OW-20 release 5.1, the RF manager may stop updating 5 GHz channels after several DFS radar detections in a short interval. APs remain joined and operational, but affected radios no longer move off the DFS channel and client retries increase until the channel plan is adjusted.",
+    "symptoms": "In the affected window, APs continue to appear online in `show ap summary`, and the controller does not report AP loss or a general RF outage. However, 5 GHz radios that were operating on DFS channels can remain pinned to the same channel after 3–5 radar hits within 10 minutes. The RF dashboard stops showing new channel-change events even though radar counters continue to increase, and neighboring APs may continue transmitting on a channel that should have been vacated.\n\nOperators typically observe a gradual rise in retry rate and reduced throughput for clients associated to the affected cell. In many cases, the issue is most visible during busy periods when AP power tuning and DFS history updates occur at the same time.",
+    "diagnosis_steps": [
+      "Run `show ap summary` and confirm the APs are still joined and passing traffic while the affected 5 GHz radios remain on the same channel after repeated radar events.",
+      "Check the RF status and event counters for the affected AP group; the key indicator is that radar detections continue to increment but no new channel-change entries appear after the freeze begins.",
+      "If available on your deployment, run `show client detail <mac>` for impacted clients and look for repeated 802.11 retransmissions, roaming attempts, or rising retry counters on the same AP.",
+      "Review recent RF manager logs and verify that `%RF-4-DFS_FREEZE` appears during the event window, followed by a lack of subsequent channel re-evaluation messages.",
+      "Confirm that the affected radios are using DFS-enabled channels and that the channel plan has not been manually changed by an operator or automation workflow.",
+      "Correlate the start of the freeze with any AP power tuning activity; a match strongly indicates this issue rather than a general RF congestion problem."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %RF-4-DFS_FREEZE: RF manager channel re-evaluation worker stalled after DFS history update on ap-group corp-5ghz\n2026-03-14T02:13:08Z rfmgr[2143]: radar event count for ap 00:11:22:33:44:55 radio 1 incremented to 4\n2026-03-14T02:13:08Z rfmgr[2143]: channel-selection queue depth=7, last channel-change=2026-03-14T02:02:41Z\n2026-03-14T02:13:09Z rfmgr[2143]: ap 00:11:22:33:44:55 radio 1 remains on channel 100 (dfs)\n\nap summary\nap name           mac               band  channel  status\nap-01             00:11:22:33:44:55 5g    100      up\nap-02             00:11:22:33:44:66 5g    100      up\n\nrf events\nradar detections: 4\nchannel changes: 0\nlast channel change: 2026-03-14T02:02:41Z",
+    "root_cause": "In release 5.1, the RF manager can deadlock its channel re-evaluation worker when DFS channel history is updated at the same time as AP power tuning. The worker stops draining the channel-selection queue, so later radar detections are recorded but never result in a move to a new channel.\n\nThis is a software defect limited to 5.1. It does not indicate AP hardware failure, client driver problems, or a controller-wide RF database corruption event.",
+    "workaround_steps": [
+      "Verify the affected AP group and radio set with `show ap summary`, then identify the radios that are still pinned to a DFS channel after repeated radar detections.",
+      "Disable DFS on the affected radio group so the controller stops attempting DFS-driven channel moves for that pool of radios.",
+      "Move the radios to a fixed non-DFS 5 GHz channel set with at least 20 MHz separation from neighboring cells, and validate that the new plan avoids the DFS range in use.",
+      "If DFS must remain enabled for site requirements, reduce exposure to repeated radar hits by adjusting the deployment so peak-use periods see fewer than 3 radar events within 10 minutes.",
+      "After the change, monitor client retries and RF events until channel-change activity resumes normally or remains stable on the fixed plan."
+    ],
+    "resolution": "No software fix is required on the affected deployment once the workaround is applied, and the issue is prevented operationally by avoiding repeated DFS radar events during peak use. For a permanent correction, update to the maintenance release that removes the DFS history and power-tuning deadlock so the channel re-evaluation worker continues to process events normally."
+  }
+}

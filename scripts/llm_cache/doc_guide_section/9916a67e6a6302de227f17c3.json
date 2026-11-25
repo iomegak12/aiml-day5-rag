@@ -1,0 +1,58 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AR#5",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "QoS and control-plane protection thresholds on the AR-900 are intended to keep latency-sensitive traffic forwarding while preventing a single class or protocol from consuming shared resources during bursts. The two most common failure modes are strict-priority starvation of best-effort traffic and control-plane exhaustion caused by excess IPv6 Neighbor Discovery (ND) or other punted packets. In both cases, the symptom may look like a routing problem, but the root cause is often queue behavior or policer thresholds rather than protocol adjacency loss.",
+      "On 9.2.1, cap the strict-priority class at 30% bandwidth to prevent best-effort starvation during microbursts. This is a targeted mitigation for links that carry voice or other delay-sensitive flows alongside bulk traffic. A higher priority cap can improve one-way delay for the protected class, but it can also drain the best-effort queue fast enough to create visible packet loss and retransmissions elsewhere. If a site is already close to saturation, reducing the strict-priority ceiling is usually safer than increasing buffer depth, because it limits how much traffic can bypass scheduling.",
+      "Where strict priority is not required, convert the service class to low-latency queueing with an explicit policer of 300 Mbps on 10 Gbps links. This approach preserves preferential treatment without allowing the class to monopolize the egress scheduler when a burst arrives. The policer should be sized to the actual committed load, not the physical port rate, and it should be validated against codec mix, call density, and any encapsulation overhead. A common mistake is to leave the class in strict-priority mode after the service has migrated from real-time voice to mixed media, which can hide the issue until congestion appears during business peaks.",
+      "Control-plane protection should be tuned conservatively when the router is exposed to noisy access segments or rapid host churn. On 9.2.3, set the control-plane policer for IPv6 ND to 2,000 pps until the traffic source is identified. This threshold is high enough to preserve normal neighbor discovery and address resolution on active segments, but low enough to avoid excessive punt rate when a host, switch, or loop is generating repeated multicast solicitations. If the platform shows repeated punt spikes, investigate whether the source is an access-layer loop, duplicate address detection failure, or a misbehaving endpoint that is refreshing neighbors too aggressively.",
+      "Reducing the ND rate at the edge is usually more effective than raising the policer indefinitely. Use RA guard or storm control on the access VLAN to suppress unnecessary router advertisements and multicast floods, and if necessary shut the offending access port for 30 seconds to let neighbor state recover. That pause is often enough for the access segment to age out stale entries and clear transient duplicate address conditions without requiring a broader outage. Do not apply the port shutdown step indiscriminately on uplinks or trunks; it is intended for the access port that is generating the excessive ND load.",
+      "When you change these thresholds, watch both forwarding and control-plane counters. Queue shaping and policer changes can take effect immediately, but the real test is whether drops move from the protected class or control-plane queues back into normal ranges without creating new side effects. If a voice class still shows drops after the 30% cap is applied on 9.2.1, confirm whether the offered load exceeds the class design, whether the parent policy is oversubscribed, and whether the traffic is actually landing in the intended class map. For IPv6 ND, confirm that the punt rate falls after RA guard, storm control, or the 30-second access-port hold-down is applied, and verify that neighbor reachability stabilizes rather than oscillating."
+    ],
+    "procedure_steps": [
+      "Enter configuration mode with `configure` and navigate to the WAN egress policy.",
+      "Under `policy-map wan-egress`, select `class voice` and apply the strict-priority ceiling with `priority percent 30` on 9.2.1.",
+      "If the service does not require strict priority, replace it with low-latency queueing and add an explicit policer of 300 Mbps on 10 Gbps links.",
+      "Enter `control-plane` and set the IPv6 ND policer to 2,000 pps on 9.2.3 until the source is identified.",
+      "Apply RA guard or storm control on the access VLAN, and if the ND source remains present, shut the offending access port for 30 seconds before restoring it."
+    ],
+    "table": {
+      "caption": "QoS and control-plane threshold guidance",
+      "header": [
+        "Area",
+        "Version scope",
+        "Recommended threshold",
+        "Operational intent"
+      ],
+      "rows": [
+        [
+          "Strict-priority voice class",
+          "9.2.1",
+          "priority percent 30",
+          "Prevents best-effort starvation during microbursts"
+        ],
+        [
+          "Low-latency queueing",
+          "All supported versions where strict priority is not needed",
+          "explicit policer of 300 Mbps on 10 Gbps links",
+          "Preserves latency protection without scheduler monopolization"
+        ],
+        [
+          "IPv6 ND control-plane policer",
+          "9.2.3",
+          "2,000 pps",
+          "Limits punt load until the traffic source is identified"
+        ],
+        [
+          "Access-layer mitigation",
+          "All supported versions",
+          "RA guard, storm control, or 30-second port shutdown",
+          "Reduces ND bursts at the edge and allows neighbor state to recover"
+        ]
+      ]
+    },
+    "verification": "Use `show policy-map interface` to confirm the class counters match the intended behavior: the voice class should remain within the configured 30% ceiling on 9.2.1, with drops occurring only if the offered load exceeds the shaped allocation. Use `show control-plane` or the platform-equivalent control-plane statistics view to confirm that IPv6 ND policer drops appear only during the initial burst and then subside toward zero after the source is corrected. For access-layer remediation, use `show ipv6 neighbors` to verify that neighbor entries return to reachable or stale state without repeated incomplete transitions, and check interface error and multicast counters to confirm that the offending port is no longer generating excessive ND traffic."
+  }
+}

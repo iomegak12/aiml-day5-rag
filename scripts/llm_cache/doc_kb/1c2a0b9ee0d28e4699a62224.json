@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-4107",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Orion OW-20 release 4.9, 802.1X sessions that use external RADIUS servers can fail during tunneled EAP exchanges when an Access-Challenge contains more than 12 attributes. The controller may accept the first exchange, then drop Vendor-Specific attribute 26 during internal repacking, causing authentication to stall before timing out.",
+    "symptoms": "This issue is seen during 802.1X authentication against an external RADIUS server, typically with PEAP, EAP-TTLS, or other tunneled methods that rely on Vendor-Specific attribute 26 in the Access-Challenge path. The first challenge may succeed, but after the second Access-Challenge the client remains in `authenticating` for 15 to 20 seconds and then fails.\n\nThe problem is easiest to reproduce when the RADIUS Access-Challenge carries 13 or more attributes. In affected cases, the controller forwards the request, but the next step is rejected because tunneled policy attributes are missing from the repacked challenge.",
+    "diagnosis_steps": [
+      "Run `show client detail <mac>` for a failing client and confirm the session remains in `authenticating` during the second challenge exchange, with no final success or reject state.",
+      "Check `show logging last 50` for `%RADIUS-4-ATTR_DROP` entries on the same timestamp as the authentication failure. The log indicates that an attribute was removed during Access-Challenge repacking.",
+      "Enable targeted RADIUS troubleshooting on the controller if available in your lab workflow, then retry the authentication and confirm that the failure occurs only when the server returns an Access-Challenge with 13 or more attributes.",
+      "Inspect the RADIUS server response ordering and count. If Vendor-Specific attribute 26 appears after the 12th attribute in the Access-Challenge, the issue matches this defect.",
+      "Confirm the controller is running 4.9. Versions 5.0 and later do not truncate the repacked Access-Challenge attribute list."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %RADIUS-4-ATTR_DROP: Access-Challenge repack truncated at 12 attributes; dropped vendor-specific attribute 26 for client 10.0.12.45\n2026-03-14T02:13:07Z %RADIUS-4-ATTR_DROP: tunneled policy attributes missing from next-hop challenge, session pending for mac 02:11:22:33:44:55\n2026-03-14T02:13:22Z %RADIUS-4-ATTR_DROP: authentication timeout waiting for completed Access-Challenge exchange on wlan corp",
+    "root_cause": "In release 4.9, the RADIUS encoder repacks Access-Challenge packets for internal policy processing and incorrectly truncates the attribute list at 12 entries. Vendor-Specific attribute 26 is commonly positioned after the 12th slot and is silently dropped during this repack operation.\n\nTunneled EAP methods depend on that attribute to carry policy data needed for the next authentication step. When it is removed, the client receives an incomplete challenge sequence and the server cannot complete the tunneled exchange, resulting in a prolonged authenticating state followed by timeout.",
+    "workaround_steps": [
+      "Identify affected clients with `show client detail <mac>` and verify that the failure occurs during the second Access-Challenge exchange.",
+      "Modify the RADIUS server response so that the challenge contains 12 or fewer attributes, or reorder the response so that Vendor-Specific attribute 26 is sent earlier in the list.",
+      "If possible, direct the SSID to a dedicated policy server that emits the tunneled attributes first, reducing the chance that the attribute is moved beyond the 12th slot.",
+      "After changing the server-side attribute order, use the logging command to confirm that `%RADIUS-4-ATTR_DROP` no longer appears during authentication attempts."
+    ],
+    "resolution": "The defect is fixed in release 5.0. In 5.0 and later, Access-Challenge repacking preserves all attributes and no longer truncates the list at 12 entries."
+  }
+}

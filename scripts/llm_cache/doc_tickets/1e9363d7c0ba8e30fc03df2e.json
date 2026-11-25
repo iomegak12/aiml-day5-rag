@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-3106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Outbound HTTPS occasionally bypasses SSL inspection on NF-300",
+        "description": "Summit Logistics reported that some outbound HTTPS sites were intermittently loading with the origin server certificate instead of the inspection certificate on an NF-300 running 5.2.0. The issue was first noticed after the firewall had been up for several days, and it seemed to affect only a subset of web sessions while most traffic continued to decrypt normally. TAC reviewed the SSL inspection counters and saw certificate cache evictions rising steadily during the affected window, which matched the customer's observation that the behavior became more frequent during business hours. The bypass appears tied to cache pressure rather than a specific destination site or policy change.",
+        "resolution": "TAC identified the behavior as the SSL inspection cache-eviction issue described in KB-3106. We increased the certificate cache size with `ssl inspection cache size 4096`, committed the change, and advised the customer to monitor eviction rates so they remain below 1,000 per hour. Inspection resumed normally after the cache was resized."
+      },
+      {
+        "subject": "HTTPS flows not decrypted during peak hours on 5.2.0",
+        "description": "MetroLink Telecom opened the case after a rise in encrypted web traffic caused some HTTPS sessions to pass through the NF-300 without decryption. The firewall is running 5.2.0, and the SOC reported that users sometimes saw the remote site certificate instead of the expected forged inspection certificate. TAC confirmed that the issue was intermittent and more likely after 5 to 10 minutes of sustained SSL inspection load, with cache evictions increasing above the normal baseline. The customer also provided the following log entry from the affected period: `%SSL-5-CERT_CHAIN_CACHE`.",
+        "resolution": "TAC correlated the symptoms and log activity with KB-3106, which describes a configuration-sensitive outbound TLS bypass on 5.2.0. We applied the supported workaround by increasing the certificate cache size to reduce eviction pressure, then committed the change and verified that new HTTPS sessions were again being decrypted."
+      },
+      {
+        "subject": "Intermittent TLS bypass on perimeter firewall",
+        "description": "HarborPoint Retail reported that a small number of customer-facing web sessions were not being inspected on their Nimbus NF-300 firewall. The device is running 5.2.0, and the team initially suspected a policy issue because only certain destinations were affected. TAC checked the SSL inspection statistics and found the cache eviction counter climbing quickly, with the problem appearing after the appliance had been under sustained certificate-cache pressure for several minutes. No packet loss or general forwarding issue was observed, and the rest of the traffic matrix remained stable.",
+        "resolution": "TAC determined the symptom matched KB-3106 for Nimbus NF-300 5.2.0. We applied the recommended workaround by increasing the certificate cache size so eviction activity stayed below the threshold associated with the bypass condition, then committed the configuration. The customer was advised to restart SSL inspection only if they needed to clear any remaining stale lookup state before the change took effect."
+      },
+      {
+        "subject": "Outbound HTTPS sometimes shows site cert instead of inspection cert",
+        "description": "Northstar Bank submitted a portal request for an NF-300 running 5.2.2 after users reported that some banking-related HTTPS sessions were not being decrypted. The reports were inconsistent at first, which made the bank suspect browser pinning or a server-side TLS change, but TAC found the issue was reproducible during periods of high SSL inspection churn. `show ssl inspection statistics` showed certificate cache evictions well above the healthy range, and the problem tended to appear after the cache had been under pressure for roughly 5 to 10 minutes. Other forwarding functions and policy enforcement were normal during the same interval.",
+        "resolution": "TAC matched the behavior to KB-3106 and confirmed that no software upgrade was required. We implemented the supported workaround by raising the certificate cache size, committed the configuration, and verified that new outbound TLS sessions resumed full inspection."
+      },
+      {
+        "subject": "P1: SSL inspection bypass affecting multiple web users",
+        "description": "Cornerstone Supermarkets escalated through a partner because multiple stores reported that outbound HTTPS sessions were reaching the internet without decryption on an NF-300 running 5.2.0. The issue was severe enough to be treated as a priority one because it affected several user groups at once, although the firewall continued to pass traffic normally. TAC review showed the SSL inspection cache under heavy churn, with repeated certificate cache evictions correlating to the time window when the bypass was observed. The symptoms were intermittent and did not align with a single application or server group, which pointed away from a policy mismatch.",
+        "resolution": "TAC identified the defect as the cache-eviction bypass condition documented in KB-3106. We applied the supported workaround by increasing the certificate cache size to reduce eviction pressure, then committed the change and confirmed that SSL inspection resumed for new HTTPS sessions. The customer was advised to keep eviction rates below 1,000 per hour and to restart SSL inspection only if they needed to clear stale lookup state immediately."
+      }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-NF#1",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Nimbus NF-300 supports IKEv2 and IPsec in both policy-based and route-based designs, but the operational model differs enough that the tunnel type should be chosen before you define selectors or firewall policy. Policy-based tunnels tie the child SA to local and remote traffic selectors, which makes them sensitive to addressing changes and to narrow host-to-host layouts. For that reason, use route-based VPN for host-to-host designs and enforce restrictions with firewall policy instead of trying to encode those restrictions into very narrow selectors. For policy-based IKEv2 tunnels, avoid local selectors narrower than /30; narrower selectors increase the chance of asymmetric negotiation, SA churn, and obscure failures during rekey.",
+      "In deployments on 5.1.3 and 5.1.5, the most common phase 2 issue is a mismatch in child SA transform selection between peers. To reduce negotiation variance, pin a single DH group on both peers, preferably group 14, and avoid mixed transform sets to prevent phase 2 resets. Mixed proposals can appear to work during initial establishment and then fail later when one side attempts a rekey with a different transform preference. When you standardize the transform set, the peer can rekey deterministically and troubleshooting becomes much simpler because the negotiated parameters are stable.",
+      "On 5.0.8 and 5.0.9, the platform is less tolerant of a peer-side change to PFS during active traffic. Keep the PFS group unchanged on both peers; if a change is required, apply the same group on both sides and clear the SA after the change. This avoids a period where one child SA is established with the old PFS value while the other side expects the new value. If the tunnel must carry production traffic during the change window, validate the change on both peers first, then clear the child and IKE SAs in a controlled sequence so that both ends renegotiate from the same baseline.",
+      "If the platform is rekeying active traffic and a child SA change is required on 5.0.8 or 5.0.9, disable child SA rekey and schedule a manual tunnel restart during a maintenance window. This prevents repeated rekey attempts from colliding with the parameter change and producing intermittent packet loss. The operational trade-off is that you temporarily give up automatic child SA rollover, so the restart window should be short and coordinated with application owners. After the tunnel is stable again, confirm that rekey behavior matches the intended maintenance plan before returning the circuit to normal service.",
+      "A practical baseline on all supported releases is to minimize the number of negotiated variables. Use one proposal set per tunnel, keep lifetimes aligned with the peer, and avoid unnecessary selector fragmentation. When using firewall policy to constrain a route-based tunnel, make the policy explicit and review it after any addressing change so the tunnel does not become a transit path for unintended prefixes. For policy-based deployments, document every local and remote selector pair and keep the subnet masks symmetrical wherever possible. That reduces ambiguity during troubleshooting and helps distinguish a selector mismatch from a peer availability issue.",
+      "When a tunnel fails to establish, treat the failure as an ordered negotiation problem rather than an encryption problem first. Confirm that IKEv2 Phase 1 is up, then verify that the child SA is installed, and only then inspect traffic counters and routing. If the IKE SA is present but the child SA is absent, focus on proposal matching, PFS, and selector scope. If the child SA is present but traffic does not flow, inspect the policy lookup and the route table before changing crypto parameters. In most cases, a stable IKE SA with no child SA points to configuration mismatch, while a stable child SA with no traffic points to forwarding or policy issues."
+    ],
+    "procedure_steps": [
+      "enter configuration mode with `config`.",
+      "For route-based host-to-host designs, disable policy-based IKEv2 with `vpn ikev2 policy-based disable`. If you are maintaining a policy-based tunnel on supported releases, keep local selectors no narrower than /30 and do not rely on host-sized selectors for reachability control.",
+      "On 5.1.3 and 5.1.5, set a single DH group on both peers and prefer group 14 by entering `crypto ikev2 proposal default dh-group 14`. Avoid mixed transform sets on the peer until the tunnel is stable and confirmed.",
+      "On 5.0.8 and 5.0.9, keep the PFS group unchanged on both peers. If a change is required, coordinate the same PFS value on both sides, then clear the SA after the change. If active traffic is being rekeyed and a child SA change is required, enter `crypto ikev2 child-sa rekey disable` and plan a manual tunnel restart during a maintenance window.",
+      "commit the configuration.",
+      "After commit, verify that the peer uses the intended IKEv2 and IPsec parameters and that the tunnel returns to established state before restoring normal traffic baselines."
+    ],
+    "table": {
+      "caption": "IPsec and IKEv2 tuning reference",
+      "header": [
+        "Area",
+        "Guidance",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "Policy-based selectors",
+          "Avoid local selectors narrower than /30",
+          "Use route-based VPN for host-to-host designs and enforce restrictions with firewall policy"
+        ],
+        [
+          "5.1.3 / 5.1.5 DH group",
+          "Pin a single DH group on both peers, preferably group 14",
+          "Avoid mixed transform sets to prevent phase 2 resets"
+        ],
+        [
+          "5.0.8 / 5.0.9 PFS",
+          "Keep the PFS group unchanged on both peers",
+          "If a change is required, apply the same group on both sides and clear the SA after the change"
+        ],
+        [
+          "Active rekey during change",
+          "Disable child SA rekey if a child SA change is required",
+          "Schedule a manual tunnel restart during a maintenance window"
+        ]
+      ]
+    },
+    "verification": "Use `show crypto ikev2 sa` to confirm the IKE SA is established and that the negotiated peer address, authentication state, and timers are present. Then use the platform’s IPsec SA display for the tunnel to confirm that the child SA is installed, the inbound and outbound selectors match the intended prefixes, and packet counters increment when you generate test traffic. If the tunnel is routed, confirm reachability with the routing table and firewall policy, then validate that `show session table summary` does not show unexpected drops while traffic traverses the tunnel. A healthy result shows one active IKE SA, one active child SA per tunnel, and increasing encapsulation and decapsulation counters without phase 2 resets."
+  }
+}

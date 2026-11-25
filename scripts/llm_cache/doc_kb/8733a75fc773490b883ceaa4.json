@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-5109",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Atlas SD-WAN 3.1 edges, application-aware routing can continue to select a withdrawn underlay route until the route-cache ages out. This is most commonly seen during planned WAN maintenance or BGP reconvergence, when traffic remains pinned to the stale next-hop for up to 180 seconds.",
+    "symptoms": "After a preferred underlay route is removed, the edge may keep forwarding application traffic toward the old next-hop instead of failing over to the backup path. Operators typically observe that the application policy still treats the withdrawn route as eligible, and the issue clears only after the route-cache timer expires or after a manual policy refresh.\n\nThe behavior is limited to 3.1 edges and is most visible when the underlay changes rapidly, such as interface maintenance, route withdrawal, or upstream reconvergence. `show app-route sla-class` continues to list the stale candidate as usable even though the route is no longer present in the underlay table.",
+    "diagnosis_steps": [
+      "On the affected edge, run `show app-route sla-class` and confirm that the preferred next-hop is still listed as eligible after the underlay route has been withdrawn.",
+      "Run `show sdwan tunnels` and verify that the tunnel toward the withdrawn underlay is no longer up or no longer has a valid route behind it, while application traffic is still selecting it.",
+      "Check the route state with the appropriate underlay routing show command for the protocol in use; the withdrawn prefix should be absent, but the app-routing output still references it as a candidate.",
+      "If available on the edge, enable a short debug for route-cache events and look for a withdrawal event without a corresponding cache invalidation message; the stale entry remains until aging expires.",
+      "Force a manual policy refresh and rerun `show app-route sla-class`; if the backup path is selected immediately, this confirms the issue is cache retention rather than underlay reachability."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %SDWAN-4-ROUTE-CACHE: route 198.51.100.0/24 withdrawn on transport lte0, cache entry retained until age timer expires\n2026-03-14T02:13:08Z edge01# show app-route sla-class\nsla-class name: voice\n  preferred-candidate 198.51.100.1 via lte0  eligible yes  metric 20  age 00:01:12\n  backup-candidate    203.0.113.1 via wan0  eligible yes  metric 30  age 00:00:04\n  selected-candidate   198.51.100.1 via lte0\n\n2026-03-14T02:13:09Z edge01# show sdwan tunnels\ntunnel-id  transport  local-ip        remote-ip       state  last-change\n1          lte0       10.0.10.2        10.0.10.1       down   2026-03-14T02:12:41Z\n2          wan0       10.0.20.2        10.0.20.1       up     2026-03-14T02:13:01Z",
+    "root_cause": "In Atlas SD-WAN 3.1, the route-cache listens for withdrawal notifications but only invalidates entries when an existing route changes metric. If the route is removed completely, the cache does not clear the stale candidate immediately.\n\nBecause application-aware routing consults that cache before selecting the next-hop, the policy can continue to use the withdrawn route until the normal aging timer expires, which is up to 180 seconds by default. This produces a temporary mismatch between the live underlay state and the application-routing decision.",
+    "workaround_steps": [
+      "Before changing the underlay, reduce the route-cache age timer so stale candidates expire more quickly during the maintenance window.",
+      "After the underlay route is withdrawn, verify that the stale next-hop no longer appears as the selected candidate in `show app-route sla-class` before moving traffic to the backup link.",
+      "If the change is already in progress, perform a manual policy refresh on the edge or from the orchestrator to force immediate reselection after the withdrawal.",
+      "Restore the normal cache timer after the maintenance window is complete if your operational standard uses a longer value."
+    ],
+    "resolution": "This defect is fixed in Atlas SD-WAN 3.2. In the fixed release, route withdrawals invalidate the application-routing cache immediately, so withdrawn underlay routes are no longer retained as eligible candidates after removal."
+  }
+}

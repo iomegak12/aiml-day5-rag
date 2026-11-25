@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-2103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "AR-900 OSPF neighbor on 10.0.14.0/24 keeps dropping to Down",
+        "description": "IronGate Freight reported that the Aurora AR-900 at their cross-dock site was flapping OSPF with the upstream switch every few seconds after a change window. The router is running 9.2.0, and the interface on the AR-900 is configured for 1500-byte MTU while the peer is advertising 1492 bytes. On-site checks showed the neighbor cycling between ExStart and Down, with the LSDB changing continuously and route convergence never completing. The event log also showed \"%OSPF-4-ADJ-EXSTART\" on each reset. TAC confirmed the pattern matches the known 9.2.0 adjacency issue on multiaccess segments with an MTU mismatch.",
+        "resolution": "TAC applied the KB-2103 workaround during the maintenance window by configuring matching OSPF MTU handling on both peers, using `ip ospf mtu-ignore` on the affected interface while keeping the physical MTU unchanged. After the change, the adjacency reached Full and remained stable under load. The case was closed as a confirmed KB-2103 workaround on Aurora AR-900 9.2.0."
+      },
+      {
+        "subject": "OSPF neighbor instability between AR-900 and core switch",
+        "description": "CivicWorks Public Agency emailed TAC stating that their Aurora AR-900 has been losing one routing neighbor since a recent network clean-up. The device is running 9.2.0, and they observed the neighbor never stays in Full state on a broadcast VLAN. Initial triage showed the local interface MTU at 1500 and the peer at 1492, which correlates with repeated database exchange retries on the segment. TAC advised that this behavior is consistent with an OSPF adjacency defect in the current release rather than a general routing failure.",
+        "resolution": "TAC recommended upgrading the AR-900 from 9.2.0 to 9.2.1, per KB-2103. After the upgrade, the router re-evaluated the remote MTU on each DBD exchange and the neighbor transitioned to Full without further resets. The issue was closed after post-upgrade monitoring showed stable adjacencies and no additional LSDB churn."
+      },
+      {
+        "subject": "AR-900 OSPF adjacency bouncing on shared segment",
+        "description": "BlueRiver Credit Union opened this case from the field after users reported intermittent reachability to a branch site. Their Aurora AR-900 is on 9.2.0 and peers with another router on a shared Ethernet segment. The engineer noted that the neighbor comes up briefly and then falls back to ExStart, with the route table oscillating every 20 to 30 seconds. TAC review of the interface details showed a local MTU of 1500 and a peer MTU lower than that, which points to the known adjacency reset condition on this release.",
+        "resolution": "TAC applied the KB-2103 workaround by configuring OSPF MTU-ignore on the affected interface so the routers would complete adjacency despite the MTU difference. The neighbor reached Full after the change and remained stable during soak testing. The ticket was closed as a workaround success on Aurora AR-900 9.2.0."
+      },
+      {
+        "subject": "OSPF session reset on AR-900 after VLAN cutover",
+        "description": "Sunset Power Authority reported that their Aurora AR-900 on 9.2.0 stopped learning routes across a new shared-services VLAN after a cutover. The on-site engineer saw the neighbor oscillating between ExStart and Down, which was initially suspected to be a cabling or duplex problem. TAC confirmed the physical link was clean and that the router was sending and receiving OSPF hellos normally, but the adjacency would not move past database exchange on the multiaccess network. The system log included \"%OSPF-4-ADJ-EXSTART\" each time the neighbor reset.",
+        "resolution": "TAC advised upgrading the AR-900 to 9.2.1, which contains the fix described in KB-2103. After upgrade, OSPF DBD negotiation completed normally and the neighbor remained in Full state on the VLAN. The customer validated steady LSDB size and route stability before closing the case."
+      },
+      {
+        "subject": "Partner escalation: AR-900 OSPF adjacency fails on shared Ethernet segment",
+        "description": "A partner escalated on behalf of Summit Logistics for an Aurora AR-900 running 9.2.0 at a regional hub. The reported symptom was that the routing neighbor would not stay established on a multiaccess network, causing route changes and occasional loss of downstream prefixes. TAC found that the problem reproduced only on the shared Ethernet segment and not on point-to-point test links, which narrowed it to an adjacency negotiation problem rather than a generic OSPF process failure. The local interface MTU was 1500, while the peer side was configured lower, matching the known trigger for this release.",
+        "resolution": "TAC directed the customer to upgrade the AR-900 from 9.2.0 to 9.2.1, per KB-2103. Once upgraded, OSPF correctly re-evaluated the remote MTU on each DBD exchange and the adjacency no longer reset. Post-change monitoring showed the neighbor stable in Full and no further routing interruptions."
+      }
+    ]
+  }
+}

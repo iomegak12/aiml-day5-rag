@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-6111",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why does the 7.2-to-7.4 upgrade stop around 80 percent on a chassis with lots of optics?",
+    "reference_answer": "On the Helix HX-5000, KB-6111 / ERR-UPG-2207 explains that the 7.2 to 7.4 upgrade can halt at about 78 to 82 percent when saved transceiver calibration data exceeds 32 KB per chassis. The 7.4 image expects a compact calibration record, but some 7.2 systems keep expanded DOM history blocks, and the upgrade parser does not trim those legacy records before migration, so the boot loader rejects the converted configuration and aborts the upgrade. The issue affects 7.2 and is fixed in 7.5; the workaround is to back up the configuration, clear nonessential DOM history, and retry the upgrade in a maintenance window with fewer populated optics."
+  }
+}

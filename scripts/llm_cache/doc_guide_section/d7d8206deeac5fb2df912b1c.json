@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-NF#5",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Planned firmware upgrades on the Nimbus NF-300 should be treated as a configuration migration, not only an image replacement. Release families 5.0, 5.1, and 5.2 preserve policy intent, but the boot process, checkpoint parser, and replay-state handling are not identical across families. That matters most when moving from 5.0.x into 5.1.3 or 5.1.5, where large checkpoints can exceed parser limits during first boot. For that reason, before upgrading from 5.0.x to 5.1.3 or 5.1.5, keep each checkpoint file under 4,000 entries and verify the running configuration immediately after reboot.",
+      "A second constraint is replay-state size. The NF-300 will accept a large configuration in one release family and still fail to restore it cleanly after a major-minor transition if replay data is too large. If the configuration contains more than 4,096 replay entries, split the upgrade into smaller chunks or export and re-import policy objects after first boot. This is operationally safer than forcing a single large restore, because the firewall can come up with a partial control-plane state that looks healthy until policy evaluation or VPN negotiation starts.",
+      "Image staging should also follow the transport path that matches the boot loader’s parser. On 5.0.8, stage 5.0.9 images with SCP or USB rather than HTTPS so the boot loader does not reject a valid image because of padding. This is a loader-specific behavior, not an integrity issue with the image itself. If the image is staged over HTTPS and the loader rejects it, operators commonly waste time repeating the download even though the file is correct; use SCP or USB first, then move to checksum validation and inventory confirmation.",
+      "Do not rely on the copy command alone as proof that an image is ready. A file can exist in the staging area yet still be unusable if the hash is wrong, the transfer was truncated, or the device inventory has not indexed the new version. Always verify the staged image hash before scheduling the reboot and confirm the image appears in software inventory. On the NF-300, the inventory record is the authoritative indicator that the boot slot contains a bootable release and that the scheduler can select it during the next restart.",
+      "Configuration backup is equally important because the upgrade path is affected by how much state is being carried forward. A clean pre-upgrade backup gives TAC a reference if the post-boot running configuration diverges from the checkpoint or if a rollback is required. In practice, the safest workflow is to capture the active configuration, confirm checkpoint size, stage the target image, and then schedule the reboot only after the image and configuration checks both pass. This sequence reduces the chance that a boot-time parser issue will be confused with a policy or HA defect.",
+      "If the firewall participates in HA, stage the same release on both peers before rebooting either node. Mixed image states are a common source of asymmetric session-table behavior, especially when traffic inspection or VPN state is active. Even when the upgrade is otherwise supported, avoid changing image family boundaries while the active node is carrying an unusually large session table. A short maintenance window with controlled failover is preferable to recovering from a partial boot with active sessions preserved but policy state inconsistent."
+    ],
+    "procedure_steps": [
+      "Back up the running configuration to a protected repository before changing the image. Use `copy running-config backup://198.51.100.20/nf300-preupgrade.cfg` and confirm the file is readable at the destination.",
+      "Check checkpoint size and replay-state volume. Run `show configuration checkpoint summary` and confirm each checkpoint file stays under 4,000 entries; if the configuration contains more than 4,096 replay entries, plan a split upgrade or an export and re-import of policy objects after first boot.",
+      "Stage the target image from a trusted source. For 5.0.8 to 5.0.9 transitions, use `copy scp://198.51.100.10/nf300-5.0.9.bin system image` rather than HTTPS, then wait for the transfer to complete without errors.",
+      "Verify the staged image before scheduling the reboot. Confirm the hash or integrity status from the staging workflow you use in your environment, and then run `show software image` to ensure the new release is listed in software inventory.",
+      "If the firewall is in an HA pair, repeat the staging and inventory check on the peer before rebooting either node. Use a controlled maintenance window and avoid leaving the peers on different release families.",
+      "Reboot into the staged image only after the backup, checkpoint, and inventory checks all pass. After first boot, verify the running configuration immediately and correct any missing policy objects before returning traffic to service."
+    ],
+    "table": {
+      "caption": "Upgrade preparation checks for Nimbus NF-300",
+      "header": [
+        "Item",
+        "Guidance",
+        "Why it matters"
+      ],
+      "rows": [
+        [
+          "Checkpoint file size",
+          "Keep each checkpoint file under 4,000 entries when upgrading from 5.0.x to 5.1.3 or 5.1.5.",
+          "Prevents first-boot parser failures during configuration restore."
+        ],
+        [
+          "Replay entries",
+          "If the configuration contains more than 4,096 replay entries, split the upgrade into smaller chunks or export and re-import policy objects after first boot.",
+          "Reduces the risk of incomplete state restoration after the version change."
+        ],
+        [
+          "5.0.8 to 5.0.9 image transport",
+          "Use SCP or USB rather than HTTPS.",
+          "Avoids boot loader rejection of a valid image because of padding."
+        ],
+        [
+          "Image validation",
+          "Always verify the staged image hash and confirm the image appears in software inventory.",
+          "Ensures the file is intact and bootable before the reboot is scheduled."
+        ]
+      ]
+    },
+    "verification": "Verify the preparation state by checking `show configuration checkpoint summary` for checkpoint counts and by confirming the values stay within the stated limits, then run `show software image` and confirm the target release appears in inventory with no staging errors. If you copied a backup file, confirm the destination file is present and readable. After reboot, verify the running configuration immediately and confirm the post-boot state matches the pre-upgrade baseline before returning the NF-300 to service."
+  }
+}

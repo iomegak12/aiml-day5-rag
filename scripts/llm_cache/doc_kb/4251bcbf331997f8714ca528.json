@@ -1,0 +1,26 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-6112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Helix HX-5000 running 7.6, the routing process can leak memory after repeated EVPN route-refresh events from a remote peer. The leak is cumulative and can drive routing-process RSS from roughly 900 MB to more than 1.8 GB in 24 hours, eventually reducing free memory and increasing control-plane latency.",
+    "symptoms": "Operators typically observe steady growth in the routing daemon’s resident set size after frequent EVPN route-refresh activity on the fabric. As free memory falls below 12 percent, the switch may begin to show slower control-plane response, delayed convergence, and sustained growth reported by `show process memory` for the same daemon.\n\nThe condition is most likely on 7.6 when a peer repeatedly triggers route-refresh updates, such as after neighbor resets or during unstable EVPN sessions. The problem does not require a full data-plane outage; the leak is visible first in process memory statistics and event logs, then later as general control-plane degradation.",
+    "diagnosis_steps": [
+      "Run `show process memory` at least twice over a short interval and compare the routing process RSS. A consistent increase without corresponding route scale growth indicates this issue.",
+      "Run `show evpn neighbors` and look for repeated route-refresh activity or a neighbor that transitions frequently. The issue is commonly associated with one peer sending back-to-back refreshes.",
+      "Run `show logging | include %MEM-4-LEAK` and confirm that the system reports the memory leak event in the routing process.",
+      "Run `show system resources` and check free memory. If free memory is below 15 percent and continues to fall while routing RSS rises, the leak is active.",
+      "If available in your maintenance window, run `show process cpu` to confirm the routing process is not simply consuming CPU due to unrelated control-plane churn; the problem here is memory growth, not a sustained CPU spike.",
+      "Correlate the timing of memory growth with EVPN adjacency changes using `show evpn summary` and neighbor state history. Repeated refresh events before the growth pattern is the key indicator."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %MEM-4-LEAK: routing process memory growth detected after repeated evpn route-refresh events\n2026-03-14T02:13:07Z router# show process memory\nProcess              RSS        VSZ        Heap        Stack\nrouting              912 MB     2.4 GB     684 MB      4 MB\nbgp                   88 MB     410 MB     52 MB       2 MB\n\n2026-03-14T14:13:07Z router# show process memory\nProcess              RSS        VSZ        Heap        Stack\nrouting              1.83 GB    3.1 GB     1.56 GB     4 MB\nbgp                   90 MB     410 MB     52 MB       2 MB\n\n2026-03-14T14:13:07Z router# show system resources\nTotal memory: 4096 MB\nFree memory: 11 percent\nControl-plane latency: elevated",
+    "root_cause": "In 7.6, the EVPN refresh handler allocates a new per-peer attribute cache for each route-refresh event and does not release the previous generation when the remote peer sends back-to-back updates. Each refresh adds another unreclaimed cache instance, so memory usage increases over time instead of stabilizing.\n\nBecause the leak is cumulative, the routing process does not recover on its own while refresh storms continue. Memory is reclaimed only after a reload or after refresh activity stops long enough for the cache to drain, which is why the issue often appears as gradual RSS growth followed by control-plane degradation.",
+    "workaround_steps": [
+      "Reduce the number of EVPN route-refresh events by avoiding unnecessary neighbor resets and limiting topology changes during busy periods.",
+      "If a peer is repeatedly generating refresh traffic, suppress route-refresh on that neighbor as part of a controlled maintenance window. Use the provided EVPN configuration commands to disable route-refresh for the affected peer.",
+      "Monitor free memory and schedule a planned reload before free memory drops below 15 percent to avoid control-plane instability.",
+      "Keep EVPN adjacency changes out of peak traffic windows until the device can be upgraded to a fixed release."
+    ],
+    "resolution": "This defect is fixed in release 8.0. In 8.0, the EVPN refresh handler reuses attribute cache objects and frees stale generations immediately, preventing cumulative growth of the routing process memory across repeated route-refresh events."
+  }
+}

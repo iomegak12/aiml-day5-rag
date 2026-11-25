@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-3103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "In Nimbus NF-300 5.0.9, a brief split-brain event can leave the standby unit with an incomplete replicated session table even though high-availability state shows synchronized. The issue is caused by a stale replay sequence during recovery and can persist for several minutes until a full synchronization completes.",
+    "symptoms": "After a split-brain recovery, the standby unit returns to service but does not immediately contain the same session population as the active unit. `show ha status` reports the peers as synced, however `show session table summary` on the standby remains 20,000 to 40,000 entries lower than the active unit for several minutes. Operators may also see transient HA replay messages indicating that session replication is not advancing normally.\n\nThis condition is usually visible only after a brief loss of the failover relationship and may not reproduce during routine failover testing. Traffic continues to pass, but stateful flows that depend on the missing entries can be dropped or re-established unnecessarily until the table converges.",
+    "diagnosis_steps": [
+      "Run `show ha status` on both units and confirm that the cluster has recovered from split-brain and reports synchronized or healthy peer state.",
+      "Run `show session table summary` on the active and standby units. If the standby count is lower by tens of thousands of entries for more than a few minutes after recovery, suspect stale replication.",
+      "Check system logs for `%HA-4-RSYNC_STALE_SEQ` immediately after the peer returns. The presence of this message indicates the standby accepted the peer sequence number before its local replay queue was drained.",
+      "If available in your maintenance window, enable HA replay debug and review whether older updates are being discarded as stale during recovery. The key indicator is replay progress stopping while the HA state remains synced.",
+      "Repeat the session-table check after 5 to 10 minutes. If counts converge only after the next full sync cycle, the issue matches this defect rather than a persistent link failure."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %HA-4-RSYNC_STALE_SEQ: standby accepted peer sequence 184233 before local replay queue drained; discarding 327 stale updates\n2026-03-14T02:13:08Z %HA-6-STATE_CHANGE: ha peer 198.51.100.2 state changed to synced\n\nnimbus# show ha status\ncluster state           : synchronized\nlocal role              : standby\npeer role               : active\nreplication status      : synced\nlast failover event     : 2026-03-14T02:12:54Z\n\nnimbus# show session table summary\nactive sessions         : 218764\nstandby replicated      : 196902\nmissing replicated      : 21862",
+    "root_cause": "During split-brain recovery, the replication agent advances the standby sequence number as soon as the peer is reachable, before the local replay queue has fully drained. If the queue still contains older updates, those records are judged stale and dropped instead of being applied to the session table.\n\nAs a result, the standby can report a healthy HA state while its replicated session table remains incomplete. Convergence occurs only after the next full synchronization cycle repopulates the missing state.",
+    "workaround_steps": [
+      "Verify the cluster has recovered and that the peer is reachable before making any changes. Confirm that the issue is the post-recovery session-count gap rather than an ongoing failover fault.",
+      "During the maintenance window, trigger a full HA resynchronization rather than waiting for incremental replay to complete. This forces the standby to rebuild its replicated state from the active unit.",
+      "After initiating the resync, keep the failover links stable for at least 120 seconds so the replay queue can drain without another role change.",
+      "Recheck HA and session-table status after the resync completes and confirm that the standby count returns to parity with the active unit."
+    ],
+    "resolution": "The defect is fixed in release 5.2.2. In that release, the standby defers sequence-number advancement until the replay queue is empty, preventing stale updates from being discarded during split-brain recovery."
+  }
+}

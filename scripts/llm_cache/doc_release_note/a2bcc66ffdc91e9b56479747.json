@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-AT-3.0",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Atlas SD-WAN release 3.0 focuses on control-plane scalability, certificate handling, and transport stability. The policy compiler has been reworked to reduce compilation time and improve the consistency of generated forwarding policy across orchestrator pushes. Trust-store processing has also been tightened so certificate-chain validation behaves more predictably during controller and edge onboarding. In addition, SLA probe traffic now uses a separate queue from bulk data-plane traffic, which improves probe accuracy under load and reduces tunnel instability in congested sites.",
+    "features": [
+      {
+        "name": "Policy compiler overhaul",
+        "description": "The policy compiler has been redesigned to improve scalability when compiling larger routing and application-aware policies. This change reduces the time required for orchestrator policy push and makes generated policy behavior more consistent across edges. Existing policy objects are supported, but customers should review any automation that parses compiler status or timing output."
+      },
+      {
+        "name": "Improved trust-store handling",
+        "description": "Trust-store processing now validates certificate chains with clearer precedence for local trust anchors, intermediate certificates, and revocation state. This improves reliability during orchestrator-to-edge enrollment and during certificate rotation on deployed systems. Administrators should verify that imported CA bundles and edge certificates remain aligned with their existing trust model before upgrade."
+      },
+      {
+        "name": "SLA probe queue separation",
+        "description": "SLA probe traffic now uses a queue separate from the bulk data-plane forwarding queue. This isolates latency and loss measurements from burst traffic, improving probe fidelity and reducing false brownout indications on busy links. No new configuration is required, but operators should expect slightly different probe-loss characteristics under heavy congestion."
+      }
+    ],
+    "compatibility": "Atlas SD-WAN 3.0 supports in-place upgrades from 2.9 on supported orchestrator and edge platforms. Hardware support remains unchanged for the 2.9 train, and existing overlay tunnels, application-aware routing, SLA classes, LTE transports, and reporting policies are retained. Interoperability with 2.9 edges and orchestrators is preserved during staged rollout, but new policy compilation behavior and trust-store validation should be verified in mixed-version deployments. Any external automation that depends on policy compiler output, certificate-import workflows, or SLA probe counters should be validated before broad deployment.",
+    "upgrade_steps": [
+      "Back up the orchestrator configuration, edge inventory, certificates, and any exported policy packages before starting the upgrade.",
+      "Verify the 3.0 images on the orchestrator and edge repositories, and confirm checksums match the published software bundle.",
+      "Schedule a maintenance window large enough to complete orchestrator upgrade, policy resynchronization, and edge image rollout with minimal traffic impact.",
+      "Upgrade the orchestrator first, then upgrade a staged set of representative edges and confirm policy push, tunnel state, and certificate status before expanding the rollout.",
+      "After each stage, run post-upgrade checks such as show sdwan tunnels, show app-route sla-class, and certificate status verification to confirm policy propagation and transport health.",
+      "Once all sites are upgraded, monitor tunnel stability, SLA probe behavior, and policy push completion for at least one full business cycle before closing the change."
+    ]
+  }
+}

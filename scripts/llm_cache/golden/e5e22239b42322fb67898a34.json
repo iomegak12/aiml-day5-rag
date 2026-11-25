@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "version_specific:KB-2107",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "In 9.2.3, why do BGP routes drop out after I swap one static route for another?",
+    "reference_answer": "On Aurora AR-900 9.2.3, this is caused by KB-2107 / %BGP-4-NH-RESOLVE: the route manager does not notify the BGP recursion engine when a static route changes its administrative distance but keeps the same destination prefix. BGP keeps the old resolved next hop, so affected IPv4 prefixes can go inactive in `show ip route bgp` even though the BGP session stays Established and updates continue to arrive. The workaround is to soft clear the affected BGP address family after the change, or withdraw the old static route for at least 5 seconds before installing the replacement; the issue is fixed in 9.3.0."
+  }
+}

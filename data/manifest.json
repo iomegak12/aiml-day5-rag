@@ -1,0 +1,24 @@
+{
+  "seed": 42,
+  "brief": "corpus_brief.toml",
+  "counts": {
+    "kb": 60,
+    "release_notes": 30,
+    "tickets": 285,
+    "guides": 5,
+    "golden_questions": 58
+  },
+  "golden_types": {
+    "single_hop": 16,
+    "version_specific": 10,
+    "error_code": 8,
+    "multi_hop": 8,
+    "how_to": 6,
+    "similar_case": 4,
+    "unanswerable": 6
+  },
+  "traps": {
+    "version_twin_issues": 16,
+    "near_duplicate_issues": 10
+  }
+}

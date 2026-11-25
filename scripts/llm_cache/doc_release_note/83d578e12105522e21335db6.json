@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-AR-9.2.1",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Aurora AR-900 9.2.1 is a maintenance release for the 9.2 train that adds QoS scheduler credit handling, improves BGP soft-clear scaling, and expands OSPF adjacency interoperability. The release also addresses stability issues seen during OSPF adjacency formation on multiaccess networks with MTU mismatch and during upgrades from 9.1.x systems that have BGP add-path enabled. TAC recommends this release for sites that rely on dense route refresh activity, mixed-vendor OSPF peering, or tight QoS scheduling on edge-facing interfaces. The release does not change the general management model, but operators should validate queue behaviour and routing-process headroom after upgrade, especially where strict-priority traffic classes are used.",
+    "features": [
+      {
+        "name": "QoS scheduler credits",
+        "description": "Aurora AR-900 9.2.1 introduces scheduler credit accounting for QoS queues so transmit opportunities are tracked more consistently under variable line-rate load. This change is intended to improve fairness between service classes during sustained congestion and to reduce burst-induced scheduling drift. Existing class-map and policy-map configuration remains valid, but queue behaviour should be reviewed where strict-priority traffic is paired with best-effort classes."
+      },
+      {
+        "name": "BGP soft-clear scaling",
+        "description": "This release improves the handling of repeated BGP soft clears on routers with larger route tables and more frequent policy refresh activity. The routing process now reuses more soft-clear state and reduces avoidable churn during inbound or outbound route refresh operations. No configuration changes are required, but operators should continue to monitor control-plane CPU if soft clears are driven at high frequency by automation or test scripts."
+      },
+      {
+        "name": "OSPF adjacency interop",
+        "description": "Aurora AR-900 9.2.1 expands OSPF adjacency interoperability with peers that advertise differing interface MTU values on multiaccess segments. The adjacency state machine now tolerates common negotiation patterns seen in mixed environments and avoids unnecessary reset loops during initial exchange. Existing OSPF configuration is preserved, although TAC recommends verifying neighbor state and MTU consistency after upgrade on networks that include third-party or legacy peers."
+      }
+    ],
+    "compatibility": "Aurora AR-900 9.2.1 is supported as an in-train upgrade from 9.2.0 and as a direct upgrade target from 9.1.x releases, including systems using BGP add-path. Hardware support remains unchanged for the AR-900 platform family. Interoperability is unchanged for BGP, BFD, IPv6, NAT, SNMP, and control-plane protection features, except for the improved OSPF neighbour handling described above. Configuration syntax is preserved across the 9.2 train; however, operators should validate QoS policy behaviour after upgrade because the scheduler credit mechanism can change observed queue servicing under congestion without requiring any configuration migration.",
+    "upgrade_steps": [
+      "Back up the running configuration and any relevant route-policy, QoS, and SNMP settings, and record current neighbor status with 'show bgp summary', 'show bfd neighbors detail', and 'show ospf neighbor'.",
+      "Verify the 9.2.1 image checksum and signature on your staging server, then copy the image to the device and confirm available storage before proceeding.",
+      "Schedule a maintenance window and ensure traffic engineering, failover, and monitoring systems are aware of the planned reboot and routing restart.",
+      "Upgrade a staged or non-production AR-900 first if available, then perform the production upgrade from 9.2.0 or 9.1.x using the normal software activation procedure.",
+      "After reboot, confirm system health and protocol convergence with 'show bgp summary', 'show ospf neighbor', 'show qos queue statistics', and 'show system resources'.",
+      "If the site uses strict-priority QoS or frequent BGP soft clears, monitor CPU and traffic behaviour for at least one convergence interval and adjust operational thresholds if required."
+    ]
+  }
+}

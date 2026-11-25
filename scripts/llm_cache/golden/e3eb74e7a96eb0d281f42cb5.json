@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "error_code:%LACP-4-MISBUNDLE",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "I found %LACP-4-MISBUNDLE on a Helix HX-5000 running 7.4. What does this error mean, why are only some member ports coming up in the EtherChannel, and what should I do to fix or work around it?",
+    "reference_answer": "On HX-5000 7.4, %LACP-4-MISBUNDLE indicates a mis-bundle where a 4-link LACP bundle can come up with only 2 active members, and the missing links may remain suspended for 30 to 90 seconds. `show lacp neighbor` can still show the partner in sync state, while `show interfaces port-channel` reports repeated collect/distribute mismatch events after a link flap; the root cause is that 7.4 starts collecting traffic before it has confirmed the partner’s timeout bit when the peer uses slow LACP timers. If the design permits, configure both sides for fast LACP timers (`configure terminal` / `interface port-channel 10` / `lacp rate fast`), or manually clear the affected EtherChannel after link restoration; if the bundle must stay on slow timers, avoid flapping individual member links during maintenance. The issue is fixed in 7.5."
+  }
+}

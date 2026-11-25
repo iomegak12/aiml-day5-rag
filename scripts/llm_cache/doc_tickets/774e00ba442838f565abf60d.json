@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-5112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Atlas 3.3 edge CPU spikes and overlay flaps during LTE switchover",
+        "description": "Partner escalation for Redwood University on an Atlas SD-WAN edge running 3.3 with dual LTE modems enabled. They reported brief overlay degradation and delayed tunnel keepalives during a carrier handoff, and initially suspected a tunnel MTU issue because the event coincided with a scheduled change window. TAC review of the edge telemetry showed control-plane CPU jumping into the high 90s for about 20 seconds during the handoff, then returning to normal without a reboot. The issue was reproducible only on the dual-modem site and not on single-modem branches. No certificate or policy syntax errors were found on the orchestrator side.",
+        "resolution": "TAC identified this as the dual-modem LTE handoff issue described in KB-5112. We applied the documented workaround by setting handoff debounce to 5000 ms on the edge and advised the customer to avoid policy pushes during carrier switchover windows. After the change, CPU no longer spiked during handoff and overlay status remained stable."
+      },
+      {
+        "subject": "CPU saturation on Atlas edge during LTE failover, tunnels briefly degraded",
+        "description": "Partner escalation opened for Evergreen Clinic Network on an Atlas SD-WAN edge running 3.3. The site uses two LTE modems and reported intermittent tunnel drops when one carrier lost signal, with the orchestrator showing degraded overlay status for a short period. TAC observed the edge control plane at 95 to 100 percent during the switchover interval and saw tunnel keepalives lagging until the handoff completed. The edge log captured \"%LTE-3-HANDOFF_DEFERRED\" and \"ERR-LTE-2201\" during the event, followed by repeated transport reevaluation activity until the state machine settled. The symptom was transient and did not present on a comparable single-modem edge in the same tenant.",
+        "resolution": "TAC traced the behavior to KB-5112 and confirmed it matches the 3.3 dual-modem LTE handoff defect. We implemented the workaround by configuring interface lte0 handoff-debounce 5000 and advised the customer to avoid policy pushes during carrier switchover windows. This reduced the handoff churn and eliminated the CPU spike."
+      },
+      {
+        "subject": "Brief WAN instability on 3.3 edge when LTE carrier changes",
+        "description": "HarborPoint Retail submitted this through the customer portal for an Atlas SD-WAN edge running 3.3. The report said the branch goes 'offline for a minute' whenever the backup LTE link takes over, but wired internet stayed up and the failure was not constant. TAC checked the edge and confirmed both LTE modems were enabled, with the overlay remaining healthy between events and only a short control-plane delay during failover. The customer also noted the problem seemed worse after configuration changes were pushed from the orchestrator. No evidence pointed to certificate expiry, underlay loss, or tunnel MTU mismatch.",
+        "resolution": "TAC associated the issue with KB-5112 and confirmed the behavior is expected from the 3.3 dual-modem LTE handoff problem. We applied the published workaround by raising the LTE handoff debounce to 5000 ms on the edge and recommended avoiding policy refreshes during carrier switchover periods. After the change, failover no longer produced the brief overlay degradation."
+      },
+      {
+        "subject": "Repeated overlay alarms on edge during LTE handoff",
+        "description": "TAC logged this from a phone call with Cornerstone Supermarkets regarding an Atlas SD-WAN edge on version 3.3. The caller said the site had repeated tunnel alarms and a short outage whenever LTE failed over, and they initially believed the orchestrator was pushing a bad policy. On investigation, the edge was running dual LTE modems and the control-plane process was saturating during the handoff window, with CPU pinned close to 100 percent for roughly half a minute. The edge log captured \"ERR-LTE-2201\" at the same time as the event, which helped correlate the problem with the modem state transition. The issue cleared on its own after the transition completed, and no persistent tunnel or routing faults remained.",
+        "resolution": "TAC matched the symptoms to KB-5112 for Atlas SD-WAN 3.3. We applied the workaround by configuring interface lte0 handoff-debounce 5000 and advised the customer to stagger policy changes away from carrier switchover events. After the adjustment, the overlay alarms stopped recurring during LTE handoff."
+      },
+      {
+        "subject": "Temporary tunnel degradation on 3.3 edge during LTE switchover",
+        "description": "MetroLink Telecom opened this case through the portal for an Atlas SD-WAN edge running 3.3. They reported that some spoke tunnels briefly showed degraded status whenever the active LTE link changed, but only on one branch with two modems installed. TAC checked the edge and saw the control plane become heavily loaded during the handoff window, while application routing and the rest of the WAN remained healthy once the transition finished. The customer suspected a radio issue, but the pattern lined up with the switchover timer rather than signal quality. No lasting packet loss was observed after the event cleared.",
+        "resolution": "TAC identified the condition as the 3.3 dual-modem LTE handoff issue documented in KB-5112. We applied the recommended workaround by setting interface lte0 handoff-debounce 5000 and committing the configuration. The branch no longer shows temporary overlay degradation during LTE switchover."
+      }
+    ]
+  }
+}

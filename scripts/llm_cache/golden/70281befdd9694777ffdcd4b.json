@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "version_specific:KB-4102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why do some APs on 4.7 disappear after a few join retries and then only come back much later?",
+    "reference_answer": "On Orion OW-20 4.7, the AP-join state machine can advance the retry counter before radio capability revalidation completes. If an AP responds slowly to the second capability query, the controller expires the join transaction after the third retry, removes it from the retransmit queue, and the AP stays offline until the next discovery window, typically 5-10 minutes later. The workaround is to set `ap join retry-interval 2`; for remote APs, verify one-way latency is under 80 ms and packet loss is below 1%. This is fixed in 4.8, where join retries are not consumed until capability revalidation returns or times out."
+  }
+}

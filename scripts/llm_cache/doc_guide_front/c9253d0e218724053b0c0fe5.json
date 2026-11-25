@@ -1,0 +1,16 @@
+{
+  "stage": "doc_guide_front",
+  "label": "GUIDE-AT",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "about": "This guide provides configuration and troubleshooting procedures for Atlas SD-WAN, covering the orchestrator and edge software across releases 2.8 through 3.3. It focuses on common operational problem areas such as overlay tunnels, application-aware routing, SLA classes, LTE transport, certificate handling, policy push, and reporting. Use this guide as a working reference for day-to-day operations and fault isolation; it complements knowledge-base articles for issue-specific guidance and release notes for version-dependent behavior, defects, and feature changes.",
+    "audience": "This guide is intended for network engineers, operations staff, and TAC support engineers who deploy and maintain Atlas SD-WAN. Readers should be familiar with enterprise routing, overlay networking, certificates, policy-based forwarding, and basic troubleshooting on both the orchestrator and edge. You should also have access to the relevant orchestrator UI, edge CLI, and the release notes for the software family you are running.",
+    "conventions": [
+      "CLI commands are shown in lower-case and on a single line, for example: show sdwan tunnels.",
+      "Command output is representative and may differ by release, platform, or feature state.",
+      "Notes provide supplemental information; warnings identify actions that can disrupt traffic, re-register an edge, or remove configuration.",
+      "IP addresses in examples use documentation ranges such as 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, and 10.0.0.0/8.",
+      "Log messages follow the Atlas format and are shown as they appear in system output, for example: %SDWAN-3-TUNNEL_DOWN or ERR-ORCH-4412."
+    ]
+  }
+}

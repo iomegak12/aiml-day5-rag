@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-NF-5.2.0",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Nimbus NF-300 5.2.0 introduces asymmetric session hashing, chunked signature activation, and improved VPN policy parsing. The release focuses on session-table scaling, faster and safer threat-database activation, and more predictable IPsec/IKEv2 policy handling during configuration changes. It also includes targeted fixes for phase 2 negotiation resets, large signature bundle updates, and configuration replay during upgrade from 5.0.x. Operators should review HA and inspection behavior after upgrade, as 5.2.0 still includes known issues affecting outbound TLS inspection and session-table distribution under asymmetric routing.",
+    "features": [
+      {
+        "name": "Asymmetric session hashing",
+        "description": "This release adds asymmetric session hashing to improve session placement when return traffic does not follow the forward path. The feature is intended for environments with asymmetric routing and concentrated prefix traffic, where a single chassis or node can otherwise carry a disproportionate share of sessions. Enable it only after confirming your routing design and session-table capacity, then validate distribution with show session table summary."
+      },
+      {
+        "name": "Chunked signature activation",
+        "description": "Threat signature activation now occurs in smaller chunks rather than as a single large update transaction. This reduces the chance of packet-processing stalls during activation of large threat database bundles and improves update resilience on busy systems. No configuration syntax changes are required, but operators should still schedule signature updates during a maintenance window when possible."
+      },
+      {
+        "name": "Improved VPN policy parsing",
+        "description": "VPN policy parsing has been tightened to handle more complex IPsec/IKEv2 policy definitions consistently during commit and replay. This reduces the likelihood of phase 2 negotiation failures caused by mismatched proposal selection and improves recovery when policies are edited or restored from configuration backups. Review existing crypto ikev2 and policy objects after upgrade if you use multiple DH groups, proposal sets, or imported templates."
+      }
+    ],
+    "compatibility": "Nimbus NF-300 5.2.0 supports upgrade from the 5.1.x train, including 5.1.3 and 5.1.5, and from 5.0.x when the upgrade path is handled through the supported staged procedure. Hardware support remains limited to the NF-300 platform family; no new platform requirements are introduced in this release. Existing IPsec/IKEv2, HA, SSL inspection, and threat-prevention configurations are retained, but operators should expect changed runtime behavior from asymmetric session hashing and improved VPN policy parsing. After upgrade, verify interoperability with peer devices that enforce strict IKEv2 proposal matching or that rely on symmetric session stickiness, and confirm that inspection policies still behave as intended for TLS traffic.",
+    "upgrade_steps": [
+      "Back up the running configuration and export any VPN, HA, and threat-prevention artifacts before starting the upgrade.",
+      "Verify the 5.2.0 image checksum and confirm adequate flash capacity for the staged installation.",
+      "Schedule a maintenance window and, if the deployment is in HA, place the peer in standby before upgrading the active node.",
+      "Install the 5.2.0 image, reboot, and allow configuration replay and signature database initialization to complete.",
+      "After the system returns to service, run show ha status, show crypto ikev2 sa, and show session table summary to confirm expected operation.",
+      "Validate representative VPN tunnels, SSL inspection policy behavior, and threat signature updates before returning the device to production traffic."
+    ]
+  }
+}

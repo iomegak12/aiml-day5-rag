@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "similar_case:KB-6108",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "We have a Helix HX-5000 VXLAN fabric on 7.6 where anycast gateway MAC moves between leafs occasionally make some host prefixes stop updating for several minutes. The routes still look present on the local box, but remote VTEPs keep pointing at the old next hop and traffic blackholes until we do something to force a refresh. Have other customers reported this same behavior before, and if so, how was it resolved?",
+    "reference_answer": "Yes. There are 5 resolved similar cases, and they all matched KB-6108 for HX-5000 7.6 EVPN type-5 routes stalling after anycast gateway MAC moves. TAC resolved four cases with a controlled EVPN route refresh using `configure terminal`, `router evpn`, `address-family l2vpn evpn`, `route-refresh`, and one case by upgrading to 8.0, where the issue is fixed."
+  }
+}

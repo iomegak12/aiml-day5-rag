@@ -1,0 +1,26 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-3109",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Nimbus NF-300 5.2.0, enabling asymmetric path handling can produce uneven session-table shard utilization when a large volume of flows arrives from a concentrated /24 source or destination prefix. The issue can leave one shard near exhaustion while other shards remain lightly used, resulting in intermittent latency spikes on the flows mapped to the overloaded shard.",
+    "symptoms": "Administrators typically observe that overall session-table usage remains moderate, but one or two shards climb to approximately 88 percent occupancy while the remaining shards stay below 40 percent. The condition usually becomes visible after about 300,000 new sessions are created.\n\nAffected traffic may show brief latency increases of 3 to 4 milliseconds, especially for new sessions assigned to the busiest shard. In some cases, the platform logs %SESSION-4-HASH_SKEW events when shard occupancy crosses the skew threshold, but forwarding continues until the affected shard approaches its capacity limit.",
+    "diagnosis_steps": [
+      "Run show session table summary and compare shard occupancy values. This issue is indicated when one shard is near 88 percent while other shards remain well below 40 percent.",
+      "Run show logging last 50 and look for %SESSION-4-HASH_SKEW messages referencing shard imbalance or redistribution delay.",
+      "Run show session table shard detail to confirm that new sessions from the same /24 prefix are landing on the same worker queue or shard.",
+      "If asymmetric routing is enabled for the policy set, verify the setting with show running-config session-table and confirm that asymmetric-routing is enabled.",
+      "Check session growth with show session table summary over time. A sharp rise to approximately 300,000 new sessions followed by a sustained shard imbalance is consistent with this defect."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %SESSION-4-HASH_SKEW: shard 3 occupancy 88% exceeds skew threshold; redistribution deferred\n2026-03-14T02:13:07Z %SESSION-4-HASH_SKEW: asymmetric-routing enabled, low-order hash mixing disabled for worker queue 3\n\nnf-300# show session table summary\nshard  sessions  occupancy\n0      112430    34%\n1      118992    36%\n2      109771    33%\n3      289445    88%\n4      114105    35%\n5      117908    36%\n6      111204    34%\n7      115663    35%\n\nnf-300# show session table shard detail 3\nshard 3: worker-queue 3\nnew sessions from 198.51.100.0/24: 184220\nredistribution events: 0\nlatency p95: 4.1 ms",
+    "root_cause": "When asymmetric routing is enabled, the shard allocator in 5.2.0 does not sufficiently mix the low-order bits of the 5-tuple before selecting a worker queue. As a result, many flows from the same /24 prefix are mapped to the same shard instead of being spread across the full shard set.\n\nThe load-balancer redistribution threshold is also set too high in this release, so once the imbalance forms it stays localized. The allocator does not trigger redistribution early enough to pull sessions onto other shards, which allows one shard to reach high occupancy while the rest remain underutilized.",
+    "workaround_steps": [
+      "Determine whether the impacted policy set depends on asymmetric routing handling. If it does not, leave the feature disabled for that policy set.",
+      "If the traffic source can be re-segmented, split the large /24 into smaller policy groups so session creation is distributed more evenly across shards.",
+      "Apply the configuration change to disable asymmetric routing handling in the affected policy set, then commit the change.",
+      "After the change, monitor the busiest shard with show session table summary and keep shard occupancy below 75 percent until an upgraded release can be installed.",
+      "If occupancy continues to rise above 75 percent, reduce the concentration of new sessions by adjusting policy grouping or traffic steering before re-enabling the feature."
+    ],
+    "resolution": "This defect is fixed in release 5.2.2. In that release, session hashing uses the full 5-tuple and shard redistribution is triggered once occupancy exceeds 75 percent, preventing the localized skew seen in 5.2.0."
+  }
+}

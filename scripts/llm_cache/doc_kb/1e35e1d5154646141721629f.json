@@ -1,0 +1,24 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-5103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Atlas SD-WAN 3.0, a policy push can stall when the tenant configuration includes a route-map with more than 256 entries. The orchestrator policy worker retries serialization until the orchestration watchdog aborts the job, and branches continue using the previous policy until the push succeeds.",
+    "symptoms": "On orchestrators running 3.0, the policy status remains in processing for 8 to 15 minutes before failing on larger tenants. The issue is typically seen when a single route-map contains 257 or more rules, and the policy worker CPU on the orchestrator remains above 90 percent during the attempt. Branch edges do not receive the intended change and keep the last applied policy, so the network continues to operate with stale route selection behavior.\n\nThe failure is usually isolated to policy compilation and push. Other management functions may remain responsive, but repeated attempts to commit the same tenant change reproduce the delay and failure until the route-map is reduced or split.",
+    "diagnosis_steps": [
+      "Run show orchestrator task status on the active orchestrator and look for the policy push remaining in processing for several minutes, followed by a failed state on the same tenant job.",
+      "Run show system cpu on the orchestrator and confirm the policy worker process is sustained above 90 percent during the push attempt.",
+      "Run show policy route-map <name> detail for the affected tenant and verify that one route-map contains 257 or more entries.",
+      "Run show log last 200 on the orchestrator and look for ERR-ORCH-4412 associated with the policy worker or serialization path.",
+      "Run show sdwan policy status on one affected edge and confirm that the edge still reports the previous installed policy version, indicating the new policy never reached the branch."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z orchestrator-1 ERR-ORCH-4412 policy-worker route-map serialization overflow tenant=finance-vpn1 map=RM-BRANCH-1 entries=257\n2026-03-14T02:13:08Z orchestrator-1 %ORCH-5-TASKSTATE tenant=finance-vpn1 task=policy-push state=processing elapsed=00:09:41\n2026-03-14T02:21:59Z orchestrator-1 %ORCH-3-WATCHDOG tenant=finance-vpn1 task=policy-push action=abort reason=compiler-timeout\n\norchestrator-1# show policy route-map rm-branch-1 detail\nroute-map: RM-BRANCH-1\nentries: 257\nstatus: compiled-partial\nlast-commit: 2026-03-14T01:58:12Z\n\norchestrator-1# show system cpu\nprocess            cpu%\npolicy-worker      94\norchestratord      12",
+    "root_cause": "The 3.0 policy compiler uses a fixed 256-entry array when expanding route-maps for serialization. When a route-map exceeds that limit, the compiler enters a retry path that attempts to serialize the overflow state again without clearing the partial buffer.\n\nBecause the partial buffer is never reset, the worker loops until the orchestration watchdog terminates the push. This affects only the policy compilation and push path; previously installed policies remain active on the edges.",
+    "workaround_steps": [
+      "Identify the affected route-map and reduce its size by splitting the policy into two smaller route-maps, each with 256 entries or fewer, and reference them from separate policy objects.",
+      "If the tenant already contains a route-map above the limit, remove 10 to 20 entries first, commit the change, and verify that the push completes before restoring the remaining entries in a second commit.",
+      "After the route-map is split, re-run the policy push and confirm that the job transitions from processing to success without extended CPU saturation on the policy worker."
+    ],
+    "resolution": "This defect is fixed in release 3.1. In that release, the policy compiler uses a dynamically sized route-map serializer, so route-maps larger than 256 entries no longer cause the push to hang or fail."
+  }
+}

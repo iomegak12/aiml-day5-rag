@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-4112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Orion OW-20, a manual configuration backup can succeed even when recent WLAN edits are still pending in the commit queue. After a restore, the controller returns to the last committed database state, so the newest SSID or RF changes may appear to be lost without any database corruption warning.",
+    "symptoms": "Operators report that a backup completes normally and the restore process also completes normally, but one or more recent WLAN changes made within the last 2-3 minutes are missing afterward. The issue is most visible when several WLAN edits are staged in sequence and then backed up before the controller finishes applying the commit queue.\n\nIn affected cases, `show configuration database summary` shows a non-empty commit queue at the time the backup is taken. The restored system is internally consistent, but it reflects the previous committed configuration rather than the operator’s latest staged changes. Some systems also log `ERR-DB-1809` during the backup window.",
+    "diagnosis_steps": [
+      "Run `show configuration database summary` immediately before the backup and check the commit queue status. A non-empty commit queue, or any pending commit count greater than zero, indicates that staged configuration has not yet been written to the persisted database.",
+      "If WLAN edits were made recently, verify that the last change is still pending by re-running `show configuration database summary` after 30 seconds. If the queue remains non-empty, the controller has not drained the in-memory commit queue.",
+      "Check whether the missing items are recent SSID, radio, or RF profile edits by comparing the restored configuration with the current running configuration before restore. If only the most recent edits are missing and earlier changes remain present, this matches the issue.",
+      "Review controller logs for `ERR-DB-1809` during the backup interval. The presence of this message indicates that the backup routine captured the persisted database while the commit queue still contained staged WLAN edits.",
+      "If available in your maintenance window, repeat the backup after the queue reaches zero and confirm that the restored image now includes the previously missing WLAN change. This confirms the cause is backup timing, not corruption."
+    ],
+    "sample_output": "2026-11-25T14:08:11Z show configuration database summary\ndatabase state: healthy\nlast commit: 2026-11-25T14:07:52Z\ncommit queue depth: 3\npending objects: wlan ssid corp, wlan rf-profile 5ghz, wlan radio policy floor-2\n\n2026-11-25T14:08:14Z %DB-3-ERR-DB-1809 backup captured persisted state while commit queue non-empty\n2026-11-25T14:08:14Z backup configuration\nbackup-id: cfg-20261125-140814\nstatus: completed\nobjects saved: 1842\npending edits not included: 3\n\n2026-11-25T14:10:01Z restore configuration cfg-20261125-140814\nstatus: completed\nvalidation: passed\n\n2026-11-25T14:10:07Z show configuration database summary\ndatabase state: healthy\nlast commit: 2026-11-25T14:07:52Z\ncommit queue depth: 0\nssid corp: present\nrf-profile 5ghz: present\nradio policy floor-2: absent",
+    "root_cause": "The backup routine snapshots only the persisted configuration database. It does not wait for the in-memory commit queue to drain before creating the backup image. If a WLAN edit is still staged, the backup contains the last committed state, not the newest pending change.\n\nAs a result, restore operations are correct from the database engine’s perspective, but the operator sees incomplete configuration because the most recent edits were never committed into the saved image. This is a timing issue in backup capture, not database corruption.",
+    "workaround_steps": [
+      "Before taking a manual backup, wait until all WLAN changes have finished committing and the commit queue is empty.",
+      "If you have just staged a change and need it included immediately, force a commit and verify the change appears in the database summary before backing up.",
+      "For automated or scheduled backups, enforce at least 30 seconds of idle time after the last WLAN edit so the commit queue has time to drain.",
+      "If the queue remains non-empty, delay the backup until the controller reports no pending configuration objects."
+    ],
+    "resolution": "No software fix is required. To prevent recurrence, take backups only after the commit queue reaches zero and the latest WLAN change is visible in the database summary. For operational procedures and scheduled jobs, add a short post-change idle window before backup so the controller captures the fully committed configuration."
+  }
+}

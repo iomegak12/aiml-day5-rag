@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-5110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "LTE tunnel fragmentation after 3.2 upgrade on custom APN",
+        "description": "CivicWorks Public Agency escalated through its partner after a branch upgrade to Atlas SD-WAN 3.2. The affected edge is a branch unit running 3.2 with an LTE transport bound to a nondefault APN; the tunnel comes up, but traffic above roughly 1418 bytes fragments or fails intermittently. TAC reviewed the post-upgrade configuration and confirmed the interface object was present, but the configured LTE tunnel MTU was missing after migration. The edge log also showed \"%UPG-5-MTU-MIGRATE\" during the upgrade window.",
+        "resolution": "TAC identified the issue as the 3.2 migration defect described in KB-5110. We re-applied the LTE tunnel MTU on each affected LTE interface with the custom APN using `interface lte0 tunnel-mtu 1400` followed by `commit`, then validated the path with 1400-byte and 1472-byte probes before returning the circuit to service."
+      },
+      {
+        "subject": "3.2 branch LTE overlay drops large packets after upgrade",
+        "description": "Sunset Power Authority opened this through their partner after upgrading a remote site to Atlas SD-WAN 3.2. The branch edge is on 3.2 and uses LTE as an underlay on a customer-defined APN; the tunnel shows established, but applications fail when packets exceed about 1400 bytes. TAC checked the configuration export and found the interface-level tunnel MTU was not preserved during migration. The upgrade log includes \"%UPG-5-MTU-MIGRATE\", which matches the behavior seen on the site.",
+        "resolution": "TAC confirmed the problem matches KB-5110 and advised moving the branch to 3.3, where the migration preserves LTE tunnel MTU values for both default and nondefault APNs. After the customer completed the upgrade, the LTE interface retained the configured MTU and the overlay no longer fragmented oversized packets."
+      },
+      {
+        "subject": "After upgrade to 3.2, LTE WAN path breaks on larger frames",
+        "description": "Crescent Health Group emailed TAC after noticing intermittent application drops on one 3.2 branch edge following a planned upgrade. The device is an Atlas SD-WAN branch running 3.2 with LTE on a nondefault APN; smaller traffic passes, but larger packets are fragmented and some sessions reset. TAC reproduced the issue in the running config review and saw that the preupgrade tunnel MTU setting was absent from the LTE interface after migration. The upgrade output also contained \"%UPG-5-MTU-MIGRATE\".",
+        "resolution": "TAC referenced KB-5110 and recommended upgrading the edge to 3.3. Once the customer completed the upgrade, the LTE tunnel MTU migrated correctly and the branch no longer exhibited fragmentation on larger packets."
+      },
+      {
+        "subject": "LTE site on 3.2 loses preconfigured tunnel MTU after migration",
+        "description": "MetroLink Telecom reported that a field-deployed branch edge running Atlas SD-WAN 3.2 would establish its LTE overlay but then mis-handle larger traffic after a software change. The site uses a custom APN, and the customer initially suspected a carrier issue because the tunnel status remained up. TAC reviewed the edge configuration and confirmed the interface object existed without the expected tunnel MTU override after the upgrade. No log excerpt was provided, but the behavior aligned with a known migration defect affecting 3.2.",
+        "resolution": "TAC determined the issue matched KB-5110 and had the customer upgrade the branch to 3.3. After the upgrade, the LTE tunnel MTU was preserved for the custom APN interface and the overlay handled normal payload sizes without fragmentation."
+      },
+      {
+        "subject": "Branch LTE circuit fragments traffic after upgrade",
+        "description": "Evergreen Clinic Network submitted a portal request for a branch edge running Atlas SD-WAN 3.2. They said their LTE backup circuit was online, but video and other larger flows were unstable after the upgrade, while basic browsing still worked. TAC checked the edge state and saw the tunnel was established, then confirmed the issue affected an interface using a nondefault APN where the previous MTU override was not present in the migrated config. The customer noted packet loss on larger transfers, but no log details were included in the submission.",
+        "resolution": "TAC identified the condition as the 3.2 migration issue described in KB-5110 and directed the customer to upgrade the edge to 3.3. After the upgrade, the LTE tunnel MTU was retained correctly and the branch stopped fragmenting larger packets."
+      }
+    ]
+  }
+}

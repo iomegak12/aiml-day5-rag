@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "version_specific:KB-2101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "In 9.1.6, why do some eBGP routes stay in the table but show unresolved next hop after the connected route flaps?",
+    "reference_answer": "On Aurora AR-900 9.1.6, this is caused by a BGP next-hop recursion cache issue in the 9.1 family. If the resolving connected or static underlay route is withdrawn and relearned within the 30-second hold interval, the cache can keep a stale negative resolution entry, so the session stays Established but the affected eBGP IPv4 prefixes remain in the table with an unresolved next hop until BGP is cleared or a new update triggers recursion. The issue affects 9.1.4 and 9.1.6 and is fixed in 9.2.0."
+  }
+}

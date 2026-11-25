@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-2101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "ar-900 bgp routes vanish after underlay flap on 9.1.4",
+        "description": "Prairie State College reported that an Aurora AR-900 running 9.1.4 was losing a block of eBGP IPv4 routes after the WAN handoff flapped during a maintenance window. The on-site field engineer said BGP stayed established, but several prefixes would no longer install into the routing table until the box was touched. TAC reviewed `show bgp summary` and confirmed the session remained up while `show ip route bgp` omitted about 120 learned routes. The event log also showed \"%BGP-4-NH-RESOLVE\" shortly after the connected underlay route was withdrawn and re-added.",
+        "resolution": "TAC identified the issue as KB-2101 and applied the documented workaround by clearing the BGP process for the affected IPv4 unicast table. After `clear bgp ipv4 unicast 65001`, the next-hop recursion was recomputed and the missing routes reinstalled. We advised the customer to avoid repeated underlay flaps until a maintenance window is available."
+      },
+      {
+        "subject": "9.1.4 bgp next-hop unresolved after interface bounce",
+        "description": "Pinnacle Energy opened the case after an Aurora AR-900 on 9.1.4 stopped forwarding several remote-site prefixes following an interface bounce on the transport VLAN. The on-site field engineer initially suspected a BGP peer problem because the neighbor stayed up and advertisements were still being received. TAC checked the router state and saw BGP remained Established, but the affected IPv4 routes were absent from the forwarding table even though the AS path was present in the BGP table. The behavior matched a recursion issue triggered by a rapid withdraw-and-relearn of the underlay route.",
+        "resolution": "TAC mapped the symptoms to KB-2101 and used the workaround to force recursion to be rebuilt. The customer removed and re-added the underlay route with `clear ip route 198.51.100.0/24`, which restored the missing prefixes without resetting the BGP session. We noted that the condition is limited to the 9.1 family and recommended scheduling a software update."
+      },
+      {
+        "subject": "intermittent unreachable bgp prefixes on ar-900 9.1.4",
+        "description": "CivicWorks Public Agency called TAC after a scheduled circuit switchover caused several internal subnets to disappear from an Aurora AR-900 running 9.1.4. The phone log indicated the BGP peer stayed up, but traffic to some branch routes blackholed until the router was manually refreshed. TAC verified the control plane was healthy and saw the routes still present in BGP, while the corresponding entries were missing from `show ip route bgp`. The router syslog included \"%BGP-4-NH-RESOLVE\" at the time the underlay route changed state.",
+        "resolution": "TAC recognized the defect as KB-2101 and instructed the customer to clear the BGP IPv4 unicast process for the affected ASN. After `clear bgp ipv4 unicast 65001`, the router recalculated next-hop resolution and repopulated the missing routes. We documented the workaround and advised the agency to apply it any time the underlay is withdrawn and relearned within the same hold interval."
+      },
+      {
+        "subject": "ar-900 9.1.6 bgp routes missing after underlay failover",
+        "description": "Summit Logistics emailed TAC that an Aurora AR-900 running 9.1.6 lost reachability to a set of customer prefixes after a transport failover on the WAN edge. The message noted the BGP neighbor remained established and there was no obvious session reset, but the affected routes were not being used for forwarding. TAC confirmed the pattern on the device: `show bgp summary` showed the session as Established, while `show ip route bgp` did not list the impacted prefixes until the unit was reloaded. The log buffer contained \"%BGP-4-NH-RESOLVE\" immediately after the underlay route change.",
+        "resolution": "TAC identified the problem as KB-2101 and advised upgrading the router to 9.2.0, where the next-hop recursion cache is invalidated correctly when the resolving route changes state. After the upgrade, the customer repeated the failover test and the BGP routes remained installed through the underlay transition. No additional workaround was required after the software change."
+      },
+      {
+        "subject": "redwood university ar-900 loses bgp routes after circuit flap",
+        "description": "Redwood University escalated through a partner after an Aurora AR-900 on 9.1.4 stopped installing several eBGP prefixes during a provider handoff. The partner reported that the BGP peering did not drop, but routing to remote campuses disappeared for a short period and recovered only after a manual refresh. TAC reviewed the device state and confirmed the symptoms were consistent with stale next-hop recursion rather than a peer failure. The issue is known to occur when the connected underlay route is withdrawn and relearned quickly on the 9.1 family.",
+        "resolution": "TAC tied the case to KB-2101 and recommended upgrading the AR-900 to 9.2.0, which fixes next-hop cache invalidation when the resolving route changes. The customer completed the upgrade and verified that the BGP routes remained present during repeated circuit flap testing. We closed the case after confirming stable forwarding with the newer release."
+      }
+    ]
+  }
+}

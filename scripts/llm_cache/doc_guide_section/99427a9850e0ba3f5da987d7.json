@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AR#3",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "On a multiaccess OSPF segment, adjacency formation depends on a consistent view of the local interface parameters on each router, especially MTU. During Database Description exchange, each side compares the interface MTU advertised by the neighbor against its own configured MTU. If one side believes the segment is larger than the other side can accept, the neighbor relationship may progress to 2-way but fail to reach full state, then reset after repeated exchange attempts. In Aurora AR-900 release 9.2.0, this behavior is more visible on shared Ethernet segments where the physical path is stable but the per-interface MTU is not aligned.",
+      "The safest corrective action is to match the MTU on both sides of a multiaccess segment to prevent repeated OSPF adjacency resets. In practice, this means checking the access switch, upstream router, and any intermediate encapsulation or subinterface configuration before assuming the OSPF process is at fault. Common mistakes include matching the IP addresses and timers while overlooking a VLAN tag, tunnel overhead, or a provider handoff that reduces the effective payload size. If one peer uses a lower MTU, OSPF may keep restarting the database exchange even though the hello packets themselves are exchanged normally.",
+      "If the topology permits, configure the neighbor or interface as point-to-point instead of multiaccess to avoid MTU negotiation instability. This is appropriate when the segment is logically dedicated to a single peer and there is no requirement for a broadcast network type. Point-to-point operation removes the DR/BDR election behavior associated with multiaccess networks and reduces the number of adjacency states that can be affected by MTU mismatches. Use this approach only when it matches the physical and design intent of the link; do not force point-to-point on a true shared segment.",
+      "When the MTU cannot be matched during the maintenance window, enable `ip ospf mtu-ignore` on both peers. This allows the adjacency to form even when the interface MTU values differ, which is useful for temporary restoration while you schedule a permanent fix. Treat this as a workaround, not a design target: it bypasses a normal consistency check, so packet fragmentation or downstream MTU constraints can still affect routing stability if other protocols or traffic patterns are sensitive to the mismatch. Apply the setting symmetrically; enabling it on only one side does not eliminate the exchange mismatch.",
+      "After applying the workaround, confirm the adjacency reaches full state and does not restart on the next hello dead interval. A stable neighbor should remain in full state across at least one full hello/dead cycle without repeated transitions through exchange or loading. If the neighbor continues to flap, check for another cause such as duplicate router IDs, interface resets, link-layer errors, or an underlying control-plane protection policy. On AR-900, a clean OSPF neighbor table combined with unchanged interface counters is a stronger indicator of stability than a single successful adjacency event.",
+      "Use the operational commands in this section to validate the current state before changing the configuration, then again after the change to confirm that the adjacency behavior is stable. If you change the interface MTU, the peer configuration, or the OSPF network type, clear the affected adjacency only after both sides are ready so the renegotiation occurs once under the intended parameters. Avoid making incremental changes on only one router, because that can lengthen the outage and obscure the actual failure mode."
+    ],
+    "procedure_steps": [
+      "Enter configuration mode and select the affected multiaccess interface.",
+      "Apply the OSPF workaround only if you cannot match the MTU during the maintenance window: `ip ospf mtu-ignore`.",
+      "If the design allows it, convert the neighbor or interface to point-to-point instead of multiaccess.",
+      "Save the matching MTU or network-type changes on both peers so the configuration is consistent.",
+      "Clear the OSPF adjacency if required by your operational process, then wait for the neighbor to reconverge.",
+      "Verify that the neighbor remains in full state through the next hello dead interval."
+    ],
+    "table": {
+      "caption": "OSPF adjacency stability checks on multiaccess segments",
+      "header": [
+        "Item",
+        "Guidance",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "MTU on both sides",
+          "Match the MTU on both sides of a multiaccess segment to prevent repeated OSPF adjacency resets.",
+          "Preferred long-term fix on 9.2.0 and later."
+        ],
+        [
+          "Network type",
+          "If the topology permits, configure the neighbor or interface as point-to-point instead of multiaccess to avoid MTU negotiation instability.",
+          "Use only when the segment is not shared."
+        ],
+        [
+          "MTU ignore",
+          "When MTU cannot be matched during the maintenance window, enable `ip ospf mtu-ignore` on both peers.",
+          "Temporary workaround; apply symmetrically."
+        ],
+        [
+          "Verification",
+          "After applying the workaround, confirm the adjacency reaches full state and does not restart on the next hello dead interval.",
+          "Check that the neighbor remains stable across at least one full cycle."
+        ]
+      ]
+    },
+    "verification": "Run `show ospf neighbor` and confirm the neighbor is in full state and stays there after at least one hello dead interval. If the adjacency was previously flapping, the output should stop cycling through exchange or loading states, and the neighbor uptime should continue to increase. If available in your workflow, compare the result before and after the change and confirm that no additional adjacency resets occur on the affected segment."
+  }
+}

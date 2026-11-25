@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-HX-7.5",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Helix HX-5000 release 7.5 focuses on link aggregation stability, optics event handling, and parser resilience. This release adds improved LACP marker processing to reduce bundle instability when peers negotiate slow timers, tunes transceiver debounce logic to reduce transient state changes, and hardens the configuration parser against malformed or oversized input during upgrade and reload operations. Quality work in this release also addresses previously observed EtherChannel mis-bundling and an upgrade failure path associated with saved transceiver calibration data. Administrators should review post-upgrade transceiver status on high-speed uplinks, especially where DOM thresholds are close to operating margins.",
+    "features": [
+      {
+        "name": "LACP marker handling",
+        "description": "This release improves handling of LACP marker responses during bundle negotiation and link recovery. The switch now processes marker-driven state transitions more deterministically when the peer advertises slow LACP timers, which reduces mis-bundling and unexpected member suspension in EtherChannel deployments."
+      },
+      {
+        "name": "transceiver debounce tuning",
+        "description": "The transceiver state machine has updated debounce thresholds for LOS, DOM, and module-insertion events. These changes reduce short-lived flaps caused by transient optics conditions, but they can also delay alarm assertion and clearance slightly compared with 7.4."
+      },
+      {
+        "name": "configuration parser hardening",
+        "description": "The configuration parser has been strengthened to reject malformed input earlier and to handle larger saved state blocks during boot and upgrade. This reduces the risk of upgrade interruption when existing configuration or transceiver calibration data is larger than expected, and it improves reload robustness for complex configurations."
+      }
+    ],
+    "compatibility": "Release 7.5 supports upgrade from Helix HX-5000 releases 7.2, 7.3, and 7.4 on supported hardware in the HX-5000 core switch family. Existing interface, stacking, spanning tree, LACP, and VXLAN/EVPN configurations remain supported, with no mandatory syntax changes; however, devices with extensive optics calibration records should be verified before upgrade, especially if they previously used 7.2 software. Interoperability behavior with LACP peers is unchanged at the protocol level, but bundle formation may appear more stable after upgrade because marker handling is stricter. Review transceiver thresholds and monitor QSFP28 uplinks after upgrade, as intermittent LOS reports can still occur when DOM threshold recalculation is in progress.",
+    "upgrade_steps": [
+      "Back up the running configuration, startup configuration, and any saved transceiver calibration data before scheduling the upgrade.",
+      "Verify the 7.5 image checksum and copy the image to the standby storage location used for boot selection.",
+      "Plan a maintenance window and confirm that all critical LACP bundles, stacking links, and uplinks are in a healthy state before starting.",
+      "Upgrade one chassis or stack member at a time where operationally possible, then reload the device to activate release 7.5.",
+      "After the device returns to service, verify software version, stack membership, LACP bundle state, and interface health with `show stack`, `show interfaces transceiver detail`, and `show mac address-table flapping`.",
+      "Monitor logs and counters for transceiver LOS events, bundle suspensions, and parser-related errors during the first post-upgrade operational interval."
+    ]
+  }
+}

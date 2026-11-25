@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-6101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "HX-5000 25g port drops every few minutes",
+        "description": "Summit Logistics called TAC about an HX-5000 core switch running 7.2 on a 25g server-facing port that kept dropping under steady traffic. The caller initially suspected a bad patch cable or an optics seating issue because the link would come back on its own after a short pause. I checked the interface history and transceiver data; the port showed a repeating pattern of loss of link every 8 to 12 minutes, with DOM bias current stepping up immediately before each flap. The optic was seated correctly and the far-end device was also reporting a brief loss of signal during each event.",
+        "resolution": "TAC matched the behavior to KB-6101 for HX-5000 7.2 optics and advised upgrading the switch to 7.3, where the DOM sampling logic is corrected. After the upgrade, the port remained stable and the bias current readings no longer triggered link drops."
+      },
+      {
+        "subject": "Intermittent 25g link flap on hx-5000",
+        "description": "MetroLink Telecom reported that an HX-5000 core switch on 7.2 was losing a 25g uplink every several minutes, usually during normal customer traffic and not only during maintenance windows. The field engineer on site had already swapped the cable and moved the optic to another port, but the behavior followed the module. I reviewed `show interfaces transceiver detail` and saw a consistent jump in transmit bias current just before each down event, while temperature and power remained within normal range. The pattern did not point to a physical seating problem or a remote device fault.",
+        "resolution": "TAC identified the issue as KB-6101 and applied the documented workaround: the transceiver monitoring interval was increased on the affected interface to reduce DOM polling activity, and the optic was kept below the observed temperature threshold where possible. After the change, the link flaps stopped during observation."
+      },
+      {
+        "subject": "25g optics flapping on hx-5000, fixed after os update",
+        "description": "Prairie State College opened an escalation through their partner for an HX-5000 running 7.2 with one 25g access port flapping repeatedly. Their notes said the remote side kept showing a brief optical alarm, and the switch log repeatedly showed \"%TRANSCEIVER-4-LOS\" before each outage. They did not have a clear local cause and wanted the switch replaced. TAC review of the transceiver counters showed a recurrent bias current spike immediately before each outage, and the module remained present and powered throughout the event. The symptoms aligned with an optics-path defect rather than a failing port ASIC.",
+        "resolution": "TAC associated the case with KB-6101 and advised upgrading the HX-5000 from 7.2 to 7.3. After the upgrade, the DOM snapshot handling no longer latched the false low-power state, and the link remained up under load."
+      },
+      {
+        "subject": "Recurrent 25g loss of signal on hx-5000 7.2",
+        "description": "Prairie State College emailed TAC about an HX-5000 core switch on 7.2 that was dropping a 25g connection often enough to disrupt class network traffic. Their message described the port as \"going dead\" and coming back later, but they were not sure whether the optic or the server NIC was at fault. TAC reviewed the interface counters and transceiver detail and confirmed that the module showed a sharp bias current increase just before each down event. The device itself stayed powered, and the pattern repeated on the same port while the optic was in service.",
+        "resolution": "TAC tied the failure pattern to KB-6101 and applied the workaround from the article by setting the transceiver monitoring interval to 120 seconds on the affected interface. That reduced the DOM polling activity enough to stop the flaps while the customer planned a later maintenance upgrade."
+      },
+      {
+        "subject": "Critical 25g uplink instability on hx-5000 core switch",
+        "description": "Crescent Health Group phoned TAC about an HX-5000 running 7.2 where a critical 25g uplink was dropping often enough to affect clinical application traffic. The customer suspected a routing issue at first because the outage seemed to happen during heavier traffic periods, but the interface itself was the only component flapping. TAC checked the transceiver detail and saw the same bias current jump before each loss of signal event, with the port recovering by itself after a short interval. The optic remained seated and there was no evidence of a stack or spanning-tree event on the switch.",
+        "resolution": "TAC matched the case to KB-6101 and recommended upgrading the switch from 7.2 to 7.3, which includes the corrected DOM sampling logic. The customer completed the upgrade and the uplink remained stable, with no further loss-of-signal events observed."
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-5112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why does CPU peg on a 3.3 edge whenever the LTE modems hand off?",
+    "reference_answer": "On Atlas SD-WAN 3.3 dual-modem edges, LTE handoff can drive control-plane CPU to 95 to 100 percent for 15 to 30 seconds because the LTE manager processes both modem state machines synchronously and repeatedly reevaluates the same transport profile on each link-state notification. When both modems are enabled, the duplicate notifications create unnecessary control-plane work and can delay tunnel keepalives, especially if the handoff coincides with a policy refresh. The recommended workaround is to stagger modem failover by disabling the standby modem during maintenance windows or to raise the LTE handoff debounce to 5 seconds with `interface lte0 handoff-debounce 5000` followed by `commit`."
+  }
+}

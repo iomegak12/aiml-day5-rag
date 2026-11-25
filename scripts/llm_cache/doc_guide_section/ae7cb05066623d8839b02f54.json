@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AR#4",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "On Aurora AR-900, IPv6 neighbor discovery (ND) and router advertisements (RA) control how hosts learn on-link prefixes, default gateways, and autoconfiguration timing on a VLAN. In a typical access segment, the router interface sends periodic RAs and also responds to host neighbor solicitations. When SLAAC is in use, the router advertisement is the mechanism that carries the prefix, preferred lifetime, and valid lifetime. If those advertisements stop unexpectedly, hosts can keep stale addresses for a short time, but they will eventually lose the prefix information and stop using it for new sessions.",
+      "The main operational choice is whether to permit RAs on the user VLAN or suppress them and move the segment to another IPv6 addressing model. Do not suppress router advertisements on the active user VLAN when SLAAC is in use, because prefixes can be removed too early after suppression. This is a common failure mode when operators try to reduce multicast traffic or prevent duplicate gateway announcements without considering host behavior. If RA suppression is required, use DHCPv6 stateful addressing on the affected segment rather than relying on SLAAC. That change preserves a controlled addressing source and avoids dependence on advertisements that are no longer being sent.",
+      "Timer alignment is equally important. The RA hold timer controls how long the router continues to advertise enough information for hosts to retain the prefix after a configuration change. Keep the RA hold timer above the preferred lifetime so hosts do not age out prefixes prematurely. If the hold timer is set too low, the router may stop advertising before the preferred lifetime expires, and hosts can shift to deprecated or removed prefixes sooner than expected. This is most visible during maintenance windows, when suppression is enabled and then later reversed, or when interface roles are moved between access and transit VLANs.",
+      "Before changing suppression behavior, review the VLAN interface configuration to confirm the segment still has a valid IPv6 addressing method. Review the VLAN interface configuration before changing suppression behavior to ensure the access segment keeps a valid IPv6 addressing method. Check whether the interface is configured for SLAAC, DHCPv6, or a static IPv6 assignment policy, and verify that the default gateway role remains consistent with the access design. A segment that relies on SLAAC should continue receiving RAs; a segment that suppresses RAs must have DHCPv6 stateful addressing available and reachable. Avoid mixing partial suppression with incomplete DHCPv6 services, as hosts may fall back to link-local-only connectivity and lose default route reachability.",
+      "Operationally, treat RA suppression as a routing-policy change, not just a local interface tweak. If you suppress RAs on a VLAN that carries endpoints, confirm that upstream services such as DHCPv6 relay, address pools, and DNS option delivery are already in place. Also confirm that ND remains functional for neighbor cache resolution and that the router still answers to solicitation for its own link-local address if required by the design. In troubleshooting, look for patterns where hosts retain an old prefix for a short period and then lose connectivity after the valid lifetime expires; that symptom usually indicates the advertisements were stopped before the addressing method was changed.",
+      "For most deployments, the safest sequence is to stage the new addressing model first, validate host lease or address acquisition, and only then suppress router advertisements if the design calls for it. If the user VLAN remains SLAAC-based, leave advertisements enabled and make any changes to RA intervals or lifetimes conservatively. If the design requires suppression, move the segment fully to DHCPv6 stateful addressing, then confirm that the hold timer is set above the preferred lifetime. This preserves continuity for long-lived sessions and reduces the chance of address churn during maintenance."
+    ],
+    "procedure_steps": [
+      "Enter configuration mode and select the VLAN interface that serves the user segment.",
+      "Determine whether the segment uses SLAAC or DHCPv6 stateful addressing before changing RA behavior.",
+      "If the segment uses SLAAC, leave router advertisements enabled; do not apply RA suppression on that VLAN.",
+      "If RA suppression is required, first deploy DHCPv6 stateful addressing on the affected segment and confirm hosts can obtain addresses and default gateway information from that service.",
+      "Apply the RA suppression setting only after the alternate addressing method is confirmed, and keep the RA hold timer above the preferred lifetime.",
+      "Save the configuration and validate host behavior on the VLAN after the change."
+    ],
+    "table": {
+      "caption": "IPv6 ND and RA handling reference",
+      "header": [
+        "Item",
+        "Operational guidance",
+        "Risk if misconfigured"
+      ],
+      "rows": [
+        [
+          "SLAAC on active user VLAN",
+          "Keep router advertisements enabled so hosts continue to learn the prefix and default route.",
+          "Prefix removal and loss of IPv6 connectivity after suppression."
+        ],
+        [
+          "RA suppression",
+          "Use only when the segment is moved to DHCPv6 stateful addressing.",
+          "Hosts may not obtain usable IPv6 addressing information."
+        ],
+        [
+          "RA hold timer",
+          "Keep the RA hold timer above the preferred lifetime.",
+          "Hosts can age out prefixes prematurely."
+        ],
+        [
+          "VLAN interface review",
+          "Verify the interface still has a valid IPv6 addressing method before changing suppression behavior.",
+          "Inconsistent gateway behavior or link-local-only operation."
+        ]
+      ]
+    },
+    "verification": "Use show ipv6 interface vlan 10 and confirm the interface state matches the intended design. For a VLAN that keeps SLAAC, expected output should show IPv6 neighbor discovery enabled, router advertisements active, and no suppression flags. For a VLAN where suppression is configured, expected output should show the suppression state on the interface and the presence of the alternate addressing method in the surrounding configuration. Also confirm that hosts on the VLAN retain a valid global IPv6 address, default gateway, and non-expired prefix after the preferred lifetime and hold timer elapse; if addresses disappear early, recheck the RA hold timer and whether the segment still relies on SLAAC."
+  }
+}

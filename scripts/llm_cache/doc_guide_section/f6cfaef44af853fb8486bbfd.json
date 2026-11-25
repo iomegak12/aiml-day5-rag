@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AT#6",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Atlas SD-WAN reporting jobs use the same platform resources as policy evaluation, telemetry aggregation, and edge-to-orchestrator transaction handling. On 3.3 systems, long flow-history windows can increase CPU consumption during report generation, especially when multiple scheduled jobs overlap or when the dataset spans many tunnels and applications. If reporting becomes the dominant workload, the first corrective action is to reduce flow-history retention to 5 days when reporting jobs are consuming excessive CPU on 3.3 systems. This shortens the active dataset and lowers the amount of state that must be scanned for each job.",
+      "When the business requires longer retention, do not keep a single broad report definition and extend the runtime indefinitely. If the environment requires longer retention, split reports into narrower 24-hour jobs and schedule them during a low-change maintenance window. This approach reduces peak execution time and limits the chance that analytics work will contend with policy pushes, tunnel re-evaluation, or certificate refresh activity. A narrower window also makes it easier to identify which day contributed to a CPU spike or delayed report completion.",
+      "Be careful not to treat reporting lag as an SD-WAN forwarding defect. A common mistake is to tune report retention and then immediately escalate tunnel or SLA alarms without checking whether the data plane is still healthy. Reporting can delay visibility into recent events, but it does not change tunnel liveness, app-route decision logic, or edge forwarding state. For this reason, use reporting window changes to avoid contention with policy updates on the same CPU cores, and keep operational checks separate from analytics validation.",
+      "In environments with frequent policy churn, schedule reporting jobs outside the same time band used for orchestrator policy distribution. The orchestrator may need to process edge acknowledgements, recompute SLA classes, and write audit records at the same time the reporting engine is compacting flow history. Overlap can produce transient CPU saturation, delayed UI updates, and misleading impressions that tunnels or application routes have degraded. Staggering these tasks is usually more effective than increasing compute size, because it addresses the contention pattern directly.",
+      "After changing reporting parameters, confirm that the data plane still presents normal tunnel and application-route state. Verify tunnel state and application-route status after report tuning so operational troubleshooting is not confused by delayed analytics processing. If report jobs are still pending, the control plane may be slower to refresh dashboards, but show commands on the edge should continue to reflect real device state. If the show output is healthy while reports lag, the problem is limited to reporting throughput rather than connectivity or forwarding.",
+      "If report job duration remains excessive after reducing retention, review job scheduling before making additional changes. Multiple reporting jobs started at the same minute can create a burst that is harder to absorb than one larger job spread across a maintenance window. In practice, the safest pattern is short retention, smaller time slices, and a fixed run window that does not overlap with orchestrator policy pushes. This preserves troubleshooting fidelity because operational alarms and edge state remain easier to interpret while analytics load is controlled."
+    ],
+    "procedure_steps": [
+      "Enter the reporting configuration context on the orchestrator and set the flow-history retention to 5 days: reporting flow-history retention 5d.",
+      "Commit the change so the new retention value is applied to subsequent reporting jobs: commit.",
+      "If longer retention is required, redefine the affected reports as 24-hour jobs and place them in a low-change maintenance window that does not overlap with policy updates.",
+      "Allow one scheduled reporting cycle to complete, then check whether CPU usage on the orchestrator has returned to normal and whether report completion time is within the expected window.",
+      "Use edge operational commands to confirm that tunnel state and application-route status remain unchanged after the reporting adjustment.",
+      "If reporting is still contending with policy distribution, reschedule the report window before increasing retention or adding more jobs."
+    ],
+    "table": {
+      "caption": "Reporting load-control guidance",
+      "header": [
+        "Item",
+        "Recommended value or action",
+        "Operational effect"
+      ],
+      "rows": [
+        [
+          "Flow-history retention",
+          "Reduce to 5 days when reporting jobs are consuming excessive CPU on 3.3 systems.",
+          "Cuts report scan time and reduces CPU pressure on the orchestrator."
+        ],
+        [
+          "Longer retention requirement",
+          "Split reports into narrower 24-hour jobs.",
+          "Limits peak runtime and makes scheduling easier to control."
+        ],
+        [
+          "Job timing",
+          "Run reports during a low-change maintenance window.",
+          "Reduces contention with policy updates and edge acknowledgements."
+        ],
+        [
+          "Verification focus",
+          "Check tunnel state and application-route status after tuning.",
+          "Separates reporting latency from real forwarding or routing faults."
+        ]
+      ]
+    },
+    "verification": "Verify the change by comparing report completion behavior with live edge state. Use show sdwan tunnels and confirm that tunnel sessions remain up, with expected peer addresses, stable uptime, and no new teardown or rekey events. Then run show app-route sla-class and confirm that SLA classes and application-route decisions are still populated as expected. If report jobs are delayed but both show commands indicate healthy state, the reporting subsystem is the remaining bottleneck; if either show command shows instability, troubleshoot the data plane or policy path separately."
+  }
+}

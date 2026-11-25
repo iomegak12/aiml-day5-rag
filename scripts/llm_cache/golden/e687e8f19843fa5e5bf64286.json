@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-6106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "On 7.4, why does my port-channel lose members when the far end is using slow LACP?",
+    "reference_answer": "In HX-5000 7.4, the LACP state machine can start collecting traffic before it has confirmed the partner's timeout bit when the peer is using slow LACP timers. That transient aggregation mismatch causes member ports to be suspended, so a 4-link bundle may come up with only 2 active members and the missing links can remain suspended for 30 to 90 seconds. The issue is tracked as %LACP-4-MISBUNDLE in KB-6106 and is fixed in 7.5, where member ports wait for partner timer confirmation before entering collect/distribute."
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-4101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "APs stuck joining after 4.6 upgrade",
+        "description": "CivicWorks Public Agency opened this case by email after upgrading an Orion OW-20 wireless LAN controller to 4.6. Several access points now sit in discovery for about a minute, then retry join repeatedly, and users report the SSIDs never come up on those APs. On the controller, `show ap summary` shows the affected APs as down/joining with radios disabled. The last 50 log lines include `%CAPWAP-3-JOIN_REJECT` for the same AP MACs, even though the APs have valid management IP addresses and can reach UDP 5246/5247.",
+        "resolution": "TAC correlated the repeated join failures to KB-4101, which matches a 4.6 defect triggered by a zero-length RF profile TLV during CAPWAP negotiation. We removed the AP group RF profile override so the controller stopped emitting the empty TLV, then verified the APs completed join and radios came up. The customer was advised to keep the workaround in place until a move to 4.7, where the parser issue is fixed."
+      },
+      {
+        "subject": "Repeated CAPWAP join rejects on 4.6 controller",
+        "description": "Northstar Bank submitted this through the customer portal for an Orion OW-20 running 4.6. Their APs at one branch keep bouncing between discovery and join, and the branch engineers thought it was a firewall issue because the APs can ping the controller and the CAPWAP ports are open. TAC checked `show ap summary` and saw the affected units in down/joining state with no radios enabled. The controller log shows `%CAPWAP-3-JOIN_REJECT` each time the APs try to associate, with no subsequent configuration download.",
+        "resolution": "TAC matched the behavior to KB-4101 and confirmed the controller was sending an empty RF profile TLV from the AP group configuration. We applied the documented workaround by removing the RF profile override from the AP group, which stopped the controller from emitting the zero-length TLV. After that change, the APs joined normally and remained stable."
+      },
+      {
+        "subject": "APs loop in join state after upgrade to 4.6",
+        "description": "Sunset Power Authority reported via the portal that a handful of APs never finish coming online after the controller was upgraded to Orion OW-20 release 4.6. The APs appear healthy on the network and can reach the controller, but they stay unavailable for 30 to 60 seconds at a time and then try again. `show ap summary` shows them as down/joining with radios off. The controller logs also show `%CAPWAP-3-JOIN_REJECT` against the affected APs during each attempt.",
+        "resolution": "TAC identified the issue as KB-4101, which affects 4.6 when an AP join request contains a zero-length RF profile TLV. We applied the workaround from the article by removing the RF profile override from the AP group so the controller no longer advertises the empty TLV. The APs then completed CAPWAP join and began serving clients."
+      },
+      {
+        "subject": "APs not coming online on OW-20 4.6",
+        "description": "Crescent Health Group escalated this from the NOC after several APs at one site failed to come online following an Orion OW-20 controller update to 4.6. The APs reach the controller and keep retrying, but they never get past discovery/join and the radios remain disabled. `show ap summary` shows the units as down/joining, which was initially mistaken for a link or DHCP issue. TAC reproduced the behavior on the controller and confirmed the APs were not completing CAPWAP association.",
+        "resolution": "TAC matched the failure pattern to KB-4101 and found the AP group had a custom RF profile override causing the controller to emit a zero-length RF profile TLV. We applied the workaround described in the article by removing the RF profile override, then verified the APs joined successfully and stayed up. The customer was told this is a 4.6 defect and to maintain the workaround until they can move to 4.7."
+      },
+      {
+        "subject": "Some access points stuck in joining state",
+        "description": "HarborPoint Retail opened this portal case because a small set of APs on an Orion OW-20 running 4.6 never finish joining after a controller reboot. The APs can communicate with the controller and keep trying, but they remain stuck in discovery/join and their radios do not enable. `show ap summary` shows the affected APs as down/joining, while other APs in the same site are healthy. Initial triage indicated the failures were limited to models that use the same AP group and custom RF settings.",
+        "resolution": "TAC traced the issue to KB-4101 and confirmed it was the 4.6 CAPWAP parser defect tied to an empty RF profile TLV. We implemented the workaround by clearing the AP group RF profile override so the controller stopped generating the zero-length TLV during join. The APs then completed association normally, and the customer was advised that the permanent fix is in 4.7."
+      }
+    ]
+  }
+}

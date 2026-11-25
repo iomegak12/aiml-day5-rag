@@ -1,0 +1,59 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-OW#6",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "The RF manager on Orion OW-20 uses observed channel occupancy, AP neighbor reports, and radar detection history to select and maintain operating channels. In stable deployments, this reduces co-channel interference and keeps airtime contention predictable. In environments with weather radar, airport radar, or other DFS-sensitive bands, the controller may be forced to move radios more often than the RF plan expects. When that happens repeatedly, client performance usually degrades before the controller reports a hard failure, so the first task is to determine whether the issue is radio selection churn or a broader AP/join problem.",
+      "On 5.1, disable DFS on affected radio groups if repeated DFS events stop channel updates. This is the preferred corrective action when the AP population is otherwise healthy and the channel plan can be supported on non-DFS spectrum. Disabling DFS removes radar-driven channel moves, but it also reduces the channel pool, so the remaining channels must be distributed carefully. Pin radios to a non-DFS channel set such as 36,40,44,48 with at least 20 MHz separation from neighboring cells. In dense deployments, the separation requirement matters more than the exact center frequency; overlapping 20 MHz channels in adjacent cells can still create contention even when DFS is eliminated.",
+      "If DFS must remain enabled, treat radar activity as an operational threshold rather than a cosmetic event counter. Keep radar events below 3 per 10 minutes during peak usage if DFS must remain enabled. Above that level, the controller tends to spend more time re-evaluating channel assignments than serving clients, and roaming behavior becomes less deterministic because APs may change channel while clients are reassociating. A common mistake is to leave DFS enabled globally after a few benign events, then assume that intermittent channel changes are acceptable because all APs eventually recover. In practice, repeated events in the same radio group usually indicate a persistent RF exposure problem or an unsuitable channel mix for that site.",
+      "Upgrade readiness also depends on RF and configuration hygiene. Before upgrading from 4.6 to 5.0, delete unused legacy guest portal ACL objects and verify the configuration database contains only normalized entries. Older guest portal ACL records can survive multiple configuration edits and may be accepted by earlier releases, but they increase the chance of schema conversion warnings during upgrade preparation. Normalized entries should resolve cleanly in the controller database and should not include stale object references, duplicate rule names, or orphaned portal associations. This cleanup is not limited to guest access traffic; it also reduces the risk that upgrade validation reports unrelated inconsistencies while the controller is holding RF state.",
+      "Use show ap summary to confirm that the AP inventory is stable before making RF changes. Check for APs that are flapping, missing radio roles, or repeatedly rejoining after a channel move. If the summary shows a small subset of APs repeatedly failing to settle, address those APs first; changing the radio plan around unstable joins often hides the root cause. After the RF plan is updated, compare AP counts and radio status across the affected groups and confirm that the channel set matches the intended design.",
+      "When the upgrade path is involved, do not rely on the upgrade alone to remediate configuration drift. Run show guest acl summary before upgrade apply 5.0 and ensure that the legacy ACL objects you expect to remove are no longer present. If the configuration database still contains old guest portal ACL records, correct that state before starting the upgrade window. The operational goal is to enter the upgrade with a clean RF topology, a bounded DFS posture, and a database that reflects the current design rather than historical edits.",
+      "After the change, keep an eye on client experience during the first peak period. If channel changes cease and clients remain on their assigned APs, the RF policy is usually consistent. If clients still roam excessively or APs continue to rescan channels, revisit the local RF environment and confirm that neighboring cells are not sharing the same 20 MHz channel. In large facilities, a plan that looks valid on paper can still fail if two adjacent radio groups were pinned to the same non-DFS channel set without enough physical separation."
+    ],
+    "procedure_steps": [
+      "Use show ap summary to confirm the APs in the affected area are joined and stable.",
+      "If repeated DFS events are stopping channel updates on 5.1, disable DFS on the affected radio groups with ap group dfs disable.",
+      "Pin the radios to a non-DFS channel set with rf channel set 36,40,44,48, and maintain at least 20 MHz separation from neighboring cells.",
+      "If DFS must remain enabled, monitor radar events and keep them below 3 per 10 minutes during peak usage.",
+      "Before upgrading from 4.6 to 5.0, run show guest acl summary and delete any unused legacy guest portal ACL objects before starting upgrade apply 5.0."
+    ],
+    "table": {
+      "caption": "RF manager and upgrade readiness reference",
+      "header": [
+        "Item",
+        "Target or action",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "DFS handling on 5.1",
+          "Disable on affected radio groups if repeated DFS events stop channel updates",
+          "Use when radar-driven channel moves prevent stable assignments"
+        ],
+        [
+          "Non-DFS channel plan",
+          "36,40,44,48",
+          "Maintain at least 20 MHz separation from neighboring cells"
+        ],
+        [
+          "Radar event rate",
+          "Below 3 per 10 minutes during peak usage",
+          "If higher, expect channel churn and less predictable roaming"
+        ],
+        [
+          "Pre-upgrade cleanup",
+          "Delete unused legacy guest portal ACL objects",
+          "Required before upgrading from 4.6 to 5.0"
+        ],
+        [
+          "Database state",
+          "Only normalized entries",
+          "Avoid stale ACL rules and orphaned portal associations"
+        ]
+      ]
+    },
+    "verification": "Verify AP health with show ap summary and confirm that radios remain on the intended channel set without repeated rejoin or channel-change messages. If DFS is disabled, the radio status should remain stable and no further radar-driven channel moves should appear during the observation window. If DFS remains enabled, confirm that radar events stay below 3 per 10 minutes during peak usage. Before upgrade, use show guest acl summary to confirm that unused legacy guest portal ACL objects are absent and that the configuration database contains only normalized entries; after upgrade apply 5.0, repeat show ap summary to confirm APs return to steady-state service."
+  }
+}

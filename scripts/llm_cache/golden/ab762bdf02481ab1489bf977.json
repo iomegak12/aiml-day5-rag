@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "version_specific:KB-5104",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why did my LTE tunnel MTU reset to 1500 after a 3.1 upgrade?",
+    "reference_answer": "This is a known Atlas SD-WAN 3.1 upgrade issue, tracked as KB-5104 / %UPG-5-MTU-MIGRATE, affecting dual-SIM LTE edges. During migration, the script copies the LTE profile but falls back to the default tunnel MTU of 1500 when it detects two modem profiles on the same interface, so a pre-upgrade explicit MTU below 1500 is not preserved in the running configuration. Reapply the tunnel MTU manually after the upgrade, for example `interface lte0 tunnel-mtu 1400` followed by `commit`; the issue is fixed in 3.2."
+  }
+}

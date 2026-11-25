@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "multi_hop:KB-5102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "We’re running Atlas SD-WAN 2.8 and after a certificate rotation our edges that used to check in fine started going offline on the orchestrator a few minutes later, and policy pushes to that site now fail with certificate validation problems. Which release fixes this, and what should we do in the meantime until we can upgrade?",
+    "reference_answer": "This issue is fixed in Atlas SD-WAN 2.9, where certificate renewal refreshes the stored intermediate chain automatically. Until you can upgrade, reimport the full certificate chain, including the active intermediate CA, on the orchestrator before renewing the edge certificate. For large deployments, stage the new chain at least 24 hours before the old intermediate expires; the relevant commands are `certificate import trust-bundle edge-chain.pem` followed by `commit`."
+  }
+}

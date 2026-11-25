@@ -1,0 +1,59 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AT#4",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "LTE links often sit behind carrier encapsulation, policing, and variable radio conditions, so the effective path MTU is usually smaller than the underlay interface MTU reported by the modem. Atlas SD-WAN encodes overlay traffic into IPsec and control headers before it reaches the carrier network, which makes a conservative tunnel MTU necessary to avoid fragmentation or blackholing when packets traverse NAT, GRE, or IPsec on the path. If the overlay MTU is set too high, large application packets are more likely to fragment, lose performance, or fail outright when a carrier drops non-initial fragments.",
+      "For most carrier LTE links, use a tunnel MTU between 1400 and 1420 bytes; validate the path with 1472-byte pings before returning the site to service. That range leaves enough headroom for common encapsulation overhead while still preserving reasonable payload efficiency for bulk transfers and real-time traffic. A 1472-byte ICMP payload corresponds to a 1500-byte Ethernet frame before headers, so a successful test indicates that the path can carry near-standard-sized traffic without fragmentation at the L3 boundary. If the test fails, lower the tunnel MTU in small increments and repeat the probe until loss and fragmentation symptoms clear.",
+      "Edge upgrades can also affect stored LTE settings. After any 3.1 upgrade, reapply the LTE tunnel MTU on each dual-SIM edge because the upgrade may rewrite it to 1500. This is a common cause of post-upgrade instability: the tunnels come up, but application flows that depend on larger packets begin to show retransmissions, jitter, or policy flaps. On 3.2 systems with custom APN profiles, recheck every LTE interface after migration because the per-interface tunnel MTU can be dropped. In both cases, confirm the active value on the edge rather than assuming the orchestrator template is still enforced.",
+      "Handoff behavior matters on dual-modem designs because transient radio loss can cause the active modem to oscillate between available links. For 3.3 edges with both modems enabled, set the LTE handoff debounce to 5000 ms to reduce CPU spikes during transient signal loss. The debounce timer delays a handoff decision long enough to ignore brief RSSI dips, short carrier reselections, and modem state churn that do not justify a path change. Without a debounce, the control plane may repeatedly recalculate overlays, re-run SLA selection, and generate unnecessary tunnel resets during marginal coverage.",
+      "Do not treat LTE tunnel MTU and handoff debounce as independent tuning knobs. A site with an aggressive debounce value and an overly large tunnel MTU can appear stable during light traffic but fail under sustained load, while a very small MTU can mask handoff problems by reducing the chance of large-packet loss. Tune the MTU first, verify the path with traffic that reflects the site’s largest application packets, and then tune handoff behavior if the edge still exhibits carrier flaps, frequent tunnel renegotiation, or CPU spikes during signal transitions.",
+      "When troubleshooting, compare the configured value, the operational tunnel state, and recent tunnel events. If the tunnel MTU was changed but application symptoms persist, check whether the LTE interface is active on the intended SIM, whether the overlay path is still using the LTE transport, and whether the orchestrator has pushed the latest policy. In practice, most failures come from one of three issues: the wrong MTU value after an upgrade or migration, a carrier path that cannot carry the chosen size, or handoff churn that repeatedly interrupts the tunnel before the MTU change can stabilize traffic."
+    ],
+    "procedure_steps": [
+      "On the orchestrator or edge CLI, identify the LTE interface that carries the overlay and confirm whether the site uses dual-SIM or dual-modem operation.",
+      "Apply the tunnel MTU on the LTE interface with interface lte0 tunnel-mtu 1400, using a value within the recommended 1400 to 1420 byte range for the carrier path.",
+      "If the edge runs 3.3 with both modems enabled, apply the handoff debounce with interface lte0 handoff-debounce 5000 to suppress brief signal-loss transitions.",
+      "Commit the configuration with commit and wait for the edge to synchronize the change.",
+      "Validate the path with 1472-byte pings from the site and, if needed, adjust the tunnel MTU downward in small increments until the path is stable.",
+      "If the edge was upgraded to 3.1 or migrated to 3.2 with custom APN profiles, re-open the interface configuration and confirm that the tunnel MTU remains set after the policy push."
+    ],
+    "table": {
+      "caption": "LTE tunnel MTU and handoff tuning reference",
+      "header": [
+        "Parameter",
+        "Recommended value",
+        "When to use",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "tunnel MTU",
+          "1400 to 1420 bytes",
+          "Carrier LTE overlays with standard IPsec encapsulation",
+          "Use 1472-byte pings to validate the path before returning the site to service."
+        ],
+        [
+          "tunnel MTU after 3.1 upgrade",
+          "reapply on each dual-SIM edge",
+          "After any 3.1 upgrade",
+          "The upgrade may rewrite the stored value to 1500."
+        ],
+        [
+          "tunnel MTU after 3.2 migration",
+          "recheck every LTE interface",
+          "On 3.2 systems with custom APN profiles",
+          "The per-interface tunnel MTU can be dropped during migration."
+        ],
+        [
+          "handoff debounce",
+          "5000 ms",
+          "3.3 edges with both modems enabled",
+          "Reduces CPU spikes during transient signal loss and brief modem churn."
+        ]
+      ]
+    },
+    "verification": "Use show sdwan tunnels to confirm the LTE overlay is up and that the tunnel uses the intended transport after the commit. Expected output should show the LTE tunnel in an up state, with the active path bound to lte0 and no repeated flap counters increasing during the test window. If the platform also exposes interface status, confirm that the configured tunnel MTU remains at 1400 to 1420 bytes and, on 3.3 dual-modem systems, that handoff debounce is 5000 ms. A successful validation also includes stable 1472-byte ping results and no new tunnel renegotiations in the recent event log."
+  }
+}

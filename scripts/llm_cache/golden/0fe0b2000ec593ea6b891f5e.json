@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "how_to:GUIDE-HX#2",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "What should I change on HX-5000 if a stack is oscillating or briefly separating between members?",
+    "reference_answer": "For Helix HX-5000 on 7.3, use matched-length stack cables between all members to reduce master election oscillation, keep control-plane load below 60 percent until the software is upgraded, and pin the desired master by setting a higher priority on the preferred member. Avoid adding or removing members during the unstable period. On 7.6, keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path."
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "stage": "facts_global",
+  "label": "global",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "customers": [
+      "Northstar Bank",
+      "Crescent Health Group",
+      "HarborPoint Retail",
+      "Summit Logistics",
+      "Redwood University",
+      "Pinnacle Energy",
+      "Lakeside Hospitality",
+      "MetroLink Telecom",
+      "CivicWorks Public Agency",
+      "BlueRiver Credit Union",
+      "Evergreen Clinic Network",
+      "Cornerstone Supermarkets",
+      "IronGate Freight",
+      "Prairie State College",
+      "Sunset Power Authority"
+    ],
+    "unanswerable": [
+      "What is the list price and annual support cost for Aurora AR-900, Nimbus NF-300, Orion OW-20, Atlas SD-WAN, and Helix HX-5000 by region?",
+      "What licensing tiers and feature bundles will Atlas SD-WAN and Nimbus NF-300 have in the next release?",
+      "When will Aurora AR-900 and Helix HX-5000 reach end of sale and end of support?",
+      "Does Orion OW-20 integrate with Acme CloudWatcher, and is that integration officially supported?",
+      "How does Nimbus NF-300 compare with competitor firewalls on throughput, SSL inspection, and VPN scalability?",
+      "Is there a confirmed roadmap date for the next major software release across Aurora AR-900, Orion OW-20, and Atlas SD-WAN?"
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-3102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Nimbus NF-300 5.1.3 and 5.1.5, some IKEv2 tunnels reset during phase 2 rekey when the responder selects a different Diffie-Hellman group than the initiator used in the previous exchange. The issue is most visible on tunnels that use multiple child-SA transform sets, where rekeys occur at regular intervals and the child SA alternates between healthy and failed states.",
+    "symptoms": "Administrators may report that a site-to-site VPN remains established for a period of time, then flaps every 30 to 60 minutes. The behavior is most common when the peer supports multiple transform sets or multiple acceptable DH groups, and the tunnel may recover briefly after each renegotiation before failing again on the next rekey.\n\nOn the firewall, `show crypto ikev2 sa` typically shows the child SA lifetime counting down normally, then a new child SA form appears with a different lifetime or state immediately after rekey. Peer-side logs often show proposal rejection or mismatch messages at the same time, and the local system log records `%IKEV2-3-PROPOSAL_MISMATCH` during the failed exchange.",
+    "diagnosis_steps": [
+      "Run `show crypto ikev2 sa` and confirm whether the affected tunnel shows repeated child-SA rekey attempts followed by teardown. The issue is consistent with a child SA that reestablishes, then drops again before the next lifetime expires.",
+      "Check `show log` or the event log for `%IKEV2-3-PROPOSAL_MISMATCH` entries at the time of each flap. Matching timestamps with the rekey window strongly indicate this defect rather than a transport outage.",
+      "Run `show crypto ikev2 sa detail` and compare the negotiated child-SA parameters across successive rekeys. If the DH group value changes between rekeys while the tunnel uses otherwise acceptable proposals, the responder is likely selecting a different group than the one cached by the local engine.",
+      "If available on your deployment, enable IKEv2 debug for the affected peer and reproduce one rekey cycle. The trace should show the responder accepting the proposal, then tearing down the child SA after the next exchange because the local state machine compares against a cached DH group rather than the negotiated group.",
+      "Review the peer configuration for multiple child-SA transform sets or multiple DH groups. If the peer can choose among more than one acceptable group, the pattern is more likely to reproduce on 5.1.3 and 5.1.5."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %IKEV2-3-PROPOSAL_MISMATCH: child sa rekey failed for peer 198.51.100.20, cached dh-group 14 does not match negotiated dh-group 19\n2026-03-14T02:13:07Z %IKEV2-5-CHILD_SA_DELETE: deleting child sa spi 0x8a1f2c4e/0x1d9b3e77 reason proposal mismatch\n2026-03-14T02:13:08Z %IKEV2-6-CHILD_SA_ESTABLISHED: child sa established peer 198.51.100.20 tunnel branch-office-l2l lifetime 3600s\n\nnf300# show crypto ikev2 sa\npeer 198.51.100.20\n  state                established\n  ike sa lifetime      86400\n  child sa count       1\n  child sa #1\n    status             rekeying\n    lifetime           1742s\n    dh group           19\n    transform          aes256-sha256\n",
+    "root_cause": "The defect is in the phase 2 rekey state machine on 5.1.3 and 5.1.5. The responder accepts the peer's child-SA proposal but stores the initiator's DH group number in the rekey context instead of the negotiated DH group associated with the active child SA.\n\nWhen the peer later selects a different but still acceptable DH group on a subsequent exchange, the firewall compares the new proposal against the cached value and treats the exchange as invalid. The local engine then deletes the child SA, which causes the tunnel to flap until the next successful negotiation.",
+    "workaround_steps": [
+      "Pin the tunnel to a single DH group on both peers, preferably group 14, so rekeys use a consistent proposal and do not alternate across acceptable groups.",
+      "If you cannot change the peer configuration, shorten the child-SA lifetime to 1800 seconds so rekeys happen on a predictable schedule and are easier to monitor and correlate with logs.",
+      "Apply the local tunnel proposal change in config mode and commit the configuration so the new DH group is used for subsequent negotiations.",
+      "Verify with `show crypto ikev2 sa` that the child SA now rekeys using the same DH group on each exchange and that `%IKEV2-3-PROPOSAL_MISMATCH` no longer appears."
+    ],
+    "resolution": "The defect is fixed in release 5.2.0. In that release, the responder uses the negotiated DH group from the active child SA context during phase 2 rekey, so the cached-value mismatch no longer occurs."
+  }
+}

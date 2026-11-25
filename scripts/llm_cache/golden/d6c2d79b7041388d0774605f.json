@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "how_to:GUIDE-AR#1",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "How should I recover BGP next-hop resolution after an underlay or recursive static route change?",
+    "reference_answer": "On Aurora AR-900 9.1.4 and 9.1.6, if the BGP next-hop remains unresolved after an underlay route withdrawal, clear the BGP process for the affected IPv4 unicast address family with `clear bgp ipv4 unicast 65001`. If the affected path is critical during a maintenance window, prefer a static discard route with a lower administrative distance than the learned underlay route so recursion remains stable. On 9.2.3, issue `clear bgp ipv4 unicast 65001 soft` after changing recursive static routes, and if a clear must be avoided, withdraw the old static route for at least 5 seconds before installing the replacement; avoid repeated soft clears during peak update periods because routing CPU can spike to 95% on 9.2.1."
+  }
+}

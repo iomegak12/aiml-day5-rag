@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-5102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "After we renewed the edge cert, why did 2.8 start rejecting the device until we reloaded the CA chain?",
+    "reference_answer": "In Atlas SD-WAN 2.8, the orchestrator stores the edge trust bundle separately from the active device certificate and does not automatically repopulate the intermediate CA list after a renewal. If the intermediate CA was replaced or expired, the orchestrator kept validating the edge against the old chain, which caused %PKI-3-CHAIN-UNTRUSTED and denied the next registration attempt because the chain could not be built to a trusted root. The workaround is to reimport the full certificate chain on the orchestrator with `certificate import trust-bundle edge-chain.pem` followed by `commit`; this issue is fixed in 2.9."
+  }
+}

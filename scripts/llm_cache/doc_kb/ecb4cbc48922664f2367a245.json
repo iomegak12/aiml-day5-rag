@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-3106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Nimbus NF-300 releases 5.2.0 and 5.2.2, outbound TLS sessions can intermittently bypass SSL inspection after the certificate cache has been under sustained pressure. The issue is associated with high cache eviction rates and can result in the remote server certificate being presented to clients instead of the forged inspection certificate.",
+    "symptoms": "Administrators observe that some HTTPS connections are forwarded without decryption after SSL inspection has been active for 5 to 10 minutes under load. The condition is usually intermittent and more visible during periods of broad outbound web access or when the inspected server population is large.\n\n`show ssl inspection statistics` typically shows certificate cache evictions rising above 5,000 per hour, and the event log may include `%SSL-5-CERT_CHAIN_CACHE`. Affected clients receive the origin server certificate rather than the forged inspection certificate, while other sessions continue to be inspected normally.",
+    "diagnosis_steps": [
+      "Run `show ssl inspection statistics` and check the cache eviction counters. Values above 5,000 evictions per hour are consistent with this issue when accompanied by bypassed HTTPS flows.",
+      "Run `show ssl inspection policy` and confirm that the affected server group is configured for outbound inspection and not explicitly exempted by policy.",
+      "Run `show ssl inspection sessions` and look for sessions that are marked as inspected in policy state but carry a clear-text forward decision in the fast path.",
+      "Check the system log for `%SSL-5-CERT_CHAIN_CACHE` entries that coincide with the time the bypass begins.",
+      "If available, correlate the issue with recent cache pressure using `show ssl inspection statistics detail` and verify that the leaf certificate cache has frequent evictions without a matching increase in policy changes or admin actions."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %SSL-5-CERT_CHAIN_CACHE: certificate cache eviction threshold exceeded; leaf entry removed, policy pointer retained\n2026-03-14T02:13:08Z %SSL-5-CERT_CHAIN_CACHE: certificate cache eviction threshold exceeded; leaf entry removed, policy pointer retained\n\nnimbus# show ssl inspection statistics\nSSL Inspection Statistics\n  certificate cache size                 2048\n  certificate cache hits                 182944\n  certificate cache misses               11822\n  certificate cache evictions            6481\n  certificate cache evictions/hour       6120\n  active inspected sessions              3912\n  bypassed outbound tls sessions         47\n\nnimbus# show ssl inspection sessions\nSession  Client              Server              State       Decision\n10021    198.51.100.24:51422 203.0.113.77:443    established clear\n10022    198.51.100.25:51425 203.0.113.77:443    established inspect\n10023    198.51.100.26:51431 203.0.113.77:443    established clear",
+    "root_cause": "The certificate cache eviction routine removes the leaf certificate entry but leaves the associated policy pointer in the fast-path lookup table until the next timer sweep. During that window, a new TLS session that hashes to the stale pointer is treated as already inspected and is forwarded in clear mode.\n\nThis is a configuration-sensitive bypass condition. It is triggered by sustained certificate cache pressure rather than by a policy syntax error or a general inspection failure, which is why the problem appears intermittently and only after the cache has been under load for several minutes.",
+    "workaround_steps": [
+      "Increase the SSL inspection certificate cache so eviction pressure is reduced and the eviction rate stays below 1,000 entries per hour. Apply the cache-size change from configuration mode and commit the change.",
+      "If a particular outbound server group continues to trigger the condition, temporarily disable outbound inspection for that group until cache pressure is stabilized.",
+      "Restart SSL inspection only if immediate clearing of stale fast-path pointers is needed during an active incident; this is a temporary mitigation and does not replace the cache-size change.",
+      "After applying the change, recheck `show ssl inspection statistics` to confirm that cache evictions have dropped below the threshold and that bypassed TLS sessions are no longer increasing."
+    ],
+    "resolution": "No software fix is required for this condition. The supported resolution is to raise the certificate cache size and reduce eviction pressure so the fast-path lookup table no longer accumulates stale policy pointers. After the change, monitor `show ssl inspection statistics` and the event log to verify that evictions remain below 1,000 per hour and that `%SSL-5-CERT_CHAIN_CACHE` no longer appears during normal traffic peaks."
+  }
+}

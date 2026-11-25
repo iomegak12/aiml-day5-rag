@@ -1,0 +1,19 @@
+{
+  "stage": "doc_tickets_howto",
+  "label": "GUIDE-OW",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "tune ap join for remote aps on 5.0",
+        "description": "BlueRiver Credit Union asked how to tune AP join behavior so remote APs finish registration reliably on affected releases. They reported intermittent join stalls during controller discovery and capability revalidation, with some APs remaining in a pending state longer than expected. They want the recommended controller settings and any release-specific limits that should be checked before changing the join workflow.",
+        "resolution": "TAC pointed them to GUIDE-OW and summarized the join guidance for the affected releases. For 4.6, remove any RF profile override from the AP group so the controller does not emit a zero-length RF profile TLV. For 4.7, set ap join retry-interval 2; for 4.8, set ap join timeout 180. For remote APs, keep one-way latency under 80 ms on 4.7 systems and keep uplink loss below 0.5% during 4.8 join operations. Verify with show ap summary and check recent events with show logging last 50."
+      },
+      {
+        "subject": "prepare configuration database for redundancy on 4.8",
+        "description": "CivicWorks Public Agency asked what should be changed before enabling controller redundancy when the configuration database is large. They are planning active-standby operation and want to avoid sync stalls or a failed initial resync during the switchover window. They asked for the recommended cleanup steps and whether a manual resync is appropriate after pruning the database.",
+        "resolution": "TAC pointed them to GUIDE-OW and summarized the redundancy prerequisites. Keep the configuration database below 30,000 rows before enabling redundancy to avoid sync stalls at the 32,768-row threshold, and remove unused AP groups, WLAN profiles, and stale guest accounts before enabling active-standby operation. If immediate failover is required after a large configuration change, schedule a full config resync during a maintenance window, and use redundancy force-resync only after confirming the database has been reduced and the commit queue is clear. Confirm status with show redundancy status and show configuration database summary, then review show logging last 50 if resync activity is not completing."
+      }
+    ]
+  }
+}

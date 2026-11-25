@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-5106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "Atlas SD-WAN 3.2 can fail to establish an IPSec tunnel when the remote peer requires a single ESP proposal that includes both AES-GCM encryption and SHA-384 integrity attributes. In this case, the Atlas edge continues to retry negotiation but never reaches an established state. The issue is limited to 3.2 and is corrected in 3.3.",
+    "symptoms": "Affected sites remain in tunnel negotiation and do not transition to established. On the edge, the tunnel state stays at negotiating and the retry interval remains at 10 seconds. Traffic over the overlay is unavailable for that peer, while other tunnels may remain healthy.\n\nThe failure is seen only with peers that insist on a combined ESP proposal form. If the remote device accepts separate integrity and encryption proposals, or if the peer policy allows alternate transforms, the tunnel may establish normally. The event is typically visible in system logs as a proposal mismatch during IKE negotiation.",
+    "diagnosis_steps": [
+      "Run `show sdwan tunnels` on the affected edge and confirm the tunnel state remains negotiating rather than established. Look for repeated retries and no successful SA creation.",
+      "Check the edge logs for IKE negotiation errors. The presence of `%IKE-3-PROPOSAL-MISMATCH` indicates the remote peer rejected the offered transform set.",
+      "Run `show app-route sla-class` only if application-aware routing is involved to confirm the issue is not caused by SLA classification or path selection. Healthy SLA results with a stuck tunnel point back to IPSec negotiation.",
+      "If available, inspect the peer-side IKE/IPSec logs and verify that the peer policy requires a single ESP proposal containing both encryption and integrity attributes. A reject reason tied to transform format confirms this interoperability issue.",
+      "Validate the configured proposal on the Atlas edge and confirm it is using AES-GCM. In 3.2, the negotiator may advertise AES-GCM as encryption-only when the peer expects a combined proposal form."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z edge01 %IKE-3-PROPOSAL-MISMATCH: peer 198.51.100.24 rejected transform set aes-gcm-256;sha384, combined esp proposal required\n2026-03-14T02:13:07Z edge01 %IKE-6-RETRY: retrying ike sa negotiation in 10 seconds\n2026-03-14T02:13:17Z edge01 %IKE-3-PROPOSAL-MISMATCH: peer 198.51.100.24 rejected transform set aes-gcm-256;sha384, combined esp proposal required\n\nedge01# show sdwan tunnels\npeer              local-if   state        uptime   encap\n198.51.100.24     wan0       negotiating  00:00:00 ipsec\n\nedge01# show sdwan tunnels detail\npeer 198.51.100.24\n  ike state: negotiating\n  child sa: not installed\n  last proposal: aes-gcm-256 / sha384\n  retry timer: 10s",
+    "root_cause": "In Atlas SD-WAN 3.2, the IPSec negotiator advertises AES-GCM as an encryption-only suite when the remote peer requests a single proposal that carries both encryption and integrity fields. AES-GCM is cryptographically valid for ESP, but some peers enforce the proposal structure defined in their local policy and will reject a proposal that does not match that combined form.\n\nAs a result, IKE negotiation never completes even though the primitives themselves are compatible. This is an interoperability defect in proposal formatting, not a certificate, routing, or transport failure.",
+    "workaround_steps": [
+      "Modify the remote peer policy so it accepts an AES-GCM proposal without a separate integrity field, or select an alternate transform such as AES-CBC with SHA-384 if the peer allows it.",
+      "Apply the Atlas-side proposal change to match the peer policy. Use the documented tunnel proposal command on the affected edge, then commit the configuration.",
+      "Confirm that both peers now show the same negotiated ESP proposal and that the child SA is installed.",
+      "Verify `show sdwan tunnels` reports the tunnel as established and that traffic passes across the overlay before returning the site to service."
+    ],
+    "resolution": "This defect is fixed in release 3.3. In 3.3, the negotiator emits a combined ESP proposal when required by the peer, allowing tunnels to establish with devices that mandate AES-GCM and SHA-384 in the same proposal."
+  }
+}

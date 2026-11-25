@@ -1,0 +1,12 @@
+{
+  "stage": "facts_duplicate",
+  "label": "KB-2112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "title": "Aurora AR-900 9.2.3 control-plane protection may miss IPv6 ND drops during traffic bursts",
+    "symptoms": "On 9.2.3, a burst of IPv6 neighbor discovery traffic can push the control-plane above the configured limit while the drop counter remains unchanged. In the cases observed, `show control-plane protection statistics` held at 0 drops for 30-60 seconds, CPU usage climbed from 15% to 85%, and IPv6 neighbors would periodically move to Stale. The issue is most apparent when 5,000-8,000 NS/NA packets arrive in short bursts from a single access VLAN.",
+    "root_cause": "The punt policer tracks IPv6 ND packets in a 32-bit per-queue counter that is sampled every 250 ms. When traffic arrives in bursts, the counter can wrap between samples, and the excess packets do not take the drop decision path. As a result, the CPU receives more traffic than the intended policer rate permits.",
+    "workaround": "Reduce IPv6 ND load at the edge by enabling RA guard or storm control on the access VLAN, and temporarily lower the control-plane policer to a conservative value such as 2,000 pps until the source is isolated. If needed, shut the offending access port for 30 seconds to allow neighbor state to recover.",
+    "fix": "Fixed in 9.3.0: control-plane protection now samples IPv6 ND punts with lossless accounting."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "stage": "facts_duplicate",
+  "label": "KB-4108",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "title": "Orion OW-20 4.9 may omit Vendor-Specific attribute 26 from Access-Challenge processing when the reply contains 13 attributes",
+    "symptoms": "Intermittent 802.1X failures have been observed on Orion OW-20 controllers running 4.9 when authenticating against external RADIUS servers. The exchange often progresses through the first challenge, but after the second Access-Challenge the next step fails because the tunneled policy attributes are no longer present. Clients can remain in `authenticating` for 15-20 seconds before the session times out. The failure is most consistently reproduced when the Access-Challenge includes 13 or more attributes.",
+    "root_cause": "In 4.9, the RADIUS encoder used during Access-Challenge repacking for internal policy handling truncates the attribute list after 12 entries. Vendor-Specific attribute 26 is commonly positioned beyond that limit and is dropped without logging, which prevents tunneled EAP methods from receiving the policy data they require.",
+    "workaround": "Reduce the RADIUS challenge to 12 or fewer attributes, or reorder the server response so that the Vendor-Specific attribute appears earlier. If available, direct the request to a policy server that places the tunneled attributes first.",
+    "fix": "Fixed in 5.0: Access-Challenge repacking retains all attributes and no longer truncates the list at 12 entries."
+  }
+}

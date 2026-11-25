@@ -1,0 +1,26 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-2109",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Aurora AR-900, SNMP linkUp and linkDown traps can be lost during an interface flap storm when the trap queue grows beyond 1024 entries in a short interval. Polling continues to report interface state correctly, but SNMP managers may show gaps or out-of-order alerts because excess traps are discarded silently.",
+    "symptoms": "This issue appears during bursty interface state changes, typically when a port flaps repeatedly or when multiple ports transition at the same time. Network management systems may report missing linkUp notifications, delayed linkDown alerts, or an interface history that does not match the physical event sequence. The router continues to answer SNMP polls, so status checks may look normal even while trap delivery is incomplete.\n\nIn affected systems, the generic event counter may increase only slightly relative to the number of lost traps, which makes the condition difficult to spot from normal monitoring alone. Operators may also see the first and last events in a storm, with intermediate notifications missing.",
+    "diagnosis_steps": [
+      "Run `show snmp statistics` and check the notification counters. A trap burst issue is likely if linkUp/linkDown events were generated but the trap transmit or discard counters do not account for all of them.",
+      "Run `show snmp queue` and verify the pending notification depth. If the queue reaches 1024 entries during the event window, later traps are subject to drop.",
+      "Run `show interface ethernet 1/1 counters` or the affected interface equivalent and confirm repeated carrier transitions or rapid up/down changes that match the missing traps.",
+      "Run `show logging` and look for `ERR-SNMP-3019`. The presence of this message indicates the trap path overflowed while the router was still processing interface events.",
+      "If available, run `debug snmp traps` briefly during a controlled test and confirm that trap generation continues while the queue remains full and new notifications are not emitted.",
+      "Compare NMS trap timestamps with interface state polling history. If polling is complete but trap order has gaps, this issue is consistent with queue overflow."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %SNMP-5-TRAPGEN: interface ethernet 1/1 linkDown\n2026-03-14T02:13:08Z %SNMP-5-TRAPGEN: interface ethernet 1/1 linkUp\n2026-03-14T02:13:09Z %SNMP-5-TRAPGEN: interface ethernet 1/1 linkDown\n2026-03-14T02:13:10Z ERR-SNMP-3019 trap queue full, dropping notification\n2026-03-14T02:13:10Z %SNMP-5-TRAPGEN: interface ethernet 1/1 linkUp\n2026-03-14T02:13:12Z %SNMP-5-TRAPGEN: interface ethernet 1/1 linkDown\n\nshow snmp queue\npending notifications: 1024\nhigh-water mark: 1024\ndiscarded notifications: 193\nlast discard reason: queue-full",
+    "root_cause": "The SNMP trap daemon on Aurora AR-900 uses a fixed-depth queue of 1024 entries for all notification types. There is no backpressure to the originating event sources, so when interface events are generated faster than the daemon can transmit them, the queue fills and newer traps are dropped.\n\nThe daemon does not maintain a dedicated overflow counter for every discarded notification. As a result, the management station may only observe a small increase in the generic event counter, while the actual number of missed linkUp and linkDown traps is higher.",
+    "workaround_steps": [
+      "Reduce the event rate on the affected interface by applying link debounce to suppress short-duration flaps. For access ports, use a value that matches the expected physical layer noise profile and operational requirements.",
+      "If the flap storm is caused by a cabling, optics, or peer-device problem, correct that fault first so that link transitions stop recurring.",
+      "If the NMS requires a complete event timeline, shorten the polling interval to 30 seconds and use polling as the authoritative source for interface state, with traps treated as advisory.",
+      "After stabilizing the interface, verify that new trap bursts no longer reach the queue limit and that missing events no longer appear in the NMS history."
+    ],
+    "resolution": "No software fix is required for this behavior. The trap queue depth is a platform capacity limit, so recurrence is prevented by controlling event rate at the interface and by relying on polling when complete history is required. Use debounce or correct the underlying physical issue to stop flap storms, and keep SNMP polling at 30 seconds or shorter for environments that depend on consistent interface state records."
+  }
+}

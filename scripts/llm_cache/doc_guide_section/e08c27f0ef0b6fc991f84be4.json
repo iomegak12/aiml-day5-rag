@@ -1,0 +1,53 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-NF#6",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Threat database updates on Nimbus NF-300 are applied to the inspection engine and, depending on bundle size, can briefly increase control-plane and dataplane work while signatures are loaded, compiled, and activated. The operational risk is not usually loss of forwarding, but a transient rise in latency, deferred packet inspection, and short-lived policy-state inconsistency while the active signature set changes. For that reason, plan updates as a controlled maintenance activity rather than an always-on background task when the firewall is carrying SSL inspection or high-volume traffic.",
+      "On 5.1.5, schedule threat database updates during a maintenance window and keep the signature bundle below 128 MB to avoid packet-processing stalls. Larger bundles require more memory movement and longer activation time, which can contend with session creation and inspection threads. If a large bundle is unavoidable, defer nonessential traffic-policy edits until the update has fully applied and the dataplane has returned to steady state. This reduces the chance of overlapping policy recompilation with signature activation, which is the common cause of avoidable stalls.",
+      "Set the update window to 02:00 through 02:15 when operationally feasible, and avoid SSL inspection policy changes until activation completes. That 15-minute window is wide enough for the firewall to fetch, validate, and activate most routine bundles without colliding with business-hour traffic peaks. The exact timing matters less than consistency: operators should choose a period with low connection churn and minimal administrative change activity. If your environment uses automated change orchestration, ensure the update window does not overlap with certificate deployment, decryption policy edits, or session-table troubleshooting.",
+      "Use the threat database status output to confirm whether an update is active before making any inspection or policy changes. During an active update, the firewall may show the bundle as downloading, validating, or activating, and the inspection engine may report a temporary in-progress state. Treat this as a read-only period for security-policy work until the status returns to idle or current. A common mistake is to commit a traffic-policy change during activation, then misattribute the resulting transient drop in inspection throughput to the policy itself.",
+      "When troubleshooting, distinguish between a slow update and a failed update. A slow update typically completes within the configured window and is visible only as a brief rise in processing latency; a failed update usually leaves the status unchanged, may repeat validation, or may log a signature-activation error. If the device is under load, wait for the update to finish before collecting baseline session-table or SSL inspection data, because mid-update measurements are not representative of steady-state behavior. This section’s settings are intended to reduce operator-induced disruption, not to replace normal capacity planning or version-specific maintenance procedures.",
+      "For release families 5.0 and 5.2, the same timing guidance applies, but the most important operational constraint remains avoiding concurrent inspection-policy changes while signatures are being activated. In mixed-version environments, align the firewall window with downstream tooling so that monitoring systems do not report transient inspection delays as persistent failures. After the update is complete, confirm that the dataplane has returned to steady state before resuming routine change work."
+    ],
+    "procedure_steps": [
+      "Enter configuration mode.",
+      "Set the threat database update window to 02:00 through 02:15.",
+      "Commit the change.",
+      "Use show threat database status to confirm that no update is active before making SSL inspection or traffic-policy changes.",
+      "If an update is active, defer nonessential configuration edits until the status returns to idle or current."
+    ],
+    "table": {
+      "caption": "Threat database update timing reference",
+      "header": [
+        "Item",
+        "Recommended value",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "Maintenance window",
+          "02:00 through 02:15",
+          "Use when operationally feasible to reduce overlap with peak traffic and change activity."
+        ],
+        [
+          "Bundle size on 5.1.5",
+          "Below 128 MB",
+          "Larger bundles can cause packet-processing stalls during activation."
+        ],
+        [
+          "Change moratorium during activation",
+          "SSL inspection policy changes",
+          "Avoid edits until activation completes and the dataplane is steady."
+        ],
+        [
+          "Readiness check",
+          "show threat database status",
+          "Confirm whether an update is active before making inspection changes."
+        ]
+      ]
+    },
+    "verification": "Run show threat database status after commit and before any policy change. Expected output should indicate the configured window of 02:00 through 02:15 and show the database in an idle or current state when no update is running. If an update is active, the status should explicitly show downloading, validating, or activating; in that case, do not change SSL inspection or traffic-policy settings until the status returns to idle or current and the dataplane has returned to steady state."
+  }
+}

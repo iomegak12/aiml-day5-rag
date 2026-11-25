@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-6110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "HX-5000 uplinks dropping short bursts of traffic on 8.0",
+        "description": "Evergreen Clinic Network reported brief packet loss on a Helix HX-5000 core switch during normal daytime traffic, mostly affecting VoIP and EMR sync flows. The switch is running 8.0, and the customer noted that interface utilization stays below 80 percent even when the drops occur. TAC reviewed the queue counters and saw short discard bursts on the uplink queue, with the customer also capturing the log message \"%BUF-3-OVERFLOW\" at the time of each event. The pattern is consistent with multicast replication bursts exhausting shared buffer headroom rather than a sustained congestion condition.",
+        "resolution": "TAC applied the workaround from KB-6110 by reducing multicast reservation on the busiest leaf and moving the replication-heavy VLANs to a separate uplink group. We also advised scheduling large multicast bursts outside congestion-sensitive windows and monitoring show queue counters for further discard increments. The case was closed after the customer confirmed the short unicast losses stopped."
+      },
+      {
+        "subject": "Intermittent loss on uplink traffic during multicast bursts",
+        "description": "Prairie State College opened the case after reporting intermittent drops on unrelated unicast traffic traversing a Helix HX-5000 core switch. The device is running 8.0, and the issue was most visible during classroom video distribution windows. TAC checked queue statistics and found bursts of discard increments on the uplink queue, typically a few hundred packets at a time, while port utilization remained below 80 percent. The customer also provided a syslog excerpt containing \"%BUF-3-OVERFLOW\", which aligned with the observed loss pattern.",
+        "resolution": "TAC used the workaround documented in KB-6110. We lowered the multicast reservation on the affected leaf and recommended isolating replication-heavy workloads onto a separate uplink group so the shared buffer pool would not be exhausted during bursts. The customer verified that the discard spikes and user-visible packet loss no longer occurred after the change."
+      },
+      {
+        "subject": "Core switch dropping packets even though links are not saturated",
+        "description": "Sunset Power Authority reported that a Helix HX-5000 core switch on 8.0 was dropping packets in short bursts and asked whether the uplinks were failing. Their monitoring showed the links were well below line rate, so the initial assumption was a physical issue, but TAC did not see optics or interface errors on the affected ports. On review, the drop events correlated with multicast-heavy periods and the unicast egress queue showed brief headroom exhaustion rather than continuous oversubscription. This matched the known 8.0 replication behavior for the platform.",
+        "resolution": "TAC applied the workaround from KB-6110 by limiting multicast fanout on the busiest leaf and moving replication-heavy workloads onto a separate uplink group. We also advised the customer to schedule predictable bursts outside congestion-sensitive windows when possible. After the change, the short loss events stopped and the case was resolved."
+      },
+      {
+        "subject": "Packet loss on HX-5000 during multicast traffic windows",
+        "description": "Redwood University opened this on behalf of the customer after several staff complaints about brief application stalls on a Helix HX-5000 core switch running 8.0. The customer initially suspected spanning-tree instability, but TAC found no topology change events and no evidence of a loop. Queue counters showed repeated discard increments on the uplink queue in bursts of roughly 200 to 600 packets, and the logs included \"%BUF-3-OVERFLOW\" at the same times. Interface utilization remained under 80 percent, which pointed away from sustained congestion and toward a buffer reservation issue during multicast replication.",
+        "resolution": "TAC implemented the KB-6110 workaround by reducing multicast reservation on the affected leaf and shifting the replication-heavy traffic to a separate uplink group. We also recommended keeping the bursty multicast workloads outside peak business windows where possible. The customer confirmed that the packet loss on unrelated unicast traffic cleared after the change."
+      },
+      {
+        "subject": "Brief drops on unicast flows from HX-5000 core",
+        "description": "BlueRiver Credit Union submitted a portal request stating that a Helix HX-5000 core switch on 8.0 was causing short interruptions to east-west traffic. They described the problem as a general network slowdown, but TAC found that the disruption was isolated to brief output loss on unrelated unicast flows during multicast replication bursts. The switch showed discard increments on the uplink queue in the same intervals, with utilization still below 80 percent, and the logs contained \"%BUF-3-OVERFLOW\". That combination matched a shared-buffer headroom problem rather than an oversubscribed link.",
+        "resolution": "TAC followed KB-6110 and applied the recommended workaround. We reduced the multicast reservation on the busiest leaf, placed the replication-heavy workloads on a separate uplink group, and asked the customer to avoid the largest bursts during congestion-sensitive windows. The customer reported that the intermittent loss stopped after the changes were made."
+      }
+    ]
+  }
+}

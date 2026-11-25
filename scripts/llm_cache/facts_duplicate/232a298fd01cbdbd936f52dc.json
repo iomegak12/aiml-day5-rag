@@ -1,0 +1,12 @@
+{
+  "stage": "facts_duplicate",
+  "label": "KB-6107",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "title": "HX-5000 7.4 LACP bundle can suspend member links when the peer advertises slow timers",
+    "symptoms": "On 7.4, a 4-member LACP EtherChannel to an adjacent switch may initialize with only 2 forwarding members, while the other ports remain suspended for 30 to 90 seconds. `show lacp neighbor` reports the partner as synchronized, but `show interfaces port-channel` shows recurring collect/distribute mismatch messages after a member link flap.",
+    "root_cause": "In 7.4, the LACP state machine begins collect/distribute before the local system has verified the partner timeout bit when the peer operates with slow LACP timers. This produces a brief aggregation mismatch, causing ports that should join the bundle to be held in a suspended state.",
+    "workaround": "If the design allows it, configure both ends of the bundle for fast LACP timers. If fast timers are not an option, manually clear the affected EtherChannel after the link comes back. When the bundle must remain on slow timers, do not flap individual member links during maintenance.",
+    "fix": "Fixed in 7.5: member ports now wait for partner timer confirmation before entering collect/distribute."
+  }
+}

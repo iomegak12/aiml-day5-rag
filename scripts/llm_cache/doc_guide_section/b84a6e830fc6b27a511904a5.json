@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-HX#6",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "The HX-5000 queues traffic per egress port and uses a shared buffer model for bursts that exceed the instantaneous drain rate of the interface. In steady-state conditions, this design keeps latency low and minimizes wasted headroom. During microbursts, however, the switch can absorb only a finite amount of excess traffic before it begins tail-dropping. The practical objective is not to eliminate bursts, but to make them small enough and infrequent enough that the shared buffer and per-queue limits are not the bottleneck.",
+      "On 7.2, reduce burstiness with upstream shaping or spread load across additional uplinks so no single egress port stays above 85 percent sustained utilization. This matters most when the traffic pattern mixes elephant flows with smaller latency-sensitive flows, because a single saturated uplink can consume buffer credits faster than the scheduler can drain them. If you are planning changes on oversubscribed 100G egress ports, remember that the safest improvement is usually traffic distribution, not simply raising all limits. Raising limits without reducing offered load can delay loss rather than prevent it.",
+      "For critical low-latency flows on oversubscribed 100G egress ports, reserve a dedicated queue on the affected interface. A dedicated queue isolates the flow class from best-effort congestion and makes latency more predictable under load, but it also reduces the amount of scheduler flexibility available to other traffic classes. Use this only for traffic that has a clear operational requirement, such as storage replication control traffic or tightly bound east-west application flows. Avoid dedicating queues to broad VLANs or mixed-purpose trunks, because the queue can fill with unrelated traffic and defeat the intent of the reservation.",
+      "On 8.0, limit multicast fanout on busy leafs or move replication-heavy workloads onto a separate uplink group to protect the shared buffer pool. Multicast replication can create short but very large egress bursts when a single ingress packet is replicated to many receivers. If the leaf already carries dense unicast traffic, those bursts can displace unicast packets in the shared pool and increase drops across multiple queues. This is especially important when multicast coincides with other congestion events such as LACP rehashing, EVPN convergence, or transient spine failures.",
+      "If multicast bursts are predictable, schedule the traffic outside congestion-sensitive windows and tune the multicast reservation to 12 percent with a 4096 cell queue limit where required. Use this as a targeted control, not as a blanket fix for unrelated congestion. The 12 percent reservation protects multicast forwarding without consuming excessive shared memory, and the 4096 cell queue limit gives the interface a bounded burst allowance. If the workload regularly exceeds that profile, the correct remedy is usually to redistribute receivers or move the workload to a less contended uplink group.",
+      "A common mistake is to interpret queue drops as a purely buffer-sizing problem. On the HX-5000, drops often reflect a combination of path imbalance, oversubscription, and burst shape. Another common error is to leave priority flow control enabled on links that do not require lossless semantics, which can propagate pause behavior upstream and create collateral congestion. Where pause is not required, disable it on the affected interface and verify that the operational counters remain stable after the change. Always validate the change during a representative traffic window, because a quiet maintenance period can hide the real burst profile."
+    ],
+    "procedure_steps": [
+      "Enter configuration mode with `configure terminal` and identify the congested egress interface or port-channel that carries the affected traffic.",
+      "For a physical interface requiring a dedicated queue, enter `interface ethernet 1/52` and apply `queue-set 3` to reserve the desired queue mapping for the critical flow class.",
+      "If the link does not require lossless semantics, apply `priority-flow-control disable` on the affected interface to prevent pause propagation from masking buffer pressure.",
+      "For multicast-heavy workloads on the leaf, apply `hardware buffer multicast-reservation 12` to reserve 12 percent of the shared buffer pool for multicast forwarding.",
+      "If the affected path is an aggregated uplink, enter `interface port-channel 20` and apply `queue-limit 4096` to cap the queue burst allowance at 4096 cells.",
+      "Exit configuration mode and monitor the interface counters during a representative traffic period to confirm that drops and queue pressure remain within expected bounds."
+    ],
+    "table": {
+      "caption": "Queue and buffer tuning reference",
+      "header": [
+        "Item",
+        "Recommended setting",
+        "Operational effect"
+      ],
+      "rows": [
+        [
+          "queue-set",
+          "3",
+          "Reserves a dedicated queue for critical low-latency flows on the affected interface."
+        ],
+        [
+          "priority-flow-control",
+          "disable",
+          "Prevents pause behavior from extending congestion beyond the local link."
+        ],
+        [
+          "hardware buffer multicast-reservation",
+          "12",
+          "Reserves 12 percent of the shared buffer pool for multicast forwarding."
+        ],
+        [
+          "queue-limit",
+          "4096",
+          "Sets a 4096 cell queue cap to bound burst absorption on the aggregated uplink."
+        ]
+      ]
+    },
+    "verification": "Use `show interfaces counters` to confirm that transmit and receive drop counters are not increasing during the expected traffic peak, and that the affected interface shows stable queue occupancy rather than repeated tail drops. On the physical port or port-channel you changed, compare counters before and after the adjustment; the expected result is fewer or zero incremental drops on the protected traffic class, with no sustained growth in pause-related or buffer-related error counters. If you changed multicast reservation, also watch for reduced multicast-related drops during the replication window and confirm that the traffic peak no longer coincides with shared-buffer exhaustion."
+  }
+}

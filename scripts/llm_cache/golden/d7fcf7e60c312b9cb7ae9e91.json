@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-4107",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why do 4.9 802.1X logins fail only when the RADIUS challenge has a long attribute list?",
+    "reference_answer": "On Orion OW-20 4.9, the RADIUS encoder truncates Access-Challenge attribute lists at 12 entries during internal policy repacking. Vendor-Specific attribute 26 is often placed after the 12th slot and is silently dropped, so tunneled EAP methods fail when the challenge has 13 or more attributes and clients stay in `authenticating` for 15-20 seconds before timing out. The issue is logged as %RADIUS-4-ATTR_DROP, is affected in 4.9, and is fixed in 5.0."
+  }
+}

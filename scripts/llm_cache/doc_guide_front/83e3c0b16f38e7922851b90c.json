@@ -1,0 +1,16 @@
+{
+  "stage": "doc_guide_front",
+  "label": "GUIDE-NF",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "about": "This guide provides configuration and troubleshooting procedures for the Nimbus NF-300 next-generation firewall across supported 5.x releases: 5.0.8, 5.0.9, 5.1.3, 5.1.5, 5.2.0, and 5.2.2. It covers the operational areas most commonly handled by TAC for this platform: IPsec and IKEv2 tunnel setup, high-availability pair stability and resynchronization, session-table tuning for asymmetric traffic, SSL inspection cache behavior and policy change handling, firmware upgrade preparation and image staging, and threat database update timing. Use this guide as a procedural reference alongside product knowledge-base articles and release notes; KB articles address targeted symptoms and defect workarounds, while release notes define version-specific behavior, caveats, and fixed issues that may affect the steps in this guide.",
+    "audience": "This guide is intended for network engineers and TAC support engineers who deploy, operate, and troubleshoot Nimbus NF-300 firewalls. Readers should be familiar with firewall policy design, routed and transparent deployment models, IPsec and IKEv2 concepts, high-availability operation, packet/session troubleshooting, and basic command-line administration. Access to privileged CLI mode is assumed, and configuration changes should be performed only by personnel authorized to modify production security devices.",
+    "conventions": [
+      "Commands are shown in lower-case and entered from config mode unless otherwise noted; save changes with commit.",
+      "Sample output, counters, and logs are representative; timestamps use ISO 8601 UTC format.",
+      "Log messages use the product's facility-severity format, for example %IKEV2-3-NEGOTIATION or %HA-4-RESYNC, unless an ERR-AREA-NNNN code is shown.",
+      "IP addresses and subnets in examples use documentation ranges such as 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, and 10.0.0.0/8.",
+      "Notes provide operational context; warnings indicate actions that can disrupt traffic, cause tunnel renegotiation, or require a failover window."
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "stage": "doc_tickets_howto",
+  "label": "GUIDE-AR",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Recover BGP next-hop resolution after underlay route change",
+        "description": "Sunset Power Authority asked how to recover BGP next-hop resolution after an underlay withdrawal or a recursive static route change on Aurora AR-900 9.3.0. They reported that the next hop can remain unresolved until the routing process is refreshed, and they wanted the least disruptive recovery method during maintenance. They also asked whether there is a preferred way to keep recursion stable when the underlay route is being replaced.",
+        "resolution": "TAC pointed them to GUIDE-AR and advised using the least disruptive recovery method for the release in use. For 9.2.3, issue a soft clear of the affected BGP IPv4 unicast address family after changing recursive static routes; if a clear must be avoided, withdraw the old static route for at least 5 seconds before installing the replacement. If the next hop remains unresolved on 9.1.4 or 9.1.6, clear the BGP process for the affected IPv4 unicast address family, and avoid repeated soft clears during peak update periods because routing CPU can spike to 95% on 9.2.1."
+      },
+      {
+        "subject": "Tune BFD timers to reduce false failures",
+        "description": "CivicWorks Public Agency asked how to tune BFD timers on Aurora AR-900 9.1.4 to reduce false failures on long-lived peers. They reported intermittent session drops after extended uptime and wanted a temporary timer profile for noncritical peers while they plan a maintenance window. They also asked what state checks TAC recommends after changing the timers.",
+        "resolution": "TAC pointed them to GUIDE-AR and recommended using the 200 ms transmit interval, 200 ms receive interval, and multiplier 5 on noncritical peers where transient loss is acceptable. The guide also recommends verifying the session state after the change with show bfd neighbors detail. On 9.1.4, if BFD stops transmitting after long uptime, treat it as a process recovery issue rather than a link-layer fault and plan a controlled restart or reload during a maintenance window before platform uptime reaches 49 days."
+      }
+    ]
+  }
+}

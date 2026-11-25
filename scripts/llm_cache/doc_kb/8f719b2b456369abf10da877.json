@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-2107",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Aurora AR-900 release 9.2.3, BGP IPv4 prefixes can become inactive in the routing table after a recursive static route to the same destination prefix is replaced. The BGP session remains Established and routing updates continue, but the affected prefixes are not installed in the forwarding table until BGP is refreshed or cleared.",
+    "symptoms": "Operators typically observe that a BGP-learned prefix loses its active installation after a static route used for recursion is changed to another static route with the same prefix. The neighbor state remains Established, and received updates still increment, but the route is missing from `show ip route bgp` or is marked inactive/unresolved. The issue usually impacts a small set of prefixes, commonly 20-100, that depend on the modified recursive path.\n\nThe condition is most visible after a policy or preference change on the recursive static route, such as an administrative distance change or replacement of a next-hop. Traffic to the affected destinations is then blackholed or follows an unexpected path until the BGP table is refreshed.",
+    "diagnosis_steps": [
+      "Run `show bgp summary` and confirm the peer remains Established with normal update activity. If the session is down, this issue is not the likely cause.",
+      "Run `show ip route bgp` and identify prefixes that are present in BGP but absent from the forwarding table or shown as inactive/unresolved.",
+      "Run `show ip route 203.0.113.0/24` for the recursive static destination, or the relevant prefix in your deployment, and verify that the replacement static route is installed while the BGP route is still unresolved.",
+      "Run `show bgp ipv4 unicast 198.51.100.0/24 detail` for one affected prefix and check whether the next-hop is reported as unresolved or stale even though a valid recursive path exists.",
+      "If available in your maintenance window, run `debug bgp recursion` and change the static route. Affected systems log `%BGP-4-NH-RESOLVE` when the BGP path is left with an unresolved next hop after the static route change."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %BGP-4-NH-RESOLVE: prefix 198.51.100.0/24 unresolved after recursive route change for next-hop 203.0.113.1\n2026-03-14T02:13:07Z BGP: retained old recursion state for 198.51.100.0/24\n\nrouter# show bgp summary\nneighbor        as      state       up/down   prefixes\n192.0.2.2       65001   established 3d04h     8421\n\nrouter# show ip route bgp\ninactive 198.51.100.0/24 [bgp/200] via 203.0.113.1, unresolved\ninactive 198.51.100.128/25 [bgp/200] via 203.0.113.1, unresolved\n\nrouter# show ip route 203.0.113.0/24\n203.0.113.0/24 is directly connected via static\n  candidate next-hop 10.0.0.2 distance 1\n  candidate next-hop 10.0.0.3 distance 5",
+    "root_cause": "The defect is in the 9.2.3 route manager interaction with the BGP recursion engine. When a static route changes administrative distance but continues to match the same destination prefix, the route manager updates the active static route without sending a dependency refresh to BGP.\n\nBecause the recursion engine does not rebuild its dependency graph, BGP retains the previous resolved next hop and marks the path unusable even though a valid recursive route exists. The issue is limited to recursive BGP IPv4 paths that depend on the changed static route.",
+    "workaround_steps": [
+      "After changing any recursive static route, refresh the affected BGP IPv4 unicast address family so the recursion state is rebuilt and the prefixes are reinstalled.",
+      "If you cannot clear BGP, withdraw the old static route first and leave the prefix absent long enough for the recursion engine to delete the old dependency entry before you install the replacement route. In practice, keep the prefix withdrawn for at least 5 seconds.",
+      "Verify that the affected prefixes return to the active forwarding table with `show ip route bgp` and that no unresolved next-hop entries remain.",
+      "If the problem recurs frequently, schedule static-route changes during a maintenance window and avoid back-to-back replacements to the same prefix without an intermediate withdrawal."
+    ],
+    "resolution": "This defect is fixed in release 9.3.0. In that release, BGP is re-notified whenever a recursive static route changes attributes, so next-hop resolution is rebuilt and affected prefixes remain installed correctly."
+  }
+}

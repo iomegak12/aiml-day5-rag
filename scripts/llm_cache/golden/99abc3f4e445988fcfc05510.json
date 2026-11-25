@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-2110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why does the router peg CPU when I keep doing BGP soft clears on 9.2.1?",
+    "reference_answer": "On Aurora AR-900 9.2.1, repeated `clear bgp ipv4 unicast 65001 soft` operations can drive the routing process above 95% CPU for 30-90 seconds, especially on busy edge routers with more than 250,000 prefixes and concurrent updates. The root cause is in the soft-clear path: each refresh rebuilds the outbound update queue from scratch instead of reusing prefix state, so every clear does an O(n) walk and duplicate best-path serialization that saturates the single routing worker thread. Avoid repeated soft clears during peak churn; if a refresh is required, use one hard clear during a maintenance window or wait at least 60 seconds after inbound route churn settles. The issue is fixed in 9.2.3."
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "how_to:GUIDE-OW#2",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "What do I need to change before enabling redundancy if the configuration database is large?",
+    "reference_answer": "Before enabling redundancy on Orion OW-20, reduce the configuration database to below 30,000 rows so you do not hit the 32,768-row sync-stall threshold. Remove unused AP groups, WLAN profiles, and stale guest accounts before switching to active-standby operation. If you need immediate failover after a large configuration change, schedule a full config resync during a maintenance window, and use `redundancy force-resync` only after the database has been reduced and the commit queue is clear."
+  }
+}

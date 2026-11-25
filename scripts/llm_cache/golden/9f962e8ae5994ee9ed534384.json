@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "version_specific:KB-3101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why does my tunnel on 5.0.9 drop for a few seconds whenever the child SA rekeys after I change the PFS group?",
+    "reference_answer": "On Nimbus NF-300 5.0.9, this is a known issue covered by KB-3101 and identified by %IKEV2-3-PROPOSAL_MISMATCH. The IKEv2 rekey path reuses the last negotiated PFS group from the old child SA instead of rebuilding the proposal list after a policy change, so a change such as group 14 to group 19 can cause the responder to send a stale proposal set and reject the inbound CREATE_CHILD_SA exchange; the tunnel can blackhole traffic for 10 to 20 seconds while the child SA drops and rekeys. The issue affects 5.0.8 and 5.0.9 and is fixed in 5.1.3."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-HX#3",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "On Helix HX-5000, spanning tree on access ports is primarily a containment mechanism: it prevents loops from a miswired endpoint, a downstream bridge, or an attached device that forwards frames unexpectedly. The default behavior depends on the spanning tree mode configured on the switch, but the operational objective on access ports is the same: keep the port in a non-bridging role unless the link is explicitly intended to carry switched traffic. When a port is used as a true edge connection, faster forwarding can be enabled safely with portfast, provided the device on the far end does not participate in downstream bridging.",
+      "When rapid-pvst is enabled, the switch calculates per-VLAN spanning tree state and can react quickly to topology changes. This is useful in access designs, but it also increases the likelihood that a port will be treated as part of a switching domain if the far-end device legitimately moves multiple MAC addresses or presents transient MAC movement. Do not run rapid-pvst on ports facing devices that legitimately move multiple MAC addresses, such as virtualization hosts or clustered appliances. Those devices often generate benign topology changes from the switch's perspective, and repeated recalculation can lead to unnecessary blocking, forwarding delays, or recurring topology-change notifications.",
+      "The preferred design is to keep edge ports simple and deterministic. Use a dedicated edge VLAN design or restrict the port to a single access device when rapid-pvst is required. In practice, that means the access interface should terminate one endpoint, with no downstream switch, bridge, or shared Ethernet segment behind it. If the endpoint must support multiple systems behind the same physical port, treat the interface as a distribution or uplink role and design accordingly instead of forcing access-port behavior.",
+      "Apply portfast on edge ports to reduce convergence delay, but only on interfaces that do not participate in downstream bridging. Portfast allows the port to transition to forwarding without the usual listening and learning delay, which improves endpoint boot times and DHCP acquisition for hosts that are not forwarding traffic for other devices. It should not be used as a workaround for unstable cabling, link flaps, or MAC-flap events. If a portfast-enabled interface begins to show continuous topology changes, remove the assumption that it is a pure edge port and inspect the connected device and cabling first.",
+      "A common mistake is enabling rapid-pvst globally and then treating every access-facing interface as equivalent. That approach works for simple user ports, but it can produce repeated topology-change notifications on 10G access ports when the connected system is a server with virtual NIC teams, clustered software, or local bridging functions. Monitor for continuous topology-change notifications on 10G access ports and reclassify the port role if the notifications persist. Persistent change events usually indicate that the interface is not an edge port, even if the link speed and administrative description suggest otherwise.",
+      "For troubleshooting, correlate spanning-tree events with MAC movement and interface counters. On the HX-5000, repeated topology-change activity on a single access interface is a strong indicator that the port should be redesigned or reclassified. If the interface is expected to remain an edge port, confirm that the far-end device is a single host, that there is no downstream bridge, and that the port is not part of a larger switching segment. If the interface must support a device that moves multiple MAC addresses, move it away from the edge-port model and avoid portfast on that link."
+    ],
+    "procedure_steps": [
+      "Enter global configuration mode with `configure terminal`.",
+      "Set the switch spanning tree mode to rapid-pvst with `spanning-tree mode rapid-pvst`.",
+      "Select the access interface with `interface ethernet 1/10`.",
+      "Enable edge-port behavior on the interface with `spanning-tree portfast`.",
+      "Exit configuration mode and save the running configuration according to your site standard.",
+      "If the connected device is expected to move multiple MAC addresses or to bridge traffic, remove the access-port assumption and redesign the port role before restoring service."
+    ],
+    "table": {
+      "caption": "Spanning-tree access-port guidance",
+      "header": [
+        "Item",
+        "Recommended practice",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "rapid-pvst",
+          "Use on access designs where fast per-VLAN convergence is required.",
+          "Do not run rapid-pvst on ports facing devices that legitimately move multiple MAC addresses, such as virtualization hosts or clustered appliances."
+        ],
+        [
+          "portfast",
+          "Enable on edge ports only.",
+          "Apply portfast on edge ports to reduce convergence delay, but only on interfaces that do not participate in downstream bridging."
+        ],
+        [
+          "Edge VLAN design",
+          "Prefer a dedicated edge VLAN design or a single-device attachment model.",
+          "Use a dedicated edge VLAN design or restrict the port to a single access device when rapid-pvst is required."
+        ],
+        [
+          "Topology-change monitoring",
+          "Track repeated topology changes on high-speed access links.",
+          "Monitor for continuous topology-change notifications on 10G access ports and reclassify the port role if the notifications persist."
+        ]
+      ]
+    },
+    "verification": "Use `show spanning-tree detail` to confirm that the interface is forwarding as an edge port and that topology-change activity is not continuous. For an expected access port, the output should show the interface in forwarding state, portfast enabled, and no ongoing rapid sequence of topology-change counters or repeated change timestamps. If the port is connected to a device that legitimately moves multiple MAC addresses, confirm that the spanning-tree role matches the redesigned topology and that the interface no longer generates persistent topology-change notifications."
+  }
+}

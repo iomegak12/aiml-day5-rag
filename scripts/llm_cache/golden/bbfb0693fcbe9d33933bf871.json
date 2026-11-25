@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "how_to:GUIDE-HX#1",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "How should I tune optics and DOM monitoring on HX-5000 ports that are showing link drops or LOS alarms?",
+    "reference_answer": "On Helix HX-5000 running 7.2, reduce DOM polling on affected SFP28 ports by setting the transceiver monitoring interval to 120 seconds. Use `configure terminal`, enter `interface ethernet 1/1`, apply `transceiver monitoring interval 120`, and verify with `show interfaces transceiver detail`. Keep the optics below 50 C case temperature when possible, especially if you see bias current spikes or remote LOS alarms. If the port still flaps under load, move the optic to a later-release port or replace the module with one that has a stable bias current profile."
+  }
+}

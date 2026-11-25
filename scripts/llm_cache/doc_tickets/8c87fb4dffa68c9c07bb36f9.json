@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-5106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Atlas edge tunnels stuck negotiating after peer crypto change",
+        "description": "CivicWorks Public Agency NOC escalated that a branch edge stopped bringing up its Internet IPSec tunnel after the remote security gateway was updated. The affected device is an Atlas SD-WAN edge running 3.2, and `show sdwan tunnels` shows the session cycling through negotiating instead of reaching established. TAC reviewed the edge logs and found repeated \"%IKE-3-PROPOSAL-MISMATCH\" events every 10 seconds during phase 2 negotiation. The customer initially suspected a circuit issue because traffic failed at the same time, but the WAN interface and routing table were stable.",
+        "resolution": "TAC identified the issue as the 3.2 interoperability defect described in KB-5106. We applied the documented workaround by changing the remote side to accept an AES-GCM proposal without a separate integrity field, then committed the proposal and revalidated the tunnel. The IPSec SA established normally after the next retry interval."
+      },
+      {
+        "subject": "Inter-site VPN will not establish on Atlas 3.2 edge",
+        "description": "Redwood University opened the case after a campus edge could no longer build its VPN to a partner site. The affected Atlas SD-WAN edge is on 3.2, and the tunnel state remained in negotiating even though the peer was reachable and basic connectivity tests passed. TAC checked `show sdwan tunnels` and confirmed the peer kept rejecting the transform set during negotiation. The customer did not report any packet loss on the underlay, so this was not consistent with a transport outage.",
+        "resolution": "TAC confirmed the behavior matched KB-5106 for Atlas SD-WAN 3.2. Since the peer policy required a combined ESP proposal that the edge could not satisfy in this release, the customer was advised to upgrade the edge to 3.3. After the upgrade, the tunnel negotiated successfully without further changes."
+      },
+      {
+        "subject": "Encrypted tunnel drops during bring-up to managed peer",
+        "description": "MetroLink Telecom NOC reported that a regional edge on Atlas SD-WAN 3.2 could not complete IPSec bring-up to a managed remote peer. The edge kept retrying negotiation on a 10-second cycle, and `show sdwan tunnels` showed the peer entry stuck in negotiating. TAC pulled the edge event log and saw repeated \"%IKE-3-PROPOSAL-MISMATCH\" messages during proposal exchange. MetroLink initially believed the issue was related to NAT traversal, but the same path worked for other tunnels on the box.",
+        "resolution": "TAC traced the failure to the interoperability problem documented in KB-5106. We applied the workaround from the article by adjusting the remote peer to accept `tunnel ipsec proposal set aes-gcm-256 sha384` and committed the change. After the peer accepted the updated proposal form, the tunnel reached established and traffic resumed."
+      },
+      {
+        "subject": "Branch VPN negotiation failure on Atlas edge 3.2",
+        "description": "Prairie State College called after a branch VPN stopped coming up following a routine policy change on the far-end security device. The Atlas SD-WAN edge is running 3.2, and the tunnel remained down while the edge continued normal overlay retry attempts. TAC reviewed the configuration and saw that the remote side required a single ESP proposal with both encryption and integrity attributes combined. No log excerpt was provided by the caller, but the negotiation pattern matched a known compatibility limitation in this release.",
+        "resolution": "TAC determined the case aligned with KB-5106 and recommended moving the edge to 3.3, where the negotiator emits the combined ESP proposal required by the peer. The customer completed the upgrade and rechecked the site. The tunnel came up on the first post-upgrade negotiation attempt."
+      },
+      {
+        "subject": "Site-to-site tunnel on Atlas 3.2 stays in negotiating",
+        "description": "Sunset Power Authority’s field engineer reported that a solar farm edge could not establish its site-to-site tunnel after the remote firewall team tightened the proposal policy. The Atlas SD-WAN edge is running 3.2, and `show sdwan tunnels` shows the peer permanently in negotiating while other local services continue to pass traffic. The edge logs include \"%IKE-3-PROPOSAL-MISMATCH\" on each retransmission interval, which points to a transform-set compatibility problem rather than a link issue. The engineer also noted that the WAN circuit is stable and latency is within normal range.",
+        "resolution": "TAC matched the symptoms to KB-5106 and used the documented workaround. We had the remote peer accept an AES-GCM proposal without a separate integrity field, then committed the change and verified the resulting SA proposal on both sides. The tunnel established on the next negotiation cycle and remained stable afterward."
+      }
+    ]
+  }
+}

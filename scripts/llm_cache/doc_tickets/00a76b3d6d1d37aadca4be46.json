@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-2107",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "AR-900 losing BGP routes after static path change",
+        "description": "Northstar Bank reported that several Internet routes vanished from the forwarding table on an Aurora AR-900 running 9.2.3 after a change to a backup static route. BGP remained Established, but `show ip route bgp` showed about 40 prefixes as inactive until the routing process was reset. The device was still receiving updates, so the customer initially suspected a peer problem or a FIB programming issue. During triage we confirmed the affected prefixes all used a recursive next hop through the static prefix that had just been replaced, and the event log contained `%BGP-4-NH-RESOLVE` when the routes dropped.",
+        "resolution": "TAC identified this as the 9.2.3 recursive static route recursion defect described in KB-2107. We advised the customer to issue a soft clear of the affected BGP IPv4 unicast process after changing the static route, which rebuilt the recursion state and restored the inactive prefixes without a full session reset. The customer confirmed the routes returned to the forwarding table after `clear bgp ipv4 unicast 65001 soft`. "
+      },
+      {
+        "subject": "BGP prefixes inactive after static route replacement",
+        "description": "HarborPoint Retail contacted TAC about intermittent loss of a small set of BGP-learned routes on an Aurora AR-900 running 9.2.3. Their network team replaced a static route to the same prefix during a maintenance window, and shortly after that some customer VLAN routes stopped appearing in the routing table. The BGP neighbor stayed up and route updates continued, which made the issue look non-deterministic at first. Our initial review showed the affected prefixes were all using the changed recursive next hop and the condition cleared only after the BGP table was refreshed.",
+        "resolution": "TAC traced the symptom to KB-2107 and confirmed it matches the 9.2.3 next-hop recursion defect. We recommended upgrading the AR-900 to 9.3.0, where BGP is re-notified whenever a recursive static route changes attributes. After the upgrade, the customer repeated the static route change and the prefixes remained installed normally."
+      },
+      {
+        "subject": "Route recursion issue on AR-900 after static swap",
+        "description": "Lakeside Hospitality escalated from the NOC after guests reported intermittent loss of outbound connectivity on an Aurora AR-900 running 9.2.3. The team saw BGP sessions still in Established state, but a group of routes tied to one upstream prefix were missing from `show ip route bgp`. They initially suspected policy changes on the peer, but the route advertisements were still arriving and only the locally installed entries were affected. We found that the problem began immediately after a static route to the same destination was replaced during a change window, and the syslog included `%BGP-4-NH-RESOLVE`.",
+        "resolution": "TAC matched the case to KB-2107 and confirmed the issue is fixed in 9.3.0. The customer upgraded the Aurora AR-900 from 9.2.3 to 9.3.0, then revalidated the static route replacement and BGP convergence. The affected routes remained active after subsequent changes, which confirmed the fix."
+      },
+      {
+        "subject": "BGP routes dropping after backup static route change",
+        "description": "Evergreen Clinic Network opened an escalation for an Aurora AR-900 on 9.2.3 because a set of partner routes disappeared from the routing table during a failover test. The BGP peer never dropped, and the router continued to receive prefixes, but the installed routes stopped forwarding traffic until a manual reset was performed. The customer’s first assumption was a redistribution issue, but the failures were limited to prefixes that depended on a recursive static path. TAC reproduced the behavior by replacing a static route to the same prefix and verified the defect was isolated to the 9.2.3 release.",
+        "resolution": "TAC identified the condition as KB-2107 and advised upgrading the device to 9.3.0. In 9.3.0, the recursion engine is updated so BGP is notified when a static route changes attributes without changing the destination prefix. After the upgrade, the clinic repeated the failover test and the BGP routes remained installed throughout the transition."
+      },
+      {
+        "subject": "AR-900 BGP routes missing after static route edit",
+        "description": "HarborPoint Retail’s field engineer reported that an Aurora AR-900 running 9.2.3 lost a subset of BGP routes after a static route was modified during a site cutover. The router still showed the BGP neighbor as Established, but the affected prefixes were absent from the forwarding table and traffic to those destinations blackholed. The issue appeared only after the old static route was replaced with a new one to the same prefix, which pointed to a recursive next-hop resolution problem rather than a peer outage. TAC confirmed the behavior on the running version and correlated it with the route-change sequence described by the customer.",
+        "resolution": "TAC applied the workaround from KB-2107 by having the field engineer remove the old static route, wait more than 5 seconds, and then install the replacement so the recursion graph could rebuild cleanly. We also had the customer perform `clear bgp ipv4 unicast 65001 soft` to refresh the affected prefixes without bouncing the session. The routes returned to the table and continued forwarding normally after the change."
+      }
+    ]
+  }
+}

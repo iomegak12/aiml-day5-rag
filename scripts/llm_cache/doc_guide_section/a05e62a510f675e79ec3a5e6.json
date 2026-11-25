@@ -1,0 +1,58 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AT#1",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "SLA class stability is determined by how the edge samples loss and latency, how long it waits before declaring a class unhealthy, and how quickly it allows that class to recover. In Atlas SD-WAN, short-lived impairment on an underlay link can cause the SLA class to oscillate between eligible and ineligible states if the probe cadence is too aggressive or if recovery is immediate. That behavior is most visible on LTE transport and on links that sit near the configured thresholds, where one or two bad samples can trigger unnecessary path switching.",
+      "The recommended starting point for a voice class is to use a probe window of at least five samples so a single 1-second loss spike does not clear the SLA class. Pair that with a hold-down to 5000 ms before allowing the class to recover, which prevents rapid down/up transitions on marginal links. These two settings work together: the probe window absorbs transient loss, while the hold-down keeps the class from thrashing after it has already been declared down. If either value is shortened without a matching design reason, the class can flap under routine jitter or scheduling delay.",
+      "For latency-sensitive traffic, keep the probe interval at 1000 ms for voice or other latency-sensitive classes unless a site-specific design requires a slower cadence. A 1000 ms interval gives the controller timely visibility into one-way delay and loss without overwhelming the edge with probes. Slower intervals can reduce control-plane activity on constrained sites, but they also delay detection and recovery, which is usually undesirable for real-time applications. Faster intervals may improve detection granularity, but they also make the class more sensitive to brief underlay noise and transient queuing.",
+      "If a link is already close to threshold, raise the packet-loss threshold by 1 to 2 percent to avoid unnecessary path switching. This is a controlled tolerance adjustment, not a substitute for fixing the transport. Use it when the path is operational but exhibits recurring loss bursts that are too short to justify rerouting. Do not increase the threshold broadly across all sites; apply it only where the underlay characteristics are known and stable enough that a small margin is appropriate.",
+      "Common mistakes include setting the probe window too small, using an immediate recovery model with no hold-down, and tightening the loss threshold until the class never survives normal variance. Another frequent error is changing only one side of the behavior, such as lowering the interval while leaving the threshold unchanged, which can increase the number of false negatives. When you tune a class, change one parameter set at a time and observe tunnel selection, application routing decisions, and SLA counters over a representative busy period.",
+      "The example below shows a voice SLA class with loss-threshold 5, latency-threshold 80, probe-interval 1000, and hold-down 5000. Use this as a baseline for interactive voice and similar real-time classes, then adjust only when measurements show that the site’s transport profile consistently differs from the norm. After committing the change, verify not only that the class is configured correctly, but also that tunnel eligibility and application steering remain stable during a loss event or busy hour."
+    ],
+    "procedure_steps": [
+      "Enter the edge or orchestrator configuration context for the target site and open the SLA class settings for the voice class.",
+      "Apply the baseline tuning values: loss-threshold 5, latency-threshold 80, probe-interval 1000, and hold-down 5000.",
+      "Commit the configuration so the edge receives the updated policy.",
+      "If the transport is close to threshold, increase the packet-loss threshold by 1 to 2 percent and commit again.",
+      "Monitor the class during normal traffic and during a controlled impairment window to confirm that it does not flap."
+    ],
+    "table": {
+      "caption": "SLA class tuning reference",
+      "header": [
+        "Parameter",
+        "Recommended value",
+        "Operational effect"
+      ],
+      "rows": [
+        [
+          "Probe window",
+          "At least five samples",
+          "Prevents a single 1-second loss spike from clearing the SLA class."
+        ],
+        [
+          "Hold-down",
+          "5000 ms",
+          "Delays recovery and reduces rapid down/up transitions on marginal links."
+        ],
+        [
+          "Loss threshold",
+          "5 percent for the example voice class",
+          "Allows limited loss before the class is declared down; raise by 1 to 2 percent only on close-to-threshold links."
+        ],
+        [
+          "Latency threshold",
+          "80 ms for the example voice class",
+          "Keeps real-time traffic on paths with acceptable delay."
+        ],
+        [
+          "Probe interval",
+          "1000 ms",
+          "Maintains timely detection for voice and other latency-sensitive classes unless a site-specific design requires a slower cadence."
+        ]
+      ]
+    },
+    "verification": "Use show app-route sla-class to confirm that the voice class shows loss-threshold 5, latency-threshold 80, probe-interval 1000, and hold-down 5000. Then use show sdwan tunnels to confirm that tunnel selection remains stable and that the preferred path does not oscillate during normal traffic. If you are troubleshooting a prior flap, recheck the output after a transient loss event; the class should remain down until the hold-down expires, then recover cleanly without repeated transitions."
+  }
+}

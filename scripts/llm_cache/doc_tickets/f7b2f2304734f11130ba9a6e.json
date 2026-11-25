@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-3111",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Missing policy objects after upgrade to 5.1.3 on NF-300",
+        "description": "IronGate Freight reported that an NF-300 running 5.0.9 was upgraded to 5.1.3 overnight, and the firewall came back online but several policy objects were missing the next morning. The NOC initially suspected a bad import because around 100 access rules and NAT entries had reverted to defaults. I checked the device and confirmed the system was healthy, but `show running-config` showed multiple objects absent or reset after the first login. This matches a post-upgrade configuration replay issue rather than a failure of the upgrade itself.",
+        "resolution": "TAC advised the customer to move the firewall to 5.2.0, which preserves replay cursor state during checkpoint migration. After the upgrade, the missing objects were restored from the saved pre-upgrade configuration and verified with `show running-config`. This aligns with KB-3111, which identifies the defect in 5.1.3 and 5.1.5 when upgrading from 5.0.x."
+      },
+      {
+        "subject": "NF-300 5.1.5 upgrade completed but config partially reset",
+        "description": "BlueRiver Credit Union escalated that an NF-300 on 5.0.8 was upgraded to 5.1.5 and booted normally, but a subset of firewall and VPN policy entries disappeared after the first administrator login. The customer reported intermittent access issues and thought the new release had corrupted the database. On triage, the appliance was up, sessions were established, and the missing entries were isolated to configuration objects only; `show running-config` showed default values where custom objects had been present. The event log also included \"%UPGRADE-4-REPLAY_CURSOR\", which pointed to a migration replay problem.",
+        "resolution": "TAC confirmed the condition matches KB-3111 and instructed the customer to upgrade the NF-300 to 5.2.0, where the replay cursor defect is fixed. The customer then restored the affected policy set from the pre-upgrade backup and verified that the configuration remained stable after reboot. No further object loss was observed after the 5.2.0 upgrade."
+      },
+      {
+        "subject": "After moving to 5.1.3, some firewall objects reverted to default",
+        "description": "Cornerstone Supermarkets emailed TAC stating that their NF-300, previously on 5.0.8, came back from a planned upgrade to 5.1.3 with a number of rules and address objects missing. They initially described it as a 'partial save' and noted that internet access was still working for most users, which made the issue look like a selective policy problem. I reviewed the startup behavior and confirmed the appliance completed boot normally, but the running configuration no longer contained approximately 150 custom entries. This is consistent with a replay/import defect during checkpoint migration on heavily populated systems.",
+        "resolution": "TAC applied the KB-3111 workaround by exporting the existing policy objects, splitting the configuration into smaller chunks, and re-importing them after the first boot. The customer was also instructed to keep each checkpoint file under 4,000 entries and verify the running configuration immediately after reboot. The missing objects were restored without requiring a version change."
+      },
+      {
+        "subject": "5.1.5 upgrade on NF-300 lost rules and NAT objects",
+        "description": "Evergreen Clinic Network emailed TAC about an NF-300 running 5.0.9 that was upgraded to 5.1.5 and appeared healthy, but a large set of security policy and NAT objects vanished after login. The customer suspected disk corruption because the appliance had rebooted cleanly and no hardware alarms were present. During triage, I confirmed the device was otherwise stable, with the issue limited to configuration state; `show running-config` showed default placeholders in several sections that previously held custom objects. The system log contained \"%UPGRADE-4-REPLAY_CURSOR\", which is consistent with a checkpoint replay failure during upgrade.",
+        "resolution": "TAC advised the clinic to apply the KB-3111 workaround: export the policy objects, break the configuration into smaller chunks, and re-import the affected content after the first boot. We also had them save a pre-upgrade backup copy for validation and compare the running configuration after each import batch. The configuration was recovered without changing the release, and the customer confirmed the objects remained present after reboot."
+      },
+      {
+        "subject": "HarborPoint Retail NF-300 missing config after upgrade to 5.1.3",
+        "description": "This was logged from a phone call with HarborPoint Retail regarding an NF-300 that had been upgraded from 5.0.9 to 5.1.3. The caller said the firewall 'looked fine' after reboot, but several policy sets, address groups, and some NAT rules were gone once they signed in. I verified that the appliance was running 5.1.3 and that the issue was not related to session table exhaustion or a failed boot; the startup sequence completed normally, but `show running-config` showed a noticeable set of defaulted objects. The event log included \"%UPGRADE-4-REPLAY_CURSOR\", which pointed to a migration replay cursor loss during the upgrade.",
+        "resolution": "TAC referenced KB-3111 and recommended upgrading the NF-300 to 5.2.0, where the checkpoint replay cursor defect is corrected. After the upgrade, the customer restored the missing objects from the saved pre-upgrade configuration and confirmed the running configuration matched the intended policy set. The issue did not recur after reboot on 5.2.0."
+      }
+    ]
+  }
+}

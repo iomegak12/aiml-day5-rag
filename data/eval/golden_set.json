@@ -1,0 +1,736 @@
+[
+  {
+    "id": "Q01",
+    "type": "single_hop",
+    "question": "On 9.1.4, why do BFD peers suddenly stop sending packets after the router has been up for weeks?",
+    "expected_doc_ids": [
+      "KB-2102"
+    ],
+    "reference_answer": "On Aurora AR-900 9.1.4, BFD sessions can stop transmitting after about 49.7 days of continuous uptime with 50 ms transmit intervals because the BFD scheduler uses a signed comparison when computing the next transmit deadline from a 64-bit monotonic counter. When the counter crosses the sign bit boundary, the transmit wheel stops advancing for affected sessions even though the receive path remains active, so `show bfd neighbors detail` may still show the local discriminator as Up while the transmit counter is frozen and the peer times out after 300 ms to 900 ms depending on the negotiated multiplier. The issue is tracked as KB-2102 / ERR-BFD-2201, affects 9.1.4, and is fixed in 9.1.6.",
+    "filters": {}
+  },
+  {
+    "id": "Q02",
+    "type": "single_hop",
+    "question": "Why does the router peg CPU when I keep doing BGP soft clears on 9.2.1?",
+    "expected_doc_ids": [
+      "KB-2110"
+    ],
+    "reference_answer": "On Aurora AR-900 9.2.1, repeated `clear bgp ipv4 unicast 65001 soft` operations can drive the routing process above 95% CPU for 30-90 seconds, especially on busy edge routers with more than 250,000 prefixes and concurrent updates. The root cause is in the soft-clear path: each refresh rebuilds the outbound update queue from scratch instead of reusing prefix state, so every clear does an O(n) walk and duplicate best-path serialization that saturates the single routing worker thread. Avoid repeated soft clears during peak churn; if a refresh is required, use one hard clear during a maintenance window or wait at least 60 seconds after inbound route churn settles. The issue is fixed in 9.2.3.",
+    "filters": {}
+  },
+  {
+    "id": "Q03",
+    "type": "single_hop",
+    "question": "Why does the 9.1 to 9.2 upgrade fail when add-path is turned on?",
+    "expected_doc_ids": [
+      "KB-2111"
+    ],
+    "reference_answer": "On Aurora AR-900, the 9.1.x to 9.2.0 upgrade can fail when BGP add-path is enabled on at least one neighbor and the device has more than 1,000 advertised paths. The root cause is that the 9.1 family upgrade migrator does not translate the add-path capability bitmap into the 9.2.0 session schema, so the precheck finds a stale capability record and aborts the installer instead of converting the session database in place. This affects 9.1.4 and 9.1.6, and the issue is fixed in 9.2.1.",
+    "filters": {}
+  },
+  {
+    "id": "Q04",
+    "type": "single_hop",
+    "question": "After a split-brain, why does my standby on 5.0.9 come back synced but still miss part of the session table?",
+    "expected_doc_ids": [
+      "KB-3103"
+    ],
+    "reference_answer": "On Nimbus NF-300 5.0.9, the standby can report synced after split-brain recovery, but the session table may still be short by about 20,000 to 40,000 entries, or roughly 5 to 15 percent, for several minutes. The cause is %HA-4-RSYNC_STALE_SEQ: during recovery, the replication agent accepts the peer's sequence number before draining the local replay queue, so any older queued updates are discarded as stale. The workaround is to force a full HA resync after recovery and keep failover links stable for at least 120 seconds so the replay queue can drain; the issue is fixed in 5.2.2.",
+    "filters": {}
+  },
+  {
+    "id": "Q05",
+    "type": "single_hop",
+    "question": "Why does a 5.0.9 upgrade downloaded over HTTPS keep failing verification on a 5.0.8 box?",
+    "expected_doc_ids": [
+      "KB-3104"
+    ],
+    "reference_answer": "On Nimbus NF-300 running 5.0.8, the boot loader is known to reject a valid 5.0.9 image after an HTTPS stage download with %UPGRADE-3-IMAGE_VERIFY_FAIL. The root cause is that 5.0.8 computes the verification digest over the padded image length instead of the actual payload length; HTTPS transfers pad the image to a 4 KB boundary, so the checksum comparison fails even when the file matches the published SHA-256 value. The issue affects 5.0.8 only and is fixed in 5.0.9, which hashes only the unpadded payload.",
+    "filters": {}
+  },
+  {
+    "id": "Q06",
+    "type": "single_hop",
+    "question": "Why are a few HTTPS sessions on 5.2.2 suddenly skipping SSL inspection after the cache fills up?",
+    "expected_doc_ids": [
+      "KB-3106"
+    ],
+    "reference_answer": "On Nimbus NF-300 5.2.2, this is a known cache-eviction issue tracked in KB-3106 and identified by %SSL-5-CERT_CHAIN_CACHE. After the certificate cache is under pressure for 5 to 10 minutes and evictions rise above 5,000 per hour, the eviction routine removes the leaf certificate entry but leaves a stale policy pointer in the fast-path lookup table; when a new TLS session hashes to that pointer, the engine incorrectly passes the flow in clear mode. The supported workaround is to increase the certificate cache size so eviction stays below 1,000 entries per hour, for example `config`, `ssl inspection cache size 4096`, `commit`, or temporarily disable outbound inspection for the affected server group.",
+    "filters": {}
+  },
+  {
+    "id": "Q07",
+    "type": "single_hop",
+    "question": "Why does 4.8 redundancy go partially out of sync once the config database gets large?",
+    "expected_doc_ids": [
+      "KB-4104"
+    ],
+    "reference_answer": "In Orion OW-20 4.8, the active-standby incremental sync encoder uses a 15-bit row index, so once the configuration database grows past about 32,768 rows, rows above 32,767 wrap and are treated as already synchronized. As a result, the standby stops receiving those incremental updates, `show redundancy status` reports `sync state: partial`, and the event log repeats %REDUNDANCY-4-SYNC_STALL every 10 seconds. The issue is fixed in 4.9, where incremental synchronization uses a 32-bit object index.",
+    "filters": {}
+  },
+  {
+    "id": "Q08",
+    "type": "single_hop",
+    "question": "Why do 4.9 802.1X logins fail only when the RADIUS challenge has a long attribute list?",
+    "expected_doc_ids": [
+      "KB-4107",
+      "KB-4108"
+    ],
+    "reference_answer": "On Orion OW-20 4.9, the RADIUS encoder truncates Access-Challenge attribute lists at 12 entries during internal policy repacking. Vendor-Specific attribute 26 is often placed after the 12th slot and is silently dropped, so tunneled EAP methods fail when the challenge has 13 or more attributes and clients stay in `authenticating` for 15-20 seconds before timing out. The issue is logged as %RADIUS-4-ATTR_DROP, is affected in 4.9, and is fixed in 5.0.",
+    "filters": {}
+  },
+  {
+    "id": "Q09",
+    "type": "single_hop",
+    "question": "After we renewed the edge cert, why did 2.8 start rejecting the device until we reloaded the CA chain?",
+    "expected_doc_ids": [
+      "KB-5102",
+      "KB-5108"
+    ],
+    "reference_answer": "In Atlas SD-WAN 2.8, the orchestrator stores the edge trust bundle separately from the active device certificate and does not automatically repopulate the intermediate CA list after a renewal. If the intermediate CA was replaced or expired, the orchestrator kept validating the edge against the old chain, which caused %PKI-3-CHAIN-UNTRUSTED and denied the next registration attempt because the chain could not be built to a trusted root. The workaround is to reimport the full certificate chain on the orchestrator with `certificate import trust-bundle edge-chain.pem` followed by `commit`; this issue is fixed in 2.9.",
+    "filters": {}
+  },
+  {
+    "id": "Q10",
+    "type": "single_hop",
+    "question": "Why won't a 3.2 edge bring up the IPSec tunnel against a peer that insists on AES-GCM plus SHA-384?",
+    "expected_doc_ids": [
+      "KB-5106"
+    ],
+    "reference_answer": "In Atlas SD-WAN 3.2, the tunnel can fail because the negotiator advertises AES-GCM as an encryption-only suite when the peer requires a single combined ESP proposal with both encryption and integrity attributes. As a result, the peer rejects the transform set, `show sdwan tunnels` stays in negotiating, and the edge retries every 10 seconds. This is tracked as KB-5106 with %IKE-3-PROPOSAL-MISMATCH, affects 3.2, and is fixed in 3.3. A workaround is to configure the remote peer to accept AES-GCM without a separate integrity field, or use AES-CBC with SHA-384 if the peer allows alternate transforms; on the Atlas side, `tunnel ipsec proposal set aes-gcm-256 sha384` followed by `commit` can be used to verify the resulting SA proposal.",
+    "filters": {}
+  },
+  {
+    "id": "Q11",
+    "type": "single_hop",
+    "question": "Why does CPU peg on a 3.3 edge whenever the LTE modems hand off?",
+    "expected_doc_ids": [
+      "KB-5112"
+    ],
+    "reference_answer": "On Atlas SD-WAN 3.3 dual-modem edges, LTE handoff can drive control-plane CPU to 95 to 100 percent for 15 to 30 seconds because the LTE manager processes both modem state machines synchronously and repeatedly reevaluates the same transport profile on each link-state notification. When both modems are enabled, the duplicate notifications create unnecessary control-plane work and can delay tunnel keepalives, especially if the handoff coincides with a policy refresh. The recommended workaround is to stagger modem failover by disabling the standby modem during maintenance windows or to raise the LTE handoff debounce to 5 seconds with `interface lte0 handoff-debounce 5000` followed by `commit`.",
+    "filters": {}
+  },
+  {
+    "id": "Q12",
+    "type": "single_hop",
+    "question": "Why do my access ports keep firing topology-change events after a normal host reboot?",
+    "expected_doc_ids": [
+      "KB-6105"
+    ],
+    "reference_answer": "On Helix HX-5000, KB-6105 says this is expected behavior on access ports running rapid-pvst, identified by %STP-5-TCN-STORM. After a single downstream host reboot, the switch can generate a new topology-change notification every 2 to 4 seconds for several minutes because each learned MAC move resets the topology-change state; `show spanning-tree detail` may also show the same port repeatedly reentering forwarding and the MAC table aging out faster than the configured 300-second timer. This is a design limitation affecting all releases, with no software fix required; avoid rapid-pvst on ports facing multi-MAC downstream devices and instead use a dedicated edge VLAN design or restrict the port to a single access device.",
+    "filters": {}
+  },
+  {
+    "id": "Q13",
+    "type": "single_hop",
+    "question": "On 7.4, why does my port-channel lose members when the far end is using slow LACP?",
+    "expected_doc_ids": [
+      "KB-6106",
+      "KB-6107"
+    ],
+    "reference_answer": "In HX-5000 7.4, the LACP state machine can start collecting traffic before it has confirmed the partner's timeout bit when the peer is using slow LACP timers. That transient aggregation mismatch causes member ports to be suspended, so a 4-link bundle may come up with only 2 active members and the missing links can remain suspended for 30 to 90 seconds. The issue is tracked as %LACP-4-MISBUNDLE in KB-6106 and is fixed in 7.5, where member ports wait for partner timer confirmation before entering collect/distribute.",
+    "filters": {}
+  },
+  {
+    "id": "Q14",
+    "type": "single_hop",
+    "question": "Why does 8.0 drop some unicast traffic when multicast bursts happen, even though the link is not full?",
+    "expected_doc_ids": [
+      "KB-6110",
+      "KB-6109"
+    ],
+    "reference_answer": "On Helix HX-5000 8.0, heavy VXLAN multicast replication can reserve too much shared buffer during short bursts, and the replication engine does not return that reservation quickly enough after the burst ends. As a result, the unicast egress queue can run out of headroom and drop traffic even when interface utilization stays below 80 percent; `show queue counters` typically shows 200 to 600 discard increments per event. The issue is tracked as KB-6110 with code `%BUF-3-OVERFLOW`, and no software fix is available yet in 8.0.",
+    "filters": {}
+  },
+  {
+    "id": "Q15",
+    "type": "single_hop",
+    "question": "Why does the 7.2-to-7.4 upgrade stop around 80 percent on a chassis with lots of optics?",
+    "expected_doc_ids": [
+      "KB-6111"
+    ],
+    "reference_answer": "On the Helix HX-5000, KB-6111 / ERR-UPG-2207 explains that the 7.2 to 7.4 upgrade can halt at about 78 to 82 percent when saved transceiver calibration data exceeds 32 KB per chassis. The 7.4 image expects a compact calibration record, but some 7.2 systems keep expanded DOM history blocks, and the upgrade parser does not trim those legacy records before migration, so the boot loader rejects the converted configuration and aborts the upgrade. The issue affects 7.2 and is fixed in 7.5; the workaround is to back up the configuration, clear nonessential DOM history, and retry the upgrade in a maintenance window with fewer populated optics.",
+    "filters": {}
+  },
+  {
+    "id": "Q16",
+    "type": "single_hop",
+    "question": "Why does memory keep climbing on 7.6 after EVPN refreshes, and when does it need a reboot?",
+    "expected_doc_ids": [
+      "KB-6112"
+    ],
+    "reference_answer": "On Helix HX-5000 7.6, repeated EVPN route-refresh events trigger %MEM-4-LEAK because the refresh handler allocates a new per-peer attribute cache on each refresh and does not free the previous generation when back-to-back updates arrive. The leak is cumulative, so routing process RSS can rise from about 900 MB to more than 1.8 GB over 24 hours, and once free memory falls below 12 percent control-plane latency rises. Schedule a reload before free memory drops below 15 percent; the issue is fixed in 8.0.",
+    "filters": {}
+  },
+  {
+    "id": "Q17",
+    "type": "version_specific",
+    "question": "In 9.1.6, why do some eBGP routes stay in the table but show unresolved next hop after the connected route flaps?",
+    "expected_doc_ids": [
+      "KB-2101"
+    ],
+    "reference_answer": "On Aurora AR-900 9.1.6, this is caused by a BGP next-hop recursion cache issue in the 9.1 family. If the resolving connected or static underlay route is withdrawn and relearned within the 30-second hold interval, the cache can keep a stale negative resolution entry, so the session stays Established but the affected eBGP IPv4 prefixes remain in the table with an unresolved next hop until BGP is cleared or a new update triggers recursion. The issue affects 9.1.4 and 9.1.6 and is fixed in 9.2.0.",
+    "filters": {
+      "product": "Aurora AR-900",
+      "version": "9.1.6"
+    }
+  },
+  {
+    "id": "Q18",
+    "type": "version_specific",
+    "question": "In 9.2.3, why do BGP routes drop out after I swap one static route for another?",
+    "expected_doc_ids": [
+      "KB-2107"
+    ],
+    "reference_answer": "On Aurora AR-900 9.2.3, this is caused by KB-2107 / %BGP-4-NH-RESOLVE: the route manager does not notify the BGP recursion engine when a static route changes its administrative distance but keeps the same destination prefix. BGP keeps the old resolved next hop, so affected IPv4 prefixes can go inactive in `show ip route bgp` even though the BGP session stays Established and updates continue to arrive. The workaround is to soft clear the affected BGP address family after the change, or withdraw the old static route for at least 5 seconds before installing the replacement; the issue is fixed in 9.3.0.",
+    "filters": {
+      "product": "Aurora AR-900",
+      "version": "9.2.3"
+    }
+  },
+  {
+    "id": "Q19",
+    "type": "version_specific",
+    "question": "Why does my tunnel on 5.0.9 drop for a few seconds whenever the child SA rekeys after I change the PFS group?",
+    "expected_doc_ids": [
+      "KB-3101"
+    ],
+    "reference_answer": "On Nimbus NF-300 5.0.9, this is a known issue covered by KB-3101 and identified by %IKEV2-3-PROPOSAL_MISMATCH. The IKEv2 rekey path reuses the last negotiated PFS group from the old child SA instead of rebuilding the proposal list after a policy change, so a change such as group 14 to group 19 can cause the responder to send a stale proposal set and reject the inbound CREATE_CHILD_SA exchange; the tunnel can blackhole traffic for 10 to 20 seconds while the child SA drops and rekeys. The issue affects 5.0.8 and 5.0.9 and is fixed in 5.1.3.",
+    "filters": {
+      "product": "Nimbus NF-300",
+      "version": "5.0.9"
+    }
+  },
+  {
+    "id": "Q20",
+    "type": "version_specific",
+    "question": "Why does my tunnel on 5.1.5 keep resetting during phase 2 rekey when the peer offers more than one DH group?",
+    "expected_doc_ids": [
+      "KB-3102"
+    ],
+    "reference_answer": "This issue is seen on Nimbus NF-300 5.1.3 and 5.1.5 and corresponds to %IKEV2-3-PROPOSAL_MISMATCH (KB-3102). The responder accepts the child-SA proposal but caches the initiator's DH group in the rekey state machine; when the peer selects a different acceptable group on the next exchange, the local engine compares against the cached value and tears down the child SA. The workaround is to pin a single DH group, preferably group 14, on both peers and avoid mixed transform sets; the issue is fixed in 5.2.0.",
+    "filters": {
+      "product": "Nimbus NF-300",
+      "version": "5.1.5"
+    }
+  },
+  {
+    "id": "Q21",
+    "type": "version_specific",
+    "question": "Why do some APs on 4.7 disappear after a few join retries and then only come back much later?",
+    "expected_doc_ids": [
+      "KB-4102"
+    ],
+    "reference_answer": "On Orion OW-20 4.7, the AP-join state machine can advance the retry counter before radio capability revalidation completes. If an AP responds slowly to the second capability query, the controller expires the join transaction after the third retry, removes it from the retransmit queue, and the AP stays offline until the next discovery window, typically 5-10 minutes later. The workaround is to set `ap join retry-interval 2`; for remote APs, verify one-way latency is under 80 ms and packet loss is below 1%. This is fixed in 4.8, where join retries are not consumed until capability revalidation returns or times out.",
+    "filters": {
+      "product": "Orion OW-20",
+      "version": "4.7"
+    }
+  },
+  {
+    "id": "Q22",
+    "type": "version_specific",
+    "question": "Why do APs on 4.8 get stuck joining for minutes even though the controller still sees them on the network?",
+    "expected_doc_ids": [
+      "KB-4103"
+    ],
+    "reference_answer": "On Orion OW-20 4.8, APs can remain in `joining` for 2-4 minutes because the join path waits for the second capability exchange on a separate worker, and that worker can be pre-empted by the retransmit timer. The controller then moves the join context to an orphaned state, so the AP is still reachable but the delayed response is not resumed and the session resets without reaching `authorized`. This is tracked as KB-4103 / ERR-APJ-4417, is more visible with 60-100 ms RTT and brief retransmit bursts, and is fixed in 4.9.",
+    "filters": {
+      "product": "Orion OW-20",
+      "version": "4.8"
+    }
+  },
+  {
+    "id": "Q23",
+    "type": "version_specific",
+    "question": "Why do 4.9 clients pause during fast roaming even though 802.11r is enabled?",
+    "expected_doc_ids": [
+      "KB-4105"
+    ],
+    "reference_answer": "On Orion OW-20 4.9, the 802.11r fast transition handler can delay PMK-R1 installation because it shares a key-install queue with periodic client accounting updates. Under moderate controller CPU load above 70%, that queue can defer the key push long enough for the 300 ms FT timer to expire, so clients complete reassociation but fall back to a slower key derivation path, which shows up as 200-400 ms pauses and occasional voice gaps. The issue is fixed in 5.0, and the workaround is to lower the client accounting interval to 60 seconds and keep CPU below 70% during roaming tests; for latency-sensitive SSIDs, disable 802.11r until the maintenance window.",
+    "filters": {
+      "product": "Orion OW-20",
+      "version": "4.9"
+    }
+  },
+  {
+    "id": "Q24",
+    "type": "version_specific",
+    "question": "Why does 5.0 still show roam pauses on 802.11r clients when many devices move at once?",
+    "expected_doc_ids": [
+      "KB-4106"
+    ],
+    "reference_answer": "In Orion OW-20 5.0, the roaming daemon batches FT key pushes to reduce CPU usage, and the batch flush can be delayed by the per-client state cleanup thread. When more than about 40 clients roam within 10 seconds, the FT key push can miss the 300 ms completion window, so the client reverts to a slower transition sequence and you still see 150-300 ms service gaps every few moves. This is fixed in 5.1, where FT key pushes are sent immediately when the client enters reassociation, regardless of cleanup batching.",
+    "filters": {
+      "product": "Orion OW-20",
+      "version": "5.0"
+    }
+  },
+  {
+    "id": "Q25",
+    "type": "version_specific",
+    "question": "On 2.8, why does my SLA class go down after one missed probe even though the link recovers right away?",
+    "expected_doc_ids": [
+      "KB-5101"
+    ],
+    "reference_answer": "In Atlas SD-WAN 2.8, the SLA evaluator applies the hold-down timer to the most recent probe result instead of the rolling window when the probe count is below five samples. With 1-second probes and a 3/5 hold-down, a single timeout can clear the class state and start a full recovery timer, so `show app-route sla-class` may report the class as down for 10 to 20 seconds even if packet loss stays below 2% afterward. This is fixed in 2.9, where the evaluator uses the configured rolling window before changing class state.",
+    "filters": {
+      "product": "Atlas SD-WAN",
+      "version": "2.8"
+    }
+  },
+  {
+    "id": "Q26",
+    "type": "version_specific",
+    "question": "Why did my LTE tunnel MTU reset to 1500 after a 3.1 upgrade?",
+    "expected_doc_ids": [
+      "KB-5104"
+    ],
+    "reference_answer": "This is a known Atlas SD-WAN 3.1 upgrade issue, tracked as KB-5104 / %UPG-5-MTU-MIGRATE, affecting dual-SIM LTE edges. During migration, the script copies the LTE profile but falls back to the default tunnel MTU of 1500 when it detects two modem profiles on the same interface, so a pre-upgrade explicit MTU below 1500 is not preserved in the running configuration. Reapply the tunnel MTU manually after the upgrade, for example `interface lte0 tunnel-mtu 1400` followed by `commit`; the issue is fixed in 3.2.",
+    "filters": {
+      "product": "Atlas SD-WAN",
+      "version": "3.1"
+    }
+  },
+  {
+    "id": "Q27",
+    "type": "error_code",
+    "question": "I’m seeing %BGP-4-NH-RESOLVE in the logs on an Aurora AR-900 running 9.1.4 or 9.1.6. What does this error mean, why do eBGP IPv4 prefixes show a valid AS path but an unresolved next hop after an underlay route flap, and what should I do to recover it?",
+    "expected_doc_ids": [
+      "KB-2101",
+      "KB-2107",
+      "TKT-50001",
+      "TKT-50003",
+      "TKT-50004",
+      "TKT-50031",
+      "TKT-50033",
+      "RN-AR-9.2.0",
+      "RN-AR-9.3.0",
+      "GUIDE-AR"
+    ],
+    "reference_answer": "%BGP-4-NH-RESOLVE on Aurora AR-900 9.1.4 and 9.1.6 indicates that BGP IPv4 next-hop recursion has stayed unresolved after the connected or static underlay route was withdrawn and re-added. The session remains Established, but the best-path process can retain a stale negative recursion entry for up to the 30-second hold interval, so `show bgp summary` stays up while `show ip route bgp` omits the affected prefixes; this typically appears within 5-10 seconds and can affect about 50-200 prefixes until BGP is cleared. Work around it by clearing BGP for the affected address family with `clear bgp ipv4 unicast 65001`, or by removing and re-adding the underlay route with `clear ip route 198.51.100.0/24`; the issue is fixed in 9.2.0.",
+    "filters": {}
+  },
+  {
+    "id": "Q28",
+    "type": "error_code",
+    "question": "I found %BUF-3-OVERFLOW in the Helix HX-5000 logs on 7.2. What does it mean, what symptoms should I expect, and what should I do to stop the drops?",
+    "expected_doc_ids": [
+      "KB-6109",
+      "KB-6110",
+      "TKT-50258",
+      "TKT-50261",
+      "TKT-50262",
+      "TKT-50264",
+      "TKT-50265",
+      "RN-HX-7.4",
+      "GUIDE-HX"
+    ],
+    "reference_answer": "%BUF-3-OVERFLOW on Helix HX-5000 7.2 indicates an oversubscribed 100G egress queue where the scheduler underestimates burst depth and drops traffic once queue occupancy exceeds 85 percent. Typical symptoms are sustained output drops with microbursts larger than 48 KB, `show queue counters` showing tail drops increasing by several thousand packets per minute, and neighboring-flow latency rising from under 1 ms to more than 12 ms. Work around it by reducing burstiness with upstream traffic shaping or spreading the workload across additional uplinks so no single egress port stays above 85 percent sustained utilization; for critical low-latency flows, reserve a dedicated queue on the affected interface. The issue is fixed in 7.4.",
+    "filters": {}
+  },
+  {
+    "id": "Q29",
+    "type": "error_code",
+    "question": "I found %IKEV2-3-PROPOSAL_MISMATCH in the logs on a Nimbus NF-300. What does this mean, and what should I do to stop the child SA from failing during rekey?",
+    "expected_doc_ids": [
+      "KB-3101",
+      "KB-3102",
+      "TKT-50056",
+      "TKT-50057",
+      "TKT-50058",
+      "TKT-50060",
+      "TKT-50062",
+      "TKT-50063",
+      "TKT-50064",
+      "RN-NF-5.1.3",
+      "RN-NF-5.2.0",
+      "GUIDE-NF"
+    ],
+    "reference_answer": "On Nimbus NF-300 5.0.8 and 5.0.9, %IKEV2-3-PROPOSAL_MISMATCH indicates a child-SA renegotiation failure caused by a stale PFS proposal during IKEv2 rekey. The tunnel can stay up for hours, then the child SA drops during rekey and traffic blackholes for 10 to 20 seconds while `show crypto ikev2 sa` still shows the IKE SA in ESTABLISHED. The workaround is to keep the PFS group unchanged on both peers, or disable child SA rekey with `config`, `crypto ikev2 child-sa rekey disable`, `commit` and restart the tunnel during a maintenance window; if you change the group, apply the same group on both sides and clear the SA after the change. The fix is in 5.1.3.",
+    "filters": {}
+  },
+  {
+    "id": "Q30",
+    "type": "error_code",
+    "question": "I found %LACP-4-MISBUNDLE on a Helix HX-5000 running 7.4. What does this error mean, why are only some member ports coming up in the EtherChannel, and what should I do to fix or work around it?",
+    "expected_doc_ids": [
+      "KB-6106",
+      "KB-6107",
+      "TKT-50246",
+      "TKT-50247",
+      "TKT-50249",
+      "RN-HX-7.5",
+      "GUIDE-HX"
+    ],
+    "reference_answer": "On HX-5000 7.4, %LACP-4-MISBUNDLE indicates a mis-bundle where a 4-link LACP bundle can come up with only 2 active members, and the missing links may remain suspended for 30 to 90 seconds. `show lacp neighbor` can still show the partner in sync state, while `show interfaces port-channel` reports repeated collect/distribute mismatch events after a link flap; the root cause is that 7.4 starts collecting traffic before it has confirmed the partner’s timeout bit when the peer uses slow LACP timers. If the design permits, configure both sides for fast LACP timers (`configure terminal` / `interface port-channel 10` / `lacp rate fast`), or manually clear the affected EtherChannel after link restoration; if the bundle must stay on slow timers, avoid flapping individual member links during maintenance. The issue is fixed in 7.5.",
+    "filters": {}
+  },
+  {
+    "id": "Q31",
+    "type": "error_code",
+    "question": "What does %PKI-3-CHAIN-UNTRUSTED mean on Atlas SD-WAN 2.8, and what should I do when I see it after an edge certificate renewal?",
+    "expected_doc_ids": [
+      "KB-5102",
+      "KB-5108",
+      "TKT-50172",
+      "TKT-50173",
+      "TKT-50175",
+      "RN-AT-2.9",
+      "GUIDE-AT"
+    ],
+    "reference_answer": "In Atlas SD-WAN 2.8, %PKI-3-CHAIN-UNTRUSTED means the orchestrator cannot build the renewed edge certificate chain to a trusted root because the intermediate CA is missing or stale in the stored trust bundle. This can cause the edge to show as disconnected within 2 to 6 minutes after rotation, and policy pushes to that site to fail with certificate validation errors, even though the renewal completed locally on the edge. Reimport the full certificate chain, including the active intermediate CA, on the orchestrator before renewing the edge certificate using `certificate import trust-bundle edge-chain.pem` and `commit`; for large deployments, stage the new chain at least 24 hours before the old intermediate expires. The issue affects 2.8 and is fixed in 2.9, where certificate renewal refreshes the stored intermediate chain automatically.",
+    "filters": {}
+  },
+  {
+    "id": "Q32",
+    "type": "error_code",
+    "question": "I’m seeing %RADIUS-4-ATTR_DROP on Orion OW-20 4.9 in the logs. What does this error mean, why is 802.1X failing, and what should I do to work around it before upgrading?",
+    "expected_doc_ids": [
+      "KB-4107",
+      "KB-4108",
+      "TKT-50141",
+      "TKT-50143",
+      "TKT-50144",
+      "TKT-50145",
+      "RN-OW-5.0",
+      "GUIDE-OW"
+    ],
+    "reference_answer": "%RADIUS-4-ATTR_DROP on Orion OW-20 4.9 means the RADIUS encoder is truncating Access-Challenge attribute lists at 12 entries during internal policy processing, so Vendor-Specific attribute 26 is often dropped when it appears after the 12th slot. This can break tunneled EAP methods and cause intermittent 802.1X failures after the second Access-Challenge, with clients stuck in `authenticating` for 15-20 seconds before timing out. Work around it by trimming the challenge to 12 or fewer attributes or moving the Vendor-Specific attribute earlier in the server response order; if possible, use a dedicated policy server that sends tunneled attributes first. The issue is fixed in 5.0.",
+    "filters": {}
+  },
+  {
+    "id": "Q33",
+    "type": "error_code",
+    "question": "I found %ROAM-5-FT_KEYTIMEOUT in the Orion OW-20 logs. What does it mean, and what should I do about it?",
+    "expected_doc_ids": [
+      "KB-4105",
+      "KB-4106",
+      "TKT-50131",
+      "TKT-50133",
+      "TKT-50134",
+      "TKT-50138",
+      "TKT-50140",
+      "RN-OW-5.0",
+      "RN-OW-5.1",
+      "GUIDE-OW"
+    ],
+    "reference_answer": "On Orion OW-20 4.9, %ROAM-5-FT_KEYTIMEOUT means the 802.11r fast transition key installation did not complete before the 300 ms FT timer expired, so the client falls back to the slower key derivation path. The issue is most visible when controller CPU is above 70%, and clients may pause for 200-400 ms with one or two audible gaps per roam; `show client detail <mac>` still shows successful reassociation. As a workaround, lower the client accounting interval to 60 seconds with `wlan corp accounting interval 60`, keep controller CPU below 70% during roaming tests, and for latency-sensitive SSIDs disable 802.11r until the maintenance window. The issue is fixed in 5.0.",
+    "filters": {}
+  },
+  {
+    "id": "Q34",
+    "type": "error_code",
+    "question": "I found %SDWAN-4-SLA-DOWN in the Atlas SD-WAN logs. What does this error mean, and what should I do to stop the SLA class from going down after a brief probe loss spike?",
+    "expected_doc_ids": [
+      "KB-5101",
+      "KB-5105",
+      "TKT-50166",
+      "TKT-50168",
+      "TKT-50169",
+      "TKT-50170",
+      "TKT-50186",
+      "TKT-50187",
+      "TKT-50188",
+      "TKT-50189",
+      "TKT-50190",
+      "RN-AT-2.9",
+      "RN-AT-3.0",
+      "GUIDE-AT"
+    ],
+    "reference_answer": "%SDWAN-4-SLA-DOWN on Atlas SD-WAN 2.8 means the application-aware routing SLA class was marked down after a single missed 1-second probe, even though packet loss may stay below 2% over the next several intervals. This is caused by the 2.8 SLA evaluator applying the hold-down timer to the most recent probe result instead of the rolling window when there are fewer than five samples, so a timeout clears the class state and starts a full recovery timer. Work around it by increasing the SLA probe window to at least five samples and extending the hold-down; for example, `app-route sla-class voice loss-threshold 5 latency-threshold 80 probe-interval 1000 hold-down 5000` followed by `commit`. The issue is fixed in 2.9.",
+    "filters": {}
+  },
+  {
+    "id": "Q35",
+    "type": "multi_hop",
+    "question": "We’re running Aurora AR-900 9.1.4 and after about 49.7 days of uptime some long-lived BFD sessions suddenly stop sending control packets even though the neighbor still seems to answer the last good state. In `show bfd neighbors detail`, the local side stays Up but the transmit counter stops increasing and the peer times out after a few hundred milliseconds. Which release fixes this, and what should we do as a workaround until we can upgrade?",
+    "expected_doc_ids": [
+      "KB-2102",
+      "RN-AR-9.1.6"
+    ],
+    "reference_answer": "This issue is fixed in 9.1.6, where BFD transmit scheduling correctly handles the 64-bit counter wrap. Until you can upgrade, restart the BFD process or reload before the platform reaches 49 days of uptime. As a temporary containment measure on noncritical peers, set the BFD timers to 200 ms transmit/200 ms receive with detection multiplier 5 using `configure`, `router bfd`, `timers 200 200 5`.",
+    "filters": {
+      "product": "Aurora AR-900",
+      "version": "9.1.4"
+    }
+  },
+  {
+    "id": "Q36",
+    "type": "multi_hop",
+    "question": "On Aurora AR-900 running 9.2.1, we have a 10 Gbps uplink with a strict-priority voice queue. During short microbursts, best-effort traffic drops to under 1 Mbps for a second or two even though there are no physical errors, and the queue stats show the priority class draining while the weighted queues stay almost idle. Which release fixes this, and what should we do in the meantime until we can upgrade?",
+    "expected_doc_ids": [
+      "KB-2105",
+      "RN-AR-9.2.3"
+    ],
+    "reference_answer": "This issue is fixed in Aurora AR-900 9.2.3. Until you can upgrade, cap the strict-priority class to 30% bandwidth or convert it to low-latency queueing with an explicit policer of 300 Mbps on 10 Gbps links; if possible, move bulk traffic to a separate egress interface to avoid shared scheduler contention.",
+    "filters": {
+      "product": "Aurora AR-900",
+      "version": "9.2.1"
+    }
+  },
+  {
+    "id": "Q37",
+    "type": "multi_hop",
+    "question": "We’re running Orion OW-20 4.9 with 802.11r enabled, and some clients pause for a couple hundred milliseconds when they roam between APs; voice calls also drop a brief gap or two before traffic starts again. `show client detail <mac>` says the roam completed, but it still looks like the key install is timing out, especially when the controller is a bit busy. Which release fixes this, and what should we do until we can upgrade?",
+    "expected_doc_ids": [
+      "KB-4105",
+      "RN-OW-5.0"
+    ],
+    "reference_answer": "This issue is fixed in 5.0, where FT key installation uses a dedicated queue with priority over accounting updates. Until you can upgrade, lower the client accounting interval to 60 seconds to reduce queue pressure and keep controller CPU below 70% during roaming tests. For latency-sensitive SSIDs, disable 802.11r until the maintenance window.",
+    "filters": {
+      "product": "Orion OW-20",
+      "version": "4.9"
+    }
+  },
+  {
+    "id": "Q38",
+    "type": "multi_hop",
+    "question": "We’re running Atlas SD-WAN 2.8 and after a certificate rotation our edges that used to check in fine started going offline on the orchestrator a few minutes later, and policy pushes to that site now fail with certificate validation problems. Which release fixes this, and what should we do in the meantime until we can upgrade?",
+    "expected_doc_ids": [
+      "KB-5102",
+      "RN-AT-2.9"
+    ],
+    "reference_answer": "This issue is fixed in Atlas SD-WAN 2.9, where certificate renewal refreshes the stored intermediate chain automatically. Until you can upgrade, reimport the full certificate chain, including the active intermediate CA, on the orchestrator before renewing the edge certificate. For large deployments, stage the new chain at least 24 hours before the old intermediate expires; the relevant commands are `certificate import trust-bundle edge-chain.pem` followed by `commit`.",
+    "filters": {
+      "product": "Atlas SD-WAN",
+      "version": "2.8"
+    }
+  },
+  {
+    "id": "Q39",
+    "type": "multi_hop",
+    "question": "On Atlas SD-WAN 3.2, our IPsec tunnel to a peer never comes up: it keeps negotiating, retries every 10 seconds, and the remote side rejects the proposal. Which release fixes this, and what should we do until we can upgrade?",
+    "expected_doc_ids": [
+      "KB-5106",
+      "RN-AT-3.3"
+    ],
+    "reference_answer": "This issue is fixed in Atlas SD-WAN 3.3, which emits a combined ESP proposal when the peer requires it. Until you can upgrade, configure the remote peer to accept an AES-GCM proposal without a separate integrity field, or use AES-CBC with SHA-384 if the peer allows alternate transforms. Verify the resulting SA proposal on both sides before restoring traffic.",
+    "filters": {
+      "product": "Atlas SD-WAN",
+      "version": "3.2"
+    }
+  },
+  {
+    "id": "Q40",
+    "type": "multi_hop",
+    "question": "We have an HX-5000 stack on 7.3, and the master keeps changing several times an hour even though all the stack links stay up; `show stack` briefly shows the members in different election groups under normal control-plane load. Which release fixes this, and what should we do until we can upgrade?",
+    "expected_doc_ids": [
+      "KB-6103",
+      "RN-HX-7.4"
+    ],
+    "reference_answer": "This issue is fixed in 7.4, where master election uses the current adjacency score and ignores transient scheduler delay spikes. Until you can upgrade, use matched-length stack cables between all members and keep control-plane load below 60 percent. If needed, pin the desired master with a higher priority value and avoid adding or removing members during the unstable period.",
+    "filters": {
+      "product": "Helix HX-5000",
+      "version": "7.3"
+    }
+  },
+  {
+    "id": "Q41",
+    "type": "multi_hop",
+    "question": "On Helix HX-5000 running 7.6, our stack stays physically up but one member drops out of `show stack` for about 10 to 15 seconds and then comes back, with a brief burst of split-brain behavior during the event. The links themselves do not go down, and this seems worse on 2 m stack cables. Which release fixes this, and what should we do until we can upgrade?",
+    "expected_doc_ids": [
+      "KB-6104",
+      "RN-HX-8.0"
+    ],
+    "reference_answer": "This issue is fixed in 8.0, where stack heartbeat processing requires three consecutive missed intervals before adjacency teardown. Until you can upgrade, keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path; if you must use 2 m cables, you can also set `stack heartbeat timeout 900`.",
+    "filters": {
+      "product": "Helix HX-5000",
+      "version": "7.6"
+    }
+  },
+  {
+    "id": "Q42",
+    "type": "multi_hop",
+    "question": "On Helix HX-5000 running 7.6, the routing process memory keeps climbing after repeated EVPN route-refresh activity, and after a while control-plane latency gets worse because free memory drops too low. Which release fixes this, and what should we do until we can upgrade?",
+    "expected_doc_ids": [
+      "KB-6112",
+      "RN-HX-8.0"
+    ],
+    "reference_answer": "This issue is fixed in 8.0. Until you can upgrade, reduce the frequency of route-refresh events by limiting unnecessary neighbor resets, keep EVPN adjacency changes out of peak traffic windows if the fabric is stable, and schedule a reload before free memory drops below 15 percent. The related workaround is to disable route-refresh on the affected neighbor if needed.",
+    "filters": {
+      "product": "Helix HX-5000",
+      "version": "7.6"
+    }
+  },
+  {
+    "id": "Q43",
+    "type": "how_to",
+    "question": "How should I recover BGP next-hop resolution after an underlay or recursive static route change?",
+    "expected_doc_ids": [
+      "GUIDE-AR",
+      "KB-2101",
+      "KB-2107"
+    ],
+    "reference_answer": "On Aurora AR-900 9.1.4 and 9.1.6, if the BGP next-hop remains unresolved after an underlay route withdrawal, clear the BGP process for the affected IPv4 unicast address family with `clear bgp ipv4 unicast 65001`. If the affected path is critical during a maintenance window, prefer a static discard route with a lower administrative distance than the learned underlay route so recursion remains stable. On 9.2.3, issue `clear bgp ipv4 unicast 65001 soft` after changing recursive static routes, and if a clear must be avoided, withdraw the old static route for at least 5 seconds before installing the replacement; avoid repeated soft clears during peak update periods because routing CPU can spike to 95% on 9.2.1.",
+    "filters": {}
+  },
+  {
+    "id": "Q44",
+    "type": "how_to",
+    "question": "How should I tune optics and DOM monitoring on HX-5000 ports that are showing link drops or LOS alarms?",
+    "expected_doc_ids": [
+      "GUIDE-HX",
+      "KB-6101"
+    ],
+    "reference_answer": "On Helix HX-5000 running 7.2, reduce DOM polling on affected SFP28 ports by setting the transceiver monitoring interval to 120 seconds. Use `configure terminal`, enter `interface ethernet 1/1`, apply `transceiver monitoring interval 120`, and verify with `show interfaces transceiver detail`. Keep the optics below 50 C case temperature when possible, especially if you see bias current spikes or remote LOS alarms. If the port still flaps under load, move the optic to a later-release port or replace the module with one that has a stable bias current profile.",
+    "filters": {}
+  },
+  {
+    "id": "Q45",
+    "type": "how_to",
+    "question": "What should I change on HX-5000 if a stack is oscillating or briefly separating between members?",
+    "expected_doc_ids": [
+      "GUIDE-HX",
+      "KB-6103",
+      "KB-6104"
+    ],
+    "reference_answer": "For Helix HX-5000 on 7.3, use matched-length stack cables between all members to reduce master election oscillation, keep control-plane load below 60 percent until the software is upgraded, and pin the desired master by setting a higher priority on the preferred member. Avoid adding or removing members during the unstable period. On 7.6, keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path.",
+    "filters": {}
+  },
+  {
+    "id": "Q46",
+    "type": "how_to",
+    "question": "How do I stage an upgrade and reduce the chance of configuration loss or image rejection?",
+    "expected_doc_ids": [
+      "GUIDE-NF",
+      "KB-3104",
+      "KB-3111"
+    ],
+    "reference_answer": "Before upgrading from 5.0.x to 5.1.3 or 5.1.5 on Nimbus NF-300, keep each checkpoint file under 4,000 entries and verify the running configuration immediately after reboot. If the configuration contains more than 4,096 replay entries, split the upgrade into smaller chunks or export and re-import policy objects after first boot. On 5.0.8, stage 5.0.9 images with SCP or USB rather than HTTPS so the boot loader does not reject a valid image because of padding, and always verify the staged image hash before scheduling the reboot and confirm the image appears in software inventory with show software image.",
+    "filters": {}
+  },
+  {
+    "id": "Q47",
+    "type": "how_to",
+    "question": "How should I tune AP join behavior so remote APs finish registration reliably on affected releases?",
+    "expected_doc_ids": [
+      "GUIDE-OW",
+      "KB-4102",
+      "KB-4103"
+    ],
+    "reference_answer": "For Orion OW-20 on 4.6, remove any RF profile override from the AP group with `ap-group default rf-profile none` so the controller does not emit a zero-length RF profile TLV. On 4.7, set the AP join retry interval to 2 seconds with `ap join retry-interval 2`, and keep one-way latency under 80 ms. On 4.8, set the AP join timeout to 180 seconds with `ap join timeout 180`, and keep uplink loss below 0.5% during join operations; use `show ap summary` and `show logging last 50` to verify behavior.",
+    "filters": {}
+  },
+  {
+    "id": "Q48",
+    "type": "how_to",
+    "question": "What do I need to change before enabling redundancy if the configuration database is large?",
+    "expected_doc_ids": [
+      "GUIDE-OW",
+      "KB-4104",
+      "KB-4112"
+    ],
+    "reference_answer": "Before enabling redundancy on Orion OW-20, reduce the configuration database to below 30,000 rows so you do not hit the 32,768-row sync-stall threshold. Remove unused AP groups, WLAN profiles, and stale guest accounts before switching to active-standby operation. If you need immediate failover after a large configuration change, schedule a full config resync during a maintenance window, and use `redundancy force-resync` only after the database has been reduced and the commit queue is clear.",
+    "filters": {}
+  },
+  {
+    "id": "Q49",
+    "type": "similar_case",
+    "question": "We are on an Aurora AR-900 running 9.2.3, and during short bursts of IPv6 neighbor discovery from one access VLAN the CPU climbs sharply while our control-plane drop counter stays at zero for a while. IPv6 neighbors start flipping to Stale and the issue is most obvious when a few thousand NS/NA packets hit the box in bursts. Have you seen other customers report the same thing before, and if so, how was it resolved?",
+    "expected_doc_ids": [
+      "TKT-50026",
+      "TKT-50027",
+      "TKT-50028",
+      "TKT-50029",
+      "TKT-50030",
+      "KB-2106"
+    ],
+    "reference_answer": "Yes, we have 5 similar resolved cases. In each case, TAC tied the behavior to the 9.2.3 control-plane protection defect and resolved it by lowering the IPv6 ND policer to 2000 pps with `configure`, `control-plane`, `police ipv6-nd 2000`, then reducing burst traffic at the edge with RA guard or storm control on the affected access VLAN. In some cases, the offending access port was also shut for 30 seconds to let neighbor state recover; the fix is available in 9.3.0.",
+    "filters": {}
+  },
+  {
+    "id": "Q50",
+    "type": "similar_case",
+    "question": "We have Orion OW-20 running 5.1, and our 5 GHz APs seem to get stuck on one channel after a few radar hits. The APs stay up, but neighboring cells keep transmitting on a channel that should have been vacated, and client retries climb during the event. Have other customers reported this kind of issue before, and if so, how was it resolved?",
+    "expected_doc_ids": [
+      "TKT-50151",
+      "TKT-50152",
+      "TKT-50153",
+      "TKT-50154",
+      "TKT-50155",
+      "KB-4110"
+    ],
+    "reference_answer": "Yes, there are 5 similar resolved cases. In each case, TAC disabled DFS on the affected radio group and pinned the 5 GHz radios to a non-DFS channel set with sufficient separation from neighboring cells, which restored stable channel updates and returned client retry rates to normal. The product is fixed in the 5.1 maintenance update, where DFS history updates no longer block the channel re-evaluation worker.",
+    "filters": {}
+  },
+  {
+    "id": "Q51",
+    "type": "similar_case",
+    "question": "We have an Atlas SD-WAN 3.2 site where an IPSec tunnel will not come up against a remote peer. The edge keeps retrying negotiation, `show sdwan tunnels` stays in negotiating, and the peer appears to reject the proposal even though the crypto settings should be compatible. Has TAC seen this exact behavior with other customers before, and if so, how was it resolved?",
+    "expected_doc_ids": [
+      "TKT-50191",
+      "TKT-50192",
+      "TKT-50193",
+      "TKT-50194",
+      "TKT-50195",
+      "KB-5106"
+    ],
+    "reference_answer": "Yes, TAC has seen 5 similar resolved cases. In those cases, the issue was worked around by either changing the remote peer to accept an AES-GCM proposal without a separate integrity field using `tunnel ipsec proposal set aes-gcm-256 sha384` and `commit`, or by upgrading the Atlas edge from 3.2 to 3.3, where the negotiator emits the combined ESP proposal required by the peer. In the reported cases, the tunnel established after the workaround or after the upgrade.",
+    "filters": {}
+  },
+  {
+    "id": "Q52",
+    "type": "similar_case",
+    "question": "We have a Helix HX-5000 VXLAN fabric on 7.6 where anycast gateway MAC moves between leafs occasionally make some host prefixes stop updating for several minutes. The routes still look present on the local box, but remote VTEPs keep pointing at the old next hop and traffic blackholes until we do something to force a refresh. Have other customers reported this same behavior before, and if so, how was it resolved?",
+    "expected_doc_ids": [
+      "TKT-50251",
+      "TKT-50252",
+      "TKT-50253",
+      "TKT-50254",
+      "TKT-50255",
+      "KB-6108"
+    ],
+    "reference_answer": "Yes. There are 5 resolved similar cases, and they all matched KB-6108 for HX-5000 7.6 EVPN type-5 routes stalling after anycast gateway MAC moves. TAC resolved four cases with a controlled EVPN route refresh using `configure terminal`, `router evpn`, `address-family l2vpn evpn`, `route-refresh`, and one case by upgrading to 8.0, where the issue is fixed.",
+    "filters": {}
+  },
+  {
+    "id": "Q53",
+    "type": "unanswerable",
+    "question": "What is the list price and annual support cost for Aurora AR-900, Nimbus NF-300, Orion OW-20, Atlas SD-WAN, and Helix HX-5000 by region?",
+    "expected_doc_ids": [],
+    "reference_answer": "The knowledge base does not contain this information.",
+    "filters": {}
+  },
+  {
+    "id": "Q54",
+    "type": "unanswerable",
+    "question": "What licensing tiers and feature bundles will Atlas SD-WAN and Nimbus NF-300 have in the next release?",
+    "expected_doc_ids": [],
+    "reference_answer": "The knowledge base does not contain this information.",
+    "filters": {}
+  },
+  {
+    "id": "Q55",
+    "type": "unanswerable",
+    "question": "When will Aurora AR-900 and Helix HX-5000 reach end of sale and end of support?",
+    "expected_doc_ids": [],
+    "reference_answer": "The knowledge base does not contain this information.",
+    "filters": {}
+  },
+  {
+    "id": "Q56",
+    "type": "unanswerable",
+    "question": "Does Orion OW-20 integrate with Acme CloudWatcher, and is that integration officially supported?",
+    "expected_doc_ids": [],
+    "reference_answer": "The knowledge base does not contain this information.",
+    "filters": {}
+  },
+  {
+    "id": "Q57",
+    "type": "unanswerable",
+    "question": "How does Nimbus NF-300 compare with competitor firewalls on throughput, SSL inspection, and VPN scalability?",
+    "expected_doc_ids": [],
+    "reference_answer": "The knowledge base does not contain this information.",
+    "filters": {}
+  },
+  {
+    "id": "Q58",
+    "type": "unanswerable",
+    "question": "Is there a confirmed roadmap date for the next major software release across Aurora AR-900, Orion OW-20, and Atlas SD-WAN?",
+    "expected_doc_ids": [],
+    "reference_answer": "The knowledge base does not contain this information.",
+    "filters": {}
+  }
+]

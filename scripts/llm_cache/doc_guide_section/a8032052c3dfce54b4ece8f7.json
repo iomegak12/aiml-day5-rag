@@ -1,0 +1,58 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-HX#4",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Helix HX-5000 uses LACP to negotiate active members, detect failures, and keep the forwarding state of an aggregated link aligned with the peer. In normal operation, the switch exchanges LACPDU frames with the neighbor and evaluates system ID, key, port priority, operational state, and timer mode before admitting a member into the bundle. When both ends agree, the member transitions from collecting/distributing standby behavior into an active forwarding role; when the parameters do not match, the port can remain suspended, individually up, or mis-bundled depending on the exact mismatch. For this reason, member handling should be treated as an operational control plane function, not just a cabling task.",
+      "Timer selection is the most important design choice for bundle stability. On 7.4, configure both ends of the bundle for fast LACP timers if the design permits it. Fast timers reduce the interval between LACPDU exchanges and shorten failure detection, which is useful on core-facing uplinks and ECMP-heavy topologies where rapid convergence matters. The trade-off is that fast mode depends on the peer reliably sending LACPDUs at the expected cadence; if one side is slow and the other side is fast, the negotiation does not align and the member can stay in a suspended or inconsistent state until the timer mismatch is corrected.",
+      "If the peer advertises slow timers and the bundle mis-bundles or suspends members, switch the local port-channel to fast LACP timers. This is the preferred corrective action when the design can tolerate it and the remote system supports the faster negotiation profile. In practice, mis-bundling usually appears as one or more links showing as bundled on one device and individual or suspended on the other, or as repeated partner selection changes during link bring-up. TAC typically sees this after partial maintenance events, when one end is changed to a different LACP timer mode without coordinating the partner, or when a bundle is restored link-by-link while the peer is still rebuilding its aggregation state.",
+      "When the bundle must remain on slow timers, do not flap individual member links during maintenance and clear the EtherChannel only after link restoration. This guidance avoids creating a condition where one side ages out an LACP partner while the other side is still restoring physical links, which can trigger avoidable re-selection events and transient traffic loss. Slow timers are more tolerant of intermittent partner exchange delays, but they also extend the window in which the system retains stale member state. That makes maintenance sequencing important: restore all physical links first, confirm the peer is present, and only then clear and rebuild the bundle state if needed.",
+      "A common mistake is to treat member failures as isolated interface events instead of bundle events. On the HX-5000, a single failed member in an otherwise healthy port-channel should not normally require clearing the entire aggregation, but a member that repeatedly enters suspended state, alternates between collecting and distributing, or appears as an individual link often points to a timer mismatch, incorrect channel key, or inconsistent configuration between peers. Another frequent error is to change timer mode on only one side of the link and then attempt to troubleshoot by bouncing the member ports individually; this usually prolongs the outage. Review the bundle as a whole, verify the neighbor state, and use the port-channel interface for timer policy changes rather than editing only one physical member.",
+      "For operational support, prefer a consistent sequence: define the aggregation policy on the port-channel, apply member interfaces under that policy, and use LACP state information to confirm that the negotiated behavior matches the intended design. The following commands are the minimum set for day-to-day checking and correction of LACP member handling on the HX-5000. Use the show commands before and after any change so you can distinguish a live negotiation problem from a stale display issue or a transient physical-layer event."
+    ],
+    "procedure_steps": [
+      "Enter configuration mode and open the target port-channel interface with configure terminal and interface port-channel 10.",
+      "Apply the LACP timer policy on the bundle with lacp rate fast when the design calls for fast negotiation or when a slow peer is causing mis-bundling or member suspension.",
+      "If the bundle must remain on slow timers, avoid flapping individual member links during maintenance; restore all physical links first and do not clear the EtherChannel until link restoration is complete.",
+      "Save the configuration through the normal platform workflow for your environment, then return to operational mode and confirm the bundle state with show lacp neighbor and show etherchannel summary.",
+      "If a member remains suspended or mis-bundled, compare the local and remote timer modes and confirm that the peer is using the same operational policy before making further changes."
+    ],
+    "table": {
+      "caption": "LACP and EtherChannel member-handling reference",
+      "header": [
+        "Item",
+        "Expected behavior",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "lacp rate fast",
+          "Short LACPDU interval and faster failure detection",
+          "On 7.4, configure both ends of the bundle for fast LACP timers if the design permits it."
+        ],
+        [
+          "Peer advertises slow timers",
+          "Member may mis-bundle or suspend if local and remote timer modes differ",
+          "If the peer advertises slow timers and the bundle mis-bundles or suspends members, switch the local port-channel to fast LACP timers."
+        ],
+        [
+          "Maintenance on slow-timer bundles",
+          "State changes may age out slowly and stale membership may persist",
+          "When the bundle must remain on slow timers, do not flap individual member links during maintenance and clear the EtherChannel only after link restoration."
+        ],
+        [
+          "show lacp neighbor",
+          "Displays LACP partner identity and operational state",
+          "Use to confirm that the remote system is present and the negotiated state matches the intended timer mode."
+        ],
+        [
+          "show etherchannel summary",
+          "Shows which members are bundled, individual, or suspended",
+          "Use to verify that all intended members are in the active bundle and that no ports are stuck out of sync."
+        ]
+      ]
+    },
+    "verification": "Verify the configuration by checking show lacp neighbor and show etherchannel summary on the HX-5000. Expected output is a single neighbor entry for the remote system, the correct timer mode for the port-channel, and all intended members shown as bundled rather than suspended or individual. If the bundle was changed to fast operation, confirm that the neighbor state remains stable for several LACP intervals and that the summary does not show repeated member re-selection or state flaps. If a member was previously mis-bundled, repeat the commands after a brief interval to confirm the state remains consistent and the EtherChannel has converged cleanly."
+  }
+}

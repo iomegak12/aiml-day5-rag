@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "error_code:%BGP-4-NH-RESOLVE",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "I’m seeing %BGP-4-NH-RESOLVE in the logs on an Aurora AR-900 running 9.1.4 or 9.1.6. What does this error mean, why do eBGP IPv4 prefixes show a valid AS path but an unresolved next hop after an underlay route flap, and what should I do to recover it?",
+    "reference_answer": "%BGP-4-NH-RESOLVE on Aurora AR-900 9.1.4 and 9.1.6 indicates that BGP IPv4 next-hop recursion has stayed unresolved after the connected or static underlay route was withdrawn and re-added. The session remains Established, but the best-path process can retain a stale negative recursion entry for up to the 30-second hold interval, so `show bgp summary` stays up while `show ip route bgp` omits the affected prefixes; this typically appears within 5-10 seconds and can affect about 50-200 prefixes until BGP is cleared. Work around it by clearing BGP for the affected address family with `clear bgp ipv4 unicast 65001`, or by removing and re-adding the underlay route with `clear ip route 198.51.100.0/24`; the issue is fixed in 9.2.0."
+  }
+}

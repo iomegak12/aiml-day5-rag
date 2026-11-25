@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-4104",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Orion OW-20 release 4.8, an active-standby redundancy pair can stop applying incremental configuration updates once the configuration database grows beyond approximately 32,768 rows. The standby remains reachable and the redundancy link stays up, but the replicated configuration becomes incomplete and failover may expose stale WLAN and client-policy state.",
+    "symptoms": "In affected 4.8 deployments, administrators typically observe that the standby reports synchronized connectivity to the active controller, but the synchronization state never advances to complete. After the configuration database passes roughly 32,768 rows, the standby stops receiving later incremental updates. A planned or unplanned switchover can therefore cause clients to reauthenticate or briefly lose policy state for 30 to 90 seconds while the new active unit converges.\n\nThe event log repeatedly records the sync stall condition at 10-second intervals. `show redundancy status` reports `sync state: partial`, while the configuration database summary continues to increase on the active unit and does not fully match the standby copy.",
+    "diagnosis_steps": [
+      "Run `show redundancy status` and verify that the redundancy peer is up, but `sync state` remains `partial` rather than `complete`.",
+      "Run `show configuration database summary` and check whether the total row count is at or above 32,768. Affected systems usually show growth past this threshold before the stall begins.",
+      "Review the event log for repeated `%REDUNDANCY-4-SYNC_STALL` entries every 10 seconds. The message indicates the incremental sync encoder is no longer advancing.",
+      "If failover has already occurred, use `show client detail <mac>` for affected clients and confirm that WLAN or client-policy attributes are briefly missing or refreshed after switchover.",
+      "If redundancy statistics are available on the platform, confirm that the peer link remains established and that only incremental object replication is stalled, not the transport between controllers."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %REDUNDANCY-4-SYNC_STALL: incremental sync stalled, standby row cursor 32767, database rows 32814\n2026-03-14T02:13:17Z %REDUNDANCY-4-SYNC_STALL: incremental sync stalled, standby row cursor 32767, database rows 32821\n2026-03-14T02:13:27Z %REDUNDANCY-4-SYNC_STALL: incremental sync stalled, standby row cursor 32767, database rows 32829\n\norion-ow20# show redundancy status\nredundancy mode: n-plus-1\npeer state: reachable\nsync state: partial\nlast sync ack: 2026-03-14T02:12:58Z\n\norion-ow20# show configuration database summary\ntotal rows: 32829\nwlan profiles: 412\nap groups: 96\nguest accounts: 2148\nclient-policy objects: 187",
+    "root_cause": "In release 4.8, the incremental synchronization encoder uses a 15-bit row index. Once the configuration database exceeds row 32,767, subsequent rows wrap and are treated as if they were already synchronized. The standby therefore never receives the wrapped objects, even though the redundancy transport remains healthy.\n\nBecause the defect is in the incremental encoding logic rather than the peer connection, the active and standby controllers can continue to exchange keepalives and status while the replicated database becomes incomplete. This produces a partial sync state and stale runtime policy after failover.",
+    "workaround_steps": [
+      "Before any planned failover, review the configuration database size and identify objects that are not required for operations, such as unused AP groups, obsolete WLAN profiles, and stale guest accounts.",
+      "Reduce the database to below 30,000 rows so there is headroom below the 32,768-row wrap point. Apply the cleanup during a maintenance window to avoid unintended policy changes.",
+      "After cleanup, confirm that the redundancy status returns to a complete sync state and that the database size remains below the threshold.",
+      "If immediate failover is required before the database can be reduced, schedule a maintenance window and perform a full configuration resynchronization to repopulate the standby with a complete dataset."
+    ],
+    "resolution": "This defect is fixed in release 4.9. In that release, incremental synchronization uses a 32-bit object index, which prevents row wrap and allows redundancy sync to complete correctly even when the configuration database exceeds 32,768 rows."
+  }
+}

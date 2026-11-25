@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-3106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why are a few HTTPS sessions on 5.2.2 suddenly skipping SSL inspection after the cache fills up?",
+    "reference_answer": "On Nimbus NF-300 5.2.2, this is a known cache-eviction issue tracked in KB-3106 and identified by %SSL-5-CERT_CHAIN_CACHE. After the certificate cache is under pressure for 5 to 10 minutes and evictions rise above 5,000 per hour, the eviction routine removes the leaf certificate entry but leaves a stale policy pointer in the fast-path lookup table; when a new TLS session hashes to that pointer, the engine incorrectly passes the flow in clear mode. The supported workaround is to increase the certificate cache size so eviction stays below 1,000 entries per hour, for example `config`, `ssl inspection cache size 4096`, `commit`, or temporarily disable outbound inspection for the affected server group."
+  }
+}

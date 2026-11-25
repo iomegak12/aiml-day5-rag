@@ -1,0 +1,144 @@
+{
+  "stage": "facts_guide",
+  "label": "NF",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "title": "nimbus nf-300 configuration and troubleshooting guide",
+    "sections": [
+      {
+        "heading": "ipsec and ikev2 tunnel setup",
+        "key_facts": [
+          "For policy-based IKEv2 tunnels, avoid local selectors narrower than /30; use route-based VPN for host-to-host designs and enforce restrictions with firewall policy instead.",
+          "On 5.1.3 and 5.1.5, pin a single DH group on both peers, preferably group 14, and avoid mixed transform sets to prevent phase 2 resets.",
+          "On 5.0.8 and 5.0.9, keep the PFS group unchanged on both peers; if a change is required, apply the same group on both sides and clear the SA after the change.",
+          "If the platform is rekeying active traffic and a child SA change is required on 5.0.8 or 5.0.9, disable child SA rekey and schedule a manual tunnel restart during a maintenance window."
+        ],
+        "commands": [
+          "config",
+          "vpn ikev2 policy-based disable",
+          "crypto ikev2 proposal default dh-group 14",
+          "crypto ikev2 child-sa rekey disable",
+          "commit"
+        ],
+        "related_kbs": [
+          "KB-3101",
+          "KB-3102",
+          "KB-3108"
+        ]
+      },
+      {
+        "heading": "ha pair stability and resynchronization",
+        "key_facts": [
+          "Place HA heartbeat links on a dedicated L2 segment that is independent of monitored interfaces to prevent oscillation.",
+          "If dedicated cabling is not immediately possible, set the HA monitor interval to 10 seconds so transient link events are less likely to trigger repeated failover.",
+          "On 5.0.9 after split-brain recovery, perform a full HA resync instead of relying on incremental replay.",
+          "After node return, keep failover links stable for at least 120 seconds so the replay queue can drain before you validate session state."
+        ],
+        "commands": [
+          "show ha status",
+          "config",
+          "ha monitor-interval 10",
+          "ha resync full",
+          "commit"
+        ],
+        "related_kbs": [
+          "KB-3103",
+          "KB-3107"
+        ]
+      },
+      {
+        "heading": "session-table tuning for asymmetric traffic",
+        "key_facts": [
+          "On 5.2.0, if asymmetric routing is enabled for large-prefix traffic, disable it for the affected policy set when shard imbalance appears.",
+          "For concentrated /24 traffic, split the prefix into smaller policy groups so sessions distribute more evenly across shards.",
+          "Keep the busiest shard below 75 percent occupancy until a software fix is available, and verify distribution after each policy change.",
+          "Use session-table summary output to confirm that the hottest shard is not trending upward across successive samples."
+        ],
+        "commands": [
+          "show session table summary",
+          "config",
+          "session-table asymmetric-routing disable",
+          "commit"
+        ],
+        "related_kbs": [
+          "KB-3109",
+          "KB-3110"
+        ]
+      },
+      {
+        "heading": "ssl inspection cache and policy change handling",
+        "key_facts": [
+          "On 5.2.0 and 5.2.2, increase the SSL inspection certificate cache size to 4096 entries to reduce eviction-driven bypass events.",
+          "If outbound TLS inspection starts bypassing intermittently after cache eviction, restart SSL inspection to clear stale pointers as a temporary recovery step.",
+          "Disable outbound inspection for the affected server group only if the cache increase does not keep evictions below 1,000 entries per hour.",
+          "Avoid changing SSL inspection policy while a threat database update is active, because activation can stall packet processing on 5.1.5."
+        ],
+        "commands": [
+          "config",
+          "ssl inspection cache size 4096",
+          "commit",
+          "show threat database status"
+        ],
+        "related_kbs": [
+          "KB-3105",
+          "KB-3106"
+        ]
+      },
+      {
+        "heading": "firmware upgrade preparation and image staging",
+        "key_facts": [
+          "Before upgrading from 5.0.x to 5.1.3 or 5.1.5, keep each checkpoint file under 4,000 entries and verify the running configuration immediately after reboot.",
+          "If the configuration contains more than 4,096 replay entries, split the upgrade into smaller chunks or export and re-import policy objects after first boot.",
+          "On 5.0.8, stage 5.0.9 images with SCP or USB rather than HTTPS so the boot loader does not reject a valid image because of padding.",
+          "Always verify the staged image hash before scheduling the reboot and confirm the image appears in software inventory."
+        ],
+        "commands": [
+          "show configuration checkpoint summary",
+          "copy running-config backup://198.51.100.20/nf300-preupgrade.cfg",
+          "copy scp://198.51.100.10/nf300-5.0.9.bin system image",
+          "show software image"
+        ],
+        "related_kbs": [
+          "KB-3104",
+          "KB-3111"
+        ]
+      },
+      {
+        "heading": "threat database updates and timing control",
+        "key_facts": [
+          "On 5.1.5, schedule threat database updates during a maintenance window and keep the signature bundle below 128 MB to avoid packet-processing stalls.",
+          "Set the update window to 02:00 through 02:15 when operationally feasible, and avoid SSL inspection policy changes until activation completes.",
+          "Use the threat database status output to confirm whether an update is active before making any inspection or policy changes.",
+          "If a large bundle is unavoidable, defer nonessential traffic-policy edits until the update has fully applied and the dataplane has returned to steady state."
+        ],
+        "commands": [
+          "show threat database status",
+          "config",
+          "threat update window 02:00 02:15",
+          "commit"
+        ],
+        "related_kbs": [
+          "KB-3105"
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "question": "How should I configure ikev2 tunnels to avoid phase 2 renegotiation and selector-related failures?",
+        "section_index": 0,
+        "related_kbs": [
+          "KB-3102",
+          "KB-3108"
+        ]
+      },
+      {
+        "question": "How do I stage an upgrade and reduce the chance of configuration loss or image rejection?",
+        "section_index": 4,
+        "related_kbs": [
+          "KB-3104",
+          "KB-3111"
+        ]
+      }
+    ]
+  }
+}

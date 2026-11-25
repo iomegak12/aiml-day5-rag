@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "similar_case:KB-4110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "We have Orion OW-20 running 5.1, and our 5 GHz APs seem to get stuck on one channel after a few radar hits. The APs stay up, but neighboring cells keep transmitting on a channel that should have been vacated, and client retries climb during the event. Have other customers reported this kind of issue before, and if so, how was it resolved?",
+    "reference_answer": "Yes, there are 5 similar resolved cases. In each case, TAC disabled DFS on the affected radio group and pinned the 5 GHz radios to a non-DFS channel set with sufficient separation from neighboring cells, which restored stable channel updates and returned client retry rates to normal. The product is fixed in the 5.1 maintenance update, where DFS history updates no longer block the channel re-evaluation worker."
+  }
+}

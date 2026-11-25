@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-3107",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "HA pair keeps swapping active/standby after switch maintenance",
+        "description": "Crescent Health Group opened this after a maintenance window on a Nimbus NF-300 pair running 5.2.2. The on-site engineer reported that the firewall roles were flipping every few minutes, which briefly interrupted VPN and several internal applications. TAC reviewed the event timeline and saw that the heartbeat links and the monitored uplink were both connected through the same upstream access switch. That topology can make the pair react to the same Layer 2 disturbance on both signals, so the failover pattern matched the symptom.",
+        "resolution": "TAC identified this as the known topology issue described in KB-3107. We had the customer move the heartbeat links to a dedicated Layer 2 segment independent of the monitored interfaces, and where cabling had to remain in place, we set the monitor interval to 10 seconds with `ha monitor-interval 10` followed by `commit`. After the change, the active node remained stable and no further oscillation was observed."
+      },
+      {
+        "subject": "NF-300 failover loop on 5.2.0 after port flap",
+        "description": "IronGate Freight emailed TAC about a Nimbus NF-300 pair running 5.2.0 that was “bouncing between firewalls” roughly every 20 seconds. Their notes said the units were healthy individually, but the production circuit kept dropping when both appliances were connected to the same access switch. During triage, TAC asked for the HA status output and the customer also captured the log line '%HA-3-LINK_MONITOR_FLAP' repeatedly during the event. The pattern suggested the heartbeat path and the monitored interface were being affected by the same L2 forwarding change.",
+        "resolution": "TAC matched the behavior to KB-3107 and confirmed there was no software defect to fix in 5.2.0. We instructed the customer to separate the heartbeat links from the monitored interfaces onto an independent Layer 2 segment, and we temporarily increased the monitor interval to 10 seconds using `ha monitor-interval 10` and `commit`. The failover oscillation stopped after the cabling change and timer adjustment."
+      },
+      {
+        "subject": "Intermittent HA switchover on NF-300 cluster, 5.2.0",
+        "description": "Crescent Health Group called from the datacenter floor about a Nimbus NF-300 HA pair running 5.2.0. The field engineer said the standby unit was taking over every few minutes and then returning to standby without any hardware alarms. TAC checked the behavior against the reported switch layout and found that both the heartbeat traffic and the monitored interface were terminating on the same upstream access switch. The event log included '%HA-3-LINK_MONITOR_FLAP', which aligned with the repeated role changes and indicated a shared L2 disturbance rather than a fault in the firewall itself.",
+        "resolution": "TAC treated this as KB-3107 and applied the documented workaround. The customer moved the heartbeat links to a separate Layer 2 segment and kept the two nodes on independent switch paths; we also set `ha monitor-interval 10` and committed the change to reduce sensitivity to brief L2 interruptions. After the update, `show ha status` remained stable and the failovers stopped."
+      },
+      {
+        "subject": "HA pair on 5.1.5 is alternating roles and dropping sessions",
+        "description": "Crescent Health Group submitted a portal report for a Nimbus NF-300 pair running 5.1.5. They described brief outages where traffic would move to the standby unit and then move back again, with no clear hardware failure and no persistent interface down condition. TAC’s initial review showed that both appliances were cabled to the same upstream switch, and the monitored interface shared the same broadcast domain as the heartbeat path. The behavior is consistent with a link-monitor event being triggered by a short Layer 2 forwarding disruption, which can happen even when the firewall hardware is healthy.",
+        "resolution": "TAC resolved the case by referencing KB-3107 and applying the topology workaround. The customer re-homed the heartbeat links to a dedicated Layer 2 segment and increased the monitor interval to 10 seconds with `ha monitor-interval 10`, then `commit`. Once the shared-switch dependency was removed, the pair stopped oscillating and session interruptions ceased."
+      },
+      {
+        "subject": "Frequent failover on NF-300 pair after switch changes",
+        "description": "Lakeside Hospitality escalated through a partner about a Nimbus NF-300 HA deployment running 5.0.9. They reported that the firewalls were failing over several times an hour after a switch replacement, and the problem was first noticed as short VPN drops and brief access interruptions. TAC triage determined that the heartbeat and the interface being monitored were both connected through the same access switch, so a spanning-tree or forwarding event on that switch could affect both paths at once. Because the monitor timer on this platform is only 3 seconds by default, a single missed heartbeat and a missed poll can cause an unnecessary switchover.",
+        "resolution": "TAC closed the issue as KB-3107 and applied the documented workaround. We advised the customer to place the heartbeat links on an independent Layer 2 segment and avoid sharing the monitored interface path with the same upstream switch; where immediate cabling changes were not possible, we set `ha monitor-interval 10` and committed the change. The pair stabilized after the topology was corrected."
+      }
+    ]
+  }
+}

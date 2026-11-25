@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AT#3",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Atlas SD-WAN policy push is validated as a single transaction on the orchestrator before the policy set is distributed to edges. Two common push-limit checks are enforced during compilation: route-map size and certificate revocation freshness. If either check fails, the push is rejected before the orchestrator programs the policy graph, even if the rest of the configuration is syntactically correct. In practice, this means a large route-map or an expired CRL can block unrelated changes in the same tenant until the issue is corrected.",
+      "For route-maps, keep each route-map at 256 entries or fewer; split larger maps into separate policy objects before the push. This limit is operational rather than semantic: the policy compiler can handle the route-map logic, but very large maps increase parse time, memory pressure, and the size of the generated edge policy bundle. In busy tenants, oversized maps also make troubleshooting harder because a minor edit can force a full recompilation and delay convergence on all edges. If a tenant already has a larger route-map, remove 10 to 20 entries, commit the change, and re-add the remainder in a second commit to unblock policy push. That staged approach reduces the compiled object size quickly without requiring a broad redesign of the policy.",
+      "CRL freshness is checked independently of route-map size. Refresh the CRL before it is older than 24 hours, or align CA publication to a 12 to 18 hour interval so the push window does not hit the hard-expiry check. The orchestrator uses the CRL timestamp in the certificate validation path; when the CRL exceeds the freshness threshold, policy push may fail even if all edge certificates are otherwise valid. This usually shows up after a maintenance window or during an out-of-hours change when the CA publication schedule drifts past the expected interval. The safest operational practice is to import the newest CRL as part of the same change window used for policy edits, rather than relying on an automatic refresh later in the day.",
+      "A common mistake is to treat the route-map and CRL checks as independent retry conditions. They are not. If the push is blocked by a stale CRL, retrying the same configuration without updating the CRL will fail again. Likewise, if the CRL is current but a route-map exceeds the supported size, the push will continue to fail until the map is reduced or split. The fastest recovery sequence is to correct the blocking condition first, commit the change, then re-run the push validation. When both issues are present, fix the CRL first so you can see any remaining compilation errors after the next commit.",
+      "Use the edge and orchestrator tooling together when validating a remediation. The orchestrator should show the push as pending or complete after the commit, while the edge should reflect the new policy only after the bundle is accepted. If you are changing a route-map used by application-aware routing or SLA class selection, confirm that dependent flows still match the intended policy after the push, because a split route-map can change evaluation order if the policy object references are not preserved. For certificate issues, confirm the updated CRL timestamp before retrying a failed policy push; this is the quickest way to avoid repeated failures caused by an unchanged revocation list.",
+      "In general, keep policy objects small enough to compile quickly, and keep revocation data fresh enough that certificate validation never becomes the gating factor for a routine change. These are preventative controls, not tuning knobs: 256 entries or fewer per route-map and a CRL age below 24 hours are the practical limits to protect push reliability. Where your CA publication process is under your control, 12 to 18 hour CRL publication intervals give enough margin for delayed changes, maintenance windows, and orchestrator retries without colliding with the hard-expiry check."
+    ],
+    "procedure_steps": [
+      "Check the route-map size and identify any map that exceeds 256 entries.",
+      "If a tenant already has a larger route-map, remove 10 to 20 entries, commit the change, and re-add the remainder in a second commit to unblock policy push.",
+      "If the route-map still needs to be larger logically, split it into separate policy objects before the push with the appropriate route-map split workflow.",
+      "Import the latest CRL with `certificate import crl revocation-list.pem` and then commit the change.",
+      "Verify that the CRL is newer than 24 hours old before retrying the policy push.",
+      "If the push still fails, review the route-map partitioning and repeat the commit after confirming the policy object count is within the limit."
+    ],
+    "table": {
+      "caption": "Policy push limits and freshness thresholds",
+      "header": [
+        "Item",
+        "Guideline",
+        "Operational effect"
+      ],
+      "rows": [
+        [
+          "Route-map size",
+          "Keep each route-map at 256 entries or fewer",
+          "Prevents policy compilation failure and reduces push latency"
+        ],
+        [
+          "Oversized route-map recovery",
+          "Remove 10 to 20 entries, commit, then re-add the remainder in a second commit",
+          "Unblocks a failed push without a full policy redesign"
+        ],
+        [
+          "CRL freshness",
+          "Refresh the CRL before it is older than 24 hours",
+          "Avoids hard-expiry rejection during policy validation"
+        ],
+        [
+          "CA publication interval",
+          "Align publication to a 12 to 18 hour interval",
+          "Provides margin between refreshes and change windows"
+        ]
+      ]
+    },
+    "verification": "Run `show policy push status` on the orchestrator after the commit and confirm the push is not blocked by route-map size or CRL age. The expected status is a completed or in-progress push with no validation errors; if the CRL was the blocker, confirm the imported file timestamp is current and within 24 hours of the push attempt. On an affected edge, use `show sdwan tunnels` and `show app-route sla-class` to confirm the new policy has been applied and traffic is matching the intended path selection."
+  }
+}

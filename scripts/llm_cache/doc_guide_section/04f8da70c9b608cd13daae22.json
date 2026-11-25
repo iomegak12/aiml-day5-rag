@@ -1,0 +1,59 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-OW#2",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Controller redundancy on Orion OW-20 depends on how quickly the standby node can accept a clean copy of the active configuration database. In normal operation, the replication channel carries incremental updates and preserves controller state closely enough for a role swap without rebuilding policy objects. The design limit that matters operationally is the configuration row count: once the database grows too large, replication and commit processing can contend with each other, especially during bulk changes such as WLAN imports, guest account loads, or AP-group edits. To avoid that condition, keep the configuration database below 30,000 rows before enabling redundancy to avoid sync stalls at the 32,768-row threshold.",
+      "The practical trade-off is between administrative convenience and failover predictability. A large, long-lived database often contains unused AP groups, obsolete WLAN profiles, and stale guest accounts that do not affect current traffic, but still consume replication time and memory. Removing those objects before turning on active-standby reduces the amount of state the standby must accept and lowers the chance that the initial sync remains in an extended pending state. This is especially important after staged migrations, when older profiles are left in place for rollback but never used in production. In these cases, the controller may appear healthy while the redundancy service is still catching up in the background.",
+      "Another common mistake is enabling redundancy immediately after a large configuration change and then expecting an instant role transition. A major WLAN rename, mass AP reassignment, or guest portal rebuild can leave the commit queue busy for several minutes. If immediate failover is required after a large configuration change, schedule a full config resync during a maintenance window. That approach allows the active node to drain pending commits, publish a consistent database image, and avoid a failover to a standby that has not yet applied the last set of transactions. For the same reason, do not schedule disruptive AP or WLAN changes while the resync is already in progress.",
+      "Use redundancy force-resync only after confirming the database has been reduced and the commit queue is clear. On OW-20, force-resync is not a substitute for cleanup; it copies the current state faster, but it does not resolve structural replication delay caused by excess rows or a backlog of pending commits. If you run the command too early, the standby can restart the sync process multiple times, which prolongs the outage window and may generate misleading alarms about peer mismatch or database inconsistency. In practice, the command is most useful after you have removed stale objects and the database summary shows a stable row count well below the threshold.",
+      "Before changing redundancy mode, review both the redundancy state and the database size so you can distinguish a healthy standby from one that is merely reachable. A healthy pair should show synchronized state, matching software releases, and no recent resync failures in the log buffer. If the standby is already out of sync, clear the underlying database growth first rather than repeatedly toggling modes. This avoids the common error of treating redundancy symptoms as a transport problem when the root cause is database hygiene.",
+      "After cleanup and synchronization, validate that the standby reports current configuration and that there are no errors related to replication, commit queue saturation, or peer negotiation. If the controller has been operating with a large database for a long period, plan the cleanup in phases: remove stale objects, wait for the commit queue to clear, verify the row count, and then enable or resync redundancy. That sequence reduces the chance of prolonged failover times and keeps the active node from spending resources on unnecessary configuration state."
+    ],
+    "procedure_steps": [
+      "Review the current redundancy state with show redundancy status and confirm that the peer is reachable and not already in a recovery state.",
+      "Check database size with show configuration database summary and verify that the row count is below 30,000 before enabling redundancy.",
+      "Remove unused AP groups, WLAN profiles, and stale guest accounts, then wait for the commit queue to clear before making further redundancy changes.",
+      "If you need immediate failover after a large configuration change, schedule a full config resync during a maintenance window instead of forcing a role change during peak load.",
+      "Use redundancy force-resync only after confirming the database has been reduced and the commit queue is clear.",
+      "Recheck redundancy status and logs after the resync completes to confirm that replication returned to steady state."
+    ],
+    "table": {
+      "caption": "Redundancy and database hygiene reference",
+      "header": [
+        "Item",
+        "Operational guidance",
+        "Risk if ignored"
+      ],
+      "rows": [
+        [
+          "Configuration database size",
+          "Keep the configuration database below 30,000 rows before enabling redundancy to avoid sync stalls at the 32,768-row threshold.",
+          "Initial sync can stall or take significantly longer than expected."
+        ],
+        [
+          "Unused AP groups and WLAN profiles",
+          "Remove unused AP groups and WLAN profiles before enabling active-standby operation.",
+          "Standby replication time increases and failover becomes less predictable."
+        ],
+        [
+          "Stale guest accounts",
+          "Purge stale guest accounts before redundancy changes.",
+          "Extra rows consume replication resources and extend commit processing."
+        ],
+        [
+          "Large configuration changes",
+          "If immediate failover is required after a large configuration change, schedule a full config resync during a maintenance window.",
+          "Failover may land on a standby that has not yet applied the latest commits."
+        ],
+        [
+          "Force resync",
+          "Use redundancy force-resync only after confirming the database has been reduced and the commit queue is clear.",
+          "Repeated resync attempts can prolong recovery and generate misleading sync alarms."
+        ]
+      ]
+    },
+    "verification": "Confirm the controller pair is synchronized by running show redundancy status and checking that the local and peer roles are established, the standby is in sync, and no resync is pending. Then run show configuration database summary and verify the row count remains below 30,000 and is stable across refreshes. If the pair still does not converge, use show logging last 50 to look for replication or commit-queue messages; expected logs should not include sync stalls, peer mismatch, or database overflow conditions after cleanup and resync."
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-3101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Nimbus NF-300 5.0.8 and 5.0.9, an established IKEv2 site-to-site tunnel can fail during child SA rekey after a PFS group change, causing a brief traffic interruption. The IKE SA remains up, but the child SA rekey exchange is rejected and encrypted traffic blackholes until the tunnel recovers or is manually restarted.",
+    "symptoms": "This issue is typically seen on long-lived site-to-site IPsec tunnels after one peer changes the Phase 2 PFS group, most commonly from group 14 to group 19. The tunnel may remain stable for hours before the next child SA rekey attempt triggers a brief outage, usually 10 to 20 seconds, during which user traffic stops passing even though the IKE SA still appears established.\n\nIn operational monitoring, `show crypto ikev2 sa` shows the IKE SA in `ESTABLISHED`, but the child SA counter resets or the child SA does not advance normally. The peer-side logs may show repeated ESP rekey failures or CREATE_CHILD_SA retries, and the local device may emit `%IKEV2-3-PROPOSAL_MISMATCH` during the rekey exchange.",
+    "diagnosis_steps": [
+      "Run `show crypto ikev2 sa` and verify that the IKE SA is `ESTABLISHED` while the child SA is resetting or repeatedly renegotiating.",
+      "Run `show crypto ikev2 sa detail` and check whether the child SA proposal on the active tunnel still reflects the previous PFS group after the policy change; a stale proposal set is consistent with this defect.",
+      "Check the peer configuration for a recent PFS group change on the affected tunnel, especially a change from group 14 to group 19 or any other mismatch between peers.",
+      "If available, enable IKEv2 rekey debugging during a maintenance window and look for `%IKEV2-3-PROPOSAL_MISMATCH` during `CREATE_CHILD_SA`; this indicates the responder rejected the inbound child SA proposal.",
+      "Correlate the rekey time with traffic loss by running `show session table summary` and confirming that sessions survive locally while encrypted traffic stalls during the rekey window."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %IKEV2-3-PROPOSAL_MISMATCH: inbound CREATE_CHILD_SA rejected; proposal list does not match current child SA policy\n2026-03-14T02:13:07Z ikev2[4217]: rekey attempt failed for tunnel vpn-nyc-sfo peer 198.51.100.24\n2026-03-14T02:13:08Z ikev2[4217]: child-sa state=REKEYING retries=1 pfs-group=14\n\nnf300-01# show crypto ikev2 sa\npeer 198.51.100.24  state ESTABLISHED  uptime 06:42:19\n  ike-sa  spi-in 0x8a31c0e2  spi-out 0x1f5b2d90\n  child-sa  state ESTABLISHED  rekey-count 12  last-rekey 2026-03-14T02:12:58Z\n  child-sa  state INITIATING  rekey-count 0   last-rekey 2026-03-14T02:13:07Z",
+    "root_cause": "The IKEv2 rekey path reuses the last negotiated PFS group from the old child SA instead of rebuilding the proposal list after a policy change. When the peer rekeys with a different group, such as moving from group 14 to group 19, the local responder sends a stale proposal set and rejects the inbound CREATE_CHILD_SA exchange.\n\nBecause the IKE SA remains valid, the failure is limited to child SA renegotiation and may appear intermittent. The tunnel can continue carrying traffic until the next rekey timer expires, at which point the proposal mismatch is encountered again and encrypted traffic is briefly interrupted.",
+    "workaround_steps": [
+      "If both peers can remain on the same PFS group, revert the change so the child SA policy matches on both sides and then clear the affected tunnel so the next rekey uses the current proposal set.",
+      "If the PFS group must be changed, apply the same group on both peers during a maintenance window, disable child SA rekey temporarily, and restart the tunnel manually after the policy change is complete.",
+      "After the change, verify that the tunnel re-establishes cleanly and that the next child SA rekey does not generate proposal mismatch messages."
+    ],
+    "resolution": "The defect is fixed in release 5.1.3. In that release and later, the child SA proposal list is rebuilt on every rekey exchange, so changing the PFS group no longer causes stale proposals or CREATE_CHILD_SA rejection."
+  }
+}

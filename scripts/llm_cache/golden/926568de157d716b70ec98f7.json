@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "error_code:%BUF-3-OVERFLOW",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "I found %BUF-3-OVERFLOW in the Helix HX-5000 logs on 7.2. What does it mean, what symptoms should I expect, and what should I do to stop the drops?",
+    "reference_answer": "%BUF-3-OVERFLOW on Helix HX-5000 7.2 indicates an oversubscribed 100G egress queue where the scheduler underestimates burst depth and drops traffic once queue occupancy exceeds 85 percent. Typical symptoms are sustained output drops with microbursts larger than 48 KB, `show queue counters` showing tail drops increasing by several thousand packets per minute, and neighboring-flow latency rising from under 1 ms to more than 12 ms. Work around it by reducing burstiness with upstream traffic shaping or spreading the workload across additional uplinks so no single egress port stays above 85 percent sustained utilization; for critical low-latency flows, reserve a dedicated queue on the affected interface. The issue is fixed in 7.4."
+  }
+}

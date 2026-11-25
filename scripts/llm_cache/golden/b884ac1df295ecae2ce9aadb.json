@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-2102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "On 9.1.4, why do BFD peers suddenly stop sending packets after the router has been up for weeks?",
+    "reference_answer": "On Aurora AR-900 9.1.4, BFD sessions can stop transmitting after about 49.7 days of continuous uptime with 50 ms transmit intervals because the BFD scheduler uses a signed comparison when computing the next transmit deadline from a 64-bit monotonic counter. When the counter crosses the sign bit boundary, the transmit wheel stops advancing for affected sessions even though the receive path remains active, so `show bfd neighbors detail` may still show the local discriminator as Up while the transmit counter is frozen and the peer times out after 300 ms to 900 ms depending on the negotiated multiplier. The issue is tracked as KB-2102 / ERR-BFD-2201, affects 9.1.4, and is fixed in 9.1.6."
+  }
+}

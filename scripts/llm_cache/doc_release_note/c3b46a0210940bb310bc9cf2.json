@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-AT-2.9",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Atlas SD-WAN 2.9 adds three operational improvements focused on routing stability, transport flexibility, and safer policy rollout. The release introduces configurable hold-down behaviour for SLA classes, support for LTE transport profiles on edges, and a preflight validation step before policy push so common deployment errors are caught earlier. This release also includes fixes for SLA class state handling during brief probe loss, and for certificate renewal and edge re-registration when trust material is updated. Operators should review certificate chain and CRL hygiene before upgrade, since policy push protections in this train are sensitive to stale revocation data.",
+    "features": [
+      {
+        "name": "SLA class hold-down tuning",
+        "description": "This release adds hold-down parameters for SLA classes so brief probe-loss spikes do not immediately force application-aware routing to declare a path down. The tuning applies to class state transitions and lets operators align failover behaviour with their probe interval and jitter tolerance. Existing SLA class definitions continue to work, but administrators should review any automation that assumes immediate down transitions."
+      },
+      {
+        "name": "LTE transport profile support",
+        "description": "Atlas SD-WAN 2.9 introduces LTE transport profiles for edges that use cellular uplinks. The profile allows transport-specific settings such as MTU, preferred APN parameters, and link handling to be applied consistently from the orchestrator or the edge CLI. Existing Ethernet and broadband transports are unchanged, but LTE-connected sites should be validated after upgrade to confirm tunnel behaviour and carrier-specific settings."
+      },
+      {
+        "name": "Policy push preflight validation",
+        "description": "Before a policy push is committed, the orchestrator now performs preflight validation of referenced objects, certificate state, and deployability conditions. This reduces failed pushes caused by missing dependencies or incomplete trust updates and provides earlier feedback to operators. Preflight validation does not change policy intent, but it can block a push until the underlying configuration issue is corrected."
+      }
+    ],
+    "compatibility": "Atlas SD-WAN 2.9 supports in-service upgrade from 2.8 on supported orchestrator and edge hardware. The release is interoperable with 2.8 peers during a rolling upgrade, but the new SLA hold-down, LTE transport profile, and preflight validation behaviours only take effect after both orchestrator and edge software are on 2.9. Configuration exported from 2.8 remains valid, although sites using LTE should review transport profiles and any certificate workflows that depend on intermediate CA import or trust bundle updates. Because policy push validation depends on current revocation data, ensure CRL distribution is functioning before upgrading clustered orchestrators.",
+    "upgrade_steps": [
+      "Back up the orchestrator configuration, edge inventory, certificate bundles, and current policy set before starting the upgrade.",
+      "Verify the 2.9 software image checksum on the orchestrator and confirm that the image has been staged to all target edges.",
+      "Schedule a maintenance window and upgrade the orchestrator first, then upgrade edges in batches so overlay tunnels remain controlled during the transition.",
+      "After each batch, confirm tunnel health and routing state with show sdwan tunnels and show app-route sla-class, and verify LTE uplinks if they are in use.",
+      "Check certificate status, trust bundle contents, and CRL freshness before pushing policy, then run a staged policy push to validate preflight behaviour.",
+      "Perform final post-checks for application-aware routing, tunnel stability, and edge re-registration where certificate renewal is part of the rollout."
+    ]
+  }
+}

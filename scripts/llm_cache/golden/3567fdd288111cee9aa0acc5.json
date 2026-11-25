@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-6110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why does 8.0 drop some unicast traffic when multicast bursts happen, even though the link is not full?",
+    "reference_answer": "On Helix HX-5000 8.0, heavy VXLAN multicast replication can reserve too much shared buffer during short bursts, and the replication engine does not return that reservation quickly enough after the burst ends. As a result, the unicast egress queue can run out of headroom and drop traffic even when interface utilization stays below 80 percent; `show queue counters` typically shows 200 to 600 discard increments per event. The issue is tracked as KB-6110 with code `%BUF-3-OVERFLOW`, and no software fix is available yet in 8.0."
+  }
+}

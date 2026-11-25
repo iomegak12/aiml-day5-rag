@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-2111",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why does the 9.1 to 9.2 upgrade fail when add-path is turned on?",
+    "reference_answer": "On Aurora AR-900, the 9.1.x to 9.2.0 upgrade can fail when BGP add-path is enabled on at least one neighbor and the device has more than 1,000 advertised paths. The root cause is that the 9.1 family upgrade migrator does not translate the add-path capability bitmap into the 9.2.0 session schema, so the precheck finds a stale capability record and aborts the installer instead of converting the session database in place. This affects 9.1.4 and 9.1.6, and the issue is fixed in 9.2.1."
+  }
+}

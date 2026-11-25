@@ -1,0 +1,60 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-OW#1",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "AP join on Orion OW-20 is a stateful exchange between the controller and the access point, with capability negotiation, image selection, security validation, and final resource allocation. When joins fail, the visible symptom is often generic: the AP remains out of service, the controller logs repeated join attempts, or the AP oscillates between discovery and authentication states. In this section, tune the join path conservatively and only apply the release-specific values that address the observed failure mode. Do not treat the retry and timeout knobs as general performance settings; they are intended to keep a legitimate join transaction alive long enough to complete revalidation, not to mask persistent reachability problems.",
+      "On 4.6, a join failure can occur when an RF profile override is present in the AP group and the controller emits a zero-length RF profile TLV. In that case, remove any RF profile override from the AP group so the controller does not emit a zero-length RF profile TLV. This is a structural correction, not a timing workaround. If the AP group must inherit defaults, verify that the effective RF policy is populated before testing again. Leaving an override in place can produce a join loop even when control-plane reachability and authentication are otherwise healthy.",
+      "On 4.7, capability revalidation can extend the join transaction long enough that the default retry behavior drops the exchange too early. Set the AP join retry interval to 2 seconds so the controller keeps the transaction active through capability revalidation. The practical trade-off is that the controller will wait a little longer before restarting the join sequence, which reduces unnecessary churn when the AP is slow to answer a second capability probe. This setting is most useful for remote APs or branches with higher round-trip time, but it should still be paired with a stable transport path; do not use it to compensate for loss or sustained delay outside normal design limits.",
+      "On 4.8, some joins stall during the second capability exchange even though the initial discovery and authentication steps complete. Set the AP join timeout to 180 seconds when join stalls occur during the second capability exchange. This gives the controller enough time to complete the second exchange, receive the final capability response, and finish AP provisioning without forcing a restart of the join attempt. The main trade-off is slower failure detection if the AP is genuinely unreachable, so use the longer timeout only when the symptom matches the documented stall pattern. If you see repeated timeouts on otherwise healthy links, check for packet loss, control-channel policing, or unexpected MTU changes before increasing the value further.",
+      "For remote APs, transport quality still matters more than timer tuning. Keep one-way latency under 80 ms on 4.7 systems and keep uplink loss below 0.5% during 4.8 join operations. Above those thresholds, the join process can become sensitive to retransmission timing and capability exchange delays, even when basic connectivity appears acceptable from the site router. A common mistake is to change retry or timeout settings first and ignore WAN jitter, LTE backhaul buffering, or intermittent packet drops. If the AP is remote, confirm that the path is clean during the join window, not only during idle periods.",
+      "Operationally, change one variable at a time and record the AP state before and after the change. Start with `show ap summary` to confirm whether the AP is stuck in discovery, image download, or join. If you are correcting a 4.6 RF profile issue, remove the override from the AP group and retest before making any timer changes. If the issue is release-specific, apply the exact recommendation for that release and then monitor the controller log for a clean join completion. When the AP repeatedly fails after the recommended setting is in place, treat the problem as a transport, compatibility, or image issue rather than increasing the timer again.",
+      "Avoid mixing multiple join workarounds on the same AP group unless the failure pattern is identical across the fleet. For example, a 4.7 AP that needs `ap join retry-interval 2` should not inherit a 4.6 RF profile workaround unless there is evidence that both conditions exist. Likewise, `ap join timeout 180` should not be used as a blanket fix for all join delays; it is specific to 4.8 stall behavior during the second capability exchange. Keep the scope narrow, validate the effect with logs, and revert any unneeded change after the incident is resolved."
+    ],
+    "procedure_steps": [
+      "Run `show ap summary` and identify the APs that are stuck in join, discovery, or repeated retry states.",
+      "If the affected APs are on 4.6 and an RF profile override is present in the AP group, enter `ap-group default rf-profile none` to remove the override, then retest the join.",
+      "If the affected APs are on 4.7, configure `ap join retry-interval 2` so the controller keeps the transaction active through capability revalidation.",
+      "If the affected APs are on 4.8 and the join stalls during the second capability exchange, configure `ap join timeout 180` and restart the join attempt.",
+      "For remote APs, confirm the path quality during the join window and keep one-way latency under 80 ms on 4.7 systems and keep uplink loss below 0.5% during 4.8 join operations.",
+      "Check `show logging last 50` for join completion messages and confirm that the AP transitions to an operational state without repeated retries."
+    ],
+    "table": {
+      "caption": "AP join baseline and retry tuning reference",
+      "header": [
+        "Release or condition",
+        "Recommended setting",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "4.6 join failures with RF profile override",
+          "remove any RF profile override from the AP group so the controller does not emit a zero-length RF profile TLV",
+          "Use `ap-group default rf-profile none` to clear the override before retesting"
+        ],
+        [
+          "4.7 join retries during capability revalidation",
+          "set the AP join retry interval to 2 seconds",
+          "Keeps the transaction active long enough for revalidation to complete"
+        ],
+        [
+          "4.8 stalls during the second capability exchange",
+          "set the AP join timeout to 180 seconds",
+          "Use only when the failure matches the second-exchange stall pattern"
+        ],
+        [
+          "Remote AP transport guidance on 4.7",
+          "keep one-way latency under 80 ms",
+          "Higher delay can trigger premature retry behavior"
+        ],
+        [
+          "Remote AP transport guidance on 4.8",
+          "keep uplink loss below 0.5%",
+          "Loss above this level can disrupt join completion"
+        ]
+      ]
+    },
+    "verification": "Use `show ap summary` to confirm the affected AP moves from join or retry states to operational status, with the join no longer cycling. Then run `show logging last 50` and look for a single successful join sequence without repeated capability revalidation failures, timeout restarts, or zero-length RF profile messages. If the change was release-specific, verify that the AP remains up after a controller refresh interval rather than only immediately after the configuration change."
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-5105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "2.9 edge overlay keeps flipping during backup jobs",
+        "description": "Northstar Bank opened an NOC escalation after several branch edges on Atlas SD-WAN 2.9 started bouncing between up and degraded during nightly backup windows. The customer reported that voice calls were being rerouted even though the transport circuit stayed up, and the issue appeared roughly every 30 to 60 seconds when upload traffic increased. TAC reviewed `show sdwan tunnels` on edge edge-214 and saw loss counters increment during the burst periods; the edge was running 2.9.0 build 4172. The event log also showed \"%SDWAN-4-SLA-DOWN\" on the affected tunnel when the probes were delayed behind bulk traffic.",
+        "resolution": "TAC determined the condition matched KB-5105 for Atlas SD-WAN 2.9, where SLA probes share the data-plane queue with bursty traffic. We applied the documented workaround by placing the SLA probes into a high-priority queue with `app-route sla-class voice probe-queue priority` and committed the change. After the queue change, tunnel state remained stable through the next backup window and loss counters no longer tripped health evaluation."
+      },
+      {
+        "subject": "SLA probe flaps on 2.9 edge during peak uploads",
+        "description": "Crescent Health Group called in after seeing intermittent path changes on one Atlas SD-WAN edge used for clinic voice and remote charting. The appliance is running version 2.9, and the customer initially suspected a WAN provider issue because the link stayed physically up while sessions moved off the preferred path. On triage, TAC checked `show sdwan tunnels` and confirmed that the tunnel health was dropping only during sustained upload bursts, not during idle periods. The edge log included \"%SDWAN-4-SLA-DOWN\", which aligned with the timing of the application steering events.",
+        "resolution": "TAC identified the problem as KB-5105 and advised that the defect is fixed in 3.0. The customer upgraded the edge fleet from 2.9 to 3.0 after a maintenance window, then repeated the same traffic test. Post-upgrade, SLA probes were sent on the dedicated control queue and the tunnels no longer oscillated between up and degraded."
+      },
+      {
+        "subject": "Overlay path instability on 2.9 edge under backup load",
+        "description": "IronGate Freight reported that one distribution-site edge on Atlas SD-WAN 2.9 was causing shipping applications and voice softphones to fail over repeatedly. The NOC described it as a circuit problem, but carrier testing showed the physical transport remained up and only the overlay state was changing. TAC reviewed the edge output from `show sdwan tunnels` and saw rising loss counters and degraded path selection during large file transfers. The edge log showed \"%SDWAN-4-SLA-DOWN\" at the same times the backups peaked, and the device was running 2.9.1.",
+        "resolution": "TAC matched the symptoms to KB-5105 and applied the documented workaround on the edge. We configured the SLA class to use a high-priority probe queue with `app-route sla-class voice probe-queue priority` and committed the policy. The tunnel no longer flapped during backup traffic, and the customer agreed to keep the current release until a planned upgrade window."
+      },
+      {
+        "subject": "2.9 edge marks tunnels degraded during student backup jobs",
+        "description": "Redwood University phoned TAC after noticing that classroom voice traffic and exam portals were being steered away from the preferred WAN path each evening. The customer said the internet circuit looked healthy, but the SD-WAN edge kept reporting poor path quality whenever campus backup jobs ran. TAC confirmed the appliance was an Atlas SD-WAN edge on version 2.9 and checked `show sdwan tunnels`, which showed loss spikes only under heavy outbound load. The event trace also contained \"%SDWAN-4-SLA-DOWN\", indicating the probe packets were being delayed long enough to fail the latency threshold.",
+        "resolution": "TAC traced the issue to KB-5105 and applied the recommended workaround. We moved the SLA probes to a priority queue using `app-route sla-class voice probe-queue priority` and committed the change so probes would not sit behind bulk traffic. After the change, the edge stayed up on the preferred path throughout the nightly backup cycle."
+      },
+      {
+        "subject": "Frequent tunnel degradation on 2.9 freight hub edge",
+        "description": "IronGate Freight called TAC after a second branch site began switching overlay tunnels between up and degraded several times an hour. The agent noted the customer was running Atlas SD-WAN 2.9 on the edge and had already replaced the ISP handoff without improvement. TAC checked `show sdwan tunnels` on the reported device and observed that the loss counter increased only when large uploads were active; the transport stayed physically up throughout the event. The log buffer also contained \"%SDWAN-4-SLA-DOWN\", which matched the customer's report of application steering moving voice calls away from the preferred route.",
+        "resolution": "TAC identified this as the 2.9 queueing defect described in KB-5105. We implemented the workaround by reserving a high-priority queue for SLA probes with `app-route sla-class voice probe-queue priority` and committed the policy change. Once applied, the tunnel health remained stable during the freight export jobs and the path selection stopped oscillating."
+      }
+    ]
+  }
+}

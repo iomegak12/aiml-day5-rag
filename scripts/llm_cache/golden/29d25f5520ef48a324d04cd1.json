@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "error_code:%RADIUS-4-ATTR_DROP",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "I’m seeing %RADIUS-4-ATTR_DROP on Orion OW-20 4.9 in the logs. What does this error mean, why is 802.1X failing, and what should I do to work around it before upgrading?",
+    "reference_answer": "%RADIUS-4-ATTR_DROP on Orion OW-20 4.9 means the RADIUS encoder is truncating Access-Challenge attribute lists at 12 entries during internal policy processing, so Vendor-Specific attribute 26 is often dropped when it appears after the 12th slot. This can break tunneled EAP methods and cause intermittent 802.1X failures after the second Access-Challenge, with clients stuck in `authenticating` for 15-20 seconds before timing out. Work around it by trimming the challenge to 12 or fewer attributes or moving the Vendor-Specific attribute earlier in the server response order; if possible, use a dedicated policy server that sends tunneled attributes first. The issue is fixed in 5.0."
+  }
+}

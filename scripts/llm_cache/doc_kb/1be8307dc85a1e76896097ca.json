@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-4105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Orion OW-20 release 4.9, 802.11r fast transition roaming can take longer than expected when the controller is under moderate CPU load. Clients still reassociate successfully, but key installation is delayed and the roam completes through a slower derivation path, which is visible as brief traffic interruption.",
+    "symptoms": "With 802.11r enabled, clients that roam between APs on 4.9 often pause for approximately 200–400 ms before traffic resumes. Voice applications may show one or two audible gaps per roam, especially when the controller CPU is above 70% during the event. The affected client typically remains associated and `show client detail <mac>` indicates a successful reassociation, but the roam timeline shows the FT key install timer expiring before key material is pushed.\n\nThe issue is most noticeable on dense WLANs with frequent roaming, or when accounting activity and roaming events occur at the same time. Some clients complete the roam using a slower key derivation path, which increases latency without fully dropping the session.",
+    "diagnosis_steps": [
+      "Run `show client detail <mac>` immediately after a roam and verify that reassociation succeeded but the FT key-install phase shows a timeout or delayed key push.",
+      "Check controller load with the platform CPU summary command used at your site; if average CPU is consistently above 70% during roaming, the issue is more likely to reproduce.",
+      "Review roaming logs for `%ROAM-5-FT_KEYTIMEOUT` entries that occur within the 300 ms FT timer window.",
+      "If available in your build, enable temporary roaming debug and confirm that the PMK-R1 push is queued behind periodic accounting work rather than sent immediately.",
+      "Compare the same client on a controller running 5.0 or later; if the roam latency disappears under similar load, this confirms the 4.9 defect."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %ROAM-5-FT_KEYTIMEOUT: wlan corp client 00:11:22:33:44:55 reassoc complete, ft key install timer expired after 300 ms\n2026-03-14T02:13:07Z %ROAM-5-FT_KEYTIMEOUT: client 00:11:22:33:44:55 continuing roam via non-FT key derivation path\n2026-03-14T02:13:08Z show client detail 00:11:22:33:44:55\nmac address        : 00:11:22:33:44:55\nssid               : corp\nstate              : associated\nroam state         : reassociated\n802.11r            : enabled\nft key status      : timeout\nft timer           : 300 ms\nlast roam latency  : 287 ms\ncontroller cpu     : 74%",
+    "root_cause": "In 4.9, the FT handler waits on a shared key-install queue that is also used by periodic client accounting updates. When the controller is under moderate load, accounting work can delay the PMK-R1 push long enough for the 300 ms FT timer to expire. The client then completes the roam without pre-installed key material, which increases roam latency and can cause brief traffic interruption.\n\nThis is a controller-side scheduling defect rather than an RF or client compatibility problem. It is most visible when roaming coincides with normal accounting activity or other background processing.",
+    "workaround_steps": [
+      "Reduce pressure on the shared queue by lowering the client accounting interval to 60 seconds on the affected WLAN profile or SSID, then verify that new accounting updates occur less frequently.",
+      "During roaming validation or voice deployment testing, keep controller CPU below 70% by avoiding unrelated load spikes such as large reporting jobs or mass client onboarding.",
+      "If the SSID is latency sensitive and brief roam delays are not acceptable, disable 802.11r temporarily until the maintenance window and confirm clients roam through the standard key derivation path.",
+      "After applying the change, test a roam between two APs and confirm that the FT key install no longer times out and that voice traffic remains continuous."
+    ],
+    "resolution": "The defect is fixed in release 5.0. In that release, FT key installation is handled on a dedicated queue with priority over accounting updates, preventing the PMK-R1 push from being deferred past the FT timer."
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "multi_hop:KB-6104",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "On Helix HX-5000 running 7.6, our stack stays physically up but one member drops out of `show stack` for about 10 to 15 seconds and then comes back, with a brief burst of split-brain behavior during the event. The links themselves do not go down, and this seems worse on 2 m stack cables. Which release fixes this, and what should we do until we can upgrade?",
+    "reference_answer": "This issue is fixed in 8.0, where stack heartbeat processing requires three consecutive missed intervals before adjacency teardown. Until you can upgrade, keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path; if you must use 2 m cables, you can also set `stack heartbeat timeout 900`."
+  }
+}

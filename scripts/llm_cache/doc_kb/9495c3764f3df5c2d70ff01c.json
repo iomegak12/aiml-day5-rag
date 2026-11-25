@@ -1,0 +1,24 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-6108",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Helix HX-5000 running 7.6, EVPN type-5 routes can stall after the anycast gateway MAC moves between leaf switches. The local prefix remains installed, but remote VTEPs do not receive the updated next-hop information until the route is refreshed.",
+    "symptoms": "In a VXLAN EVPN fabric on release 7.6, you may see host or subnet traffic blackhole for 5 to 20 minutes after the anycast gateway MAC shifts to another leaf. The affected prefix still appears in the local routing table and in `show evpn route-type 5`, but remote leafs continue to point to the previous VTEP as the next hop.\n\nThis usually appears after a gateway failover, maintenance event, or mobility of the anycast gateway MAC. Data-plane forwarding recovers only after the EVPN route is refreshed, either automatically when the stale state clears or manually through a route refresh.",
+    "diagnosis_steps": [
+      "Run `show evpn route-type 5` on the advertising leaf and verify that the prefix is present locally while the path attributes still reference the expected subnet. If the route exists locally but remote traffic is failing, continue.",
+      "Run `show evpn route-type 5 detail` and check the next-hop and originating VTEP fields. A mismatch between the current gateway location and the advertised next-hop indicates stale EVPN state.",
+      "Run `show bgp l2vpn evpn` on a remote leaf and confirm that the type-5 prefix still points to the old VTEP address after the gateway MAC move. Stale next-hop information on remote peers is the key indicator.",
+      "Run `show logging | include RT5-STALL` or `show logging | include %EVPN-4-RT5-STALL` and look for the stall message near the time of the gateway MAC move. The message confirms the refresh suppression condition.",
+      "If available, run `show mac address-table flapping` and verify that the anycast gateway MAC moved between leafs shortly before the route stopped updating. Frequent or recent MAC movement supports this diagnosis."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %EVPN-4-RT5-STALL: type-5 refresh suppressed for prefix 192.0.2.0/24 after anycast gateway mac move\n2026-03-14T02:13:08Z leaf-2# show evpn route-type 5\nPrefix            VNI     Next Hop        Origin VTEP\n192.0.2.0/24      50100   10.0.10.12      10.0.10.12\n\n2026-03-14T02:13:12Z leaf-4# show bgp l2vpn evpn\nNetwork           Next Hop        Label  Path Status\n192.0.2.0/24      10.0.10.12      24001  valid\n",
+    "root_cause": "In release 7.6, the EVPN process incorrectly couples type-5 advertisement refresh to the anycast gateway MAC mobility timer. When the gateway MAC moves between leafs, the route reflector suppresses the required update even though the prefix has changed forwarding origin.\n\nAs a result, remote VTEPs retain stale next-hop information and continue forwarding traffic toward the old leaf until the suppressed route is refreshed. The local control-plane entry remains present, which can make the issue appear intermittent if only the originating leaf is checked.",
+    "workaround_steps": [
+      "After moving the anycast gateway MAC, trigger an EVPN route refresh on the affected fabric segment so remote peers relearn the current next hop.",
+      "If operationally possible, avoid gateway MAC mobility while the fabric is carrying active type-5 routes, especially during maintenance windows or live migrations.",
+      "Keep the gateway anchored on a stable leaf pair until software is upgraded, to reduce the chance of suppressed refresh events."
+    ],
+    "resolution": "This defect is fixed in release 8.0. In 8.0, type-5 advertisements refresh on prefix change independently of gateway MAC mobility, preventing stale next-hop state on remote VTEPs."
+  }
+}

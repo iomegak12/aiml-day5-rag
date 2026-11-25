@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-3103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "After a split-brain, why does my standby on 5.0.9 come back synced but still miss part of the session table?",
+    "reference_answer": "On Nimbus NF-300 5.0.9, the standby can report synced after split-brain recovery, but the session table may still be short by about 20,000 to 40,000 entries, or roughly 5 to 15 percent, for several minutes. The cause is %HA-4-RSYNC_STALE_SEQ: during recovery, the replication agent accepts the peer's sequence number before draining the local replay queue, so any older queued updates are discarded as stale. The workaround is to force a full HA resync after recovery and keep failover links stable for at least 120 seconds so the replay queue can drain; the issue is fixed in 5.2.2."
+  }
+}

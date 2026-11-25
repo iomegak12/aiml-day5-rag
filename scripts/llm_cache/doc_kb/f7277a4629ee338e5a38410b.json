@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-6104",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Helix HX-5000 systems running 7.6, a stack member can briefly drop out of the stack view and then rejoin without any physical link loss. The event is associated with a short burst of %STACK-3-SPLIT-BRAIN messages and is most commonly seen on stacks built with 2 m cables.\n\nThe condition is transient, but it can confuse operators because the master remains reachable while one member disappears from `show stack` for 10 to 15 seconds. The issue is specific to the 7.6 stack heartbeat handling and is corrected in release 8.0.",
+    "symptoms": "Operators observe an otherwise healthy stack where one member disappears from `show stack` for a short interval and then returns automatically. The master continues forwarding traffic, stack ports remain physically up, and the event typically lasts 10 to 15 seconds.\n\nDuring the incident, the system logs a brief sequence of split-brain messages even though the cable state does not change. The symptoms are most likely on 7.6 installations using 2 m stack cables or a single long chained path across all members. In these cases, heartbeat delay plus scheduler jitter can cause the adjacency to be cleared prematurely.",
+    "diagnosis_steps": [
+      "Run `show stack` during the event and confirm that one member is absent or shown as unavailable while the master remains active. This indicates a control-plane separation rather than a full stack outage.",
+      "Run `show logging | include SPLIT-BRAIN` and verify that `%STACK-3-SPLIT-BRAIN` appears at the same time the member disappears. A short cluster of these messages supports this issue.",
+      "Run `show interfaces stackport detail` and check that the physical stack links stay up with no link-down transitions, CRC spikes, or negotiated-speed changes. The absence of physical errors helps distinguish this from a cabling fault.",
+      "Run `show stack detail` and look for a member state transition such as adjacency cleared, heartbeat missed, or rejoin within 10 to 15 seconds. Rapid recovery without operator intervention is consistent with the defect.",
+      "If available on the platform, run `show logging last 50` and correlate the timestamps with the stack view change. Matching timestamps with no link failure confirms a heartbeat timing issue rather than an election problem."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %STACK-3-SPLIT-BRAIN: stack 1 member 2 adjacency cleared after missed heartbeat\n2026-03-14T02:13:08Z %STACK-3-SPLIT-BRAIN: stack 1 member 2 entering recovery state\n2026-03-14T02:13:19Z %STACK-3-SPLIT-BRAIN: stack 1 member 2 rejoined stack control plane\n\nhx5000-1# show stack\nStack  Role     MAC Address        Priority  State\n1      master   00:11:22:33:44:55   15        ready\n2      member   00:11:22:33:44:66   10        absent\n3      member   00:11:22:33:44:77   10        ready\n\nhx5000-1# show interfaces stackport detail\nPort 1/1: up, 10g, errors 0, last flap none\nPort 1/2: up, 10g, errors 0, last flap none",
+    "root_cause": "In release 7.6, the stack heartbeat code treats a single delayed heartbeat as a missed neighbor on long cable runs where propagation delay and scheduler jitter can coincide. When that happens, the adjacency state is cleared immediately, the member is removed from the active stack view, and then the neighbor rejoins once the next heartbeat exchange succeeds.\n\nThis is not an election instability and it is not caused by a physical link failure. The timer logic is too aggressive in 7.6, which makes stacks using 2 m cables more susceptible to a brief control-plane split-brain event even when the stack ports remain operational.",
+    "workaround_steps": [
+      "Reduce stack cable length where practical and avoid chaining every member through one long physical path. Shorter stack runs reduce the likelihood that heartbeat delay and scheduler jitter will align.",
+      "If 2 m cables must remain in use, increase the heartbeat hold-down timer so a single delayed heartbeat does not clear adjacency immediately. Apply the configuration change in global configuration mode using the supported heartbeat timeout setting.",
+      "After the change, verify the stack remains stable with `show stack` and confirm that no new `%STACK-3-SPLIT-BRAIN` messages appear during normal operation.",
+      "If instability continues despite the workaround, plan a maintenance window to move the stack to the fixed release."
+    ],
+    "resolution": "Upgrade the stack to release 8.0, where stack heartbeat processing requires three consecutive missed intervals before adjacency teardown. This permanently corrects the premature split-brain behavior observed in 7.6."
+  }
+}

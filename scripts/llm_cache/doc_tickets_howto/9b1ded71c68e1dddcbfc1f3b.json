@@ -1,0 +1,19 @@
+{
+  "stage": "doc_tickets_howto",
+  "label": "GUIDE-AT",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "prevent sla class flapping on marginal wan links",
+        "description": "CivicWorks Public Agency asked how to keep an SLA class from flapping when a WAN link shows brief loss spikes. They are running Atlas SD-WAN 3.1 and want the class to stay stable during short degradations rather than bouncing between up and down states. Their use case is latency-sensitive voice traffic on a link that is already close to threshold.",
+        "resolution": "TAC pointed them to GUIDE-AT and recommended using a probe window of at least five samples so a single 1-second loss spike does not clear the SLA class. We also advised setting a 5000 ms hold-down before recovery, and increasing the packet-loss threshold by 1 to 2 percent if the link is already near the limit. For voice classes, keep the probe interval at 1000 ms unless there is a site-specific design reason to slow it down; then apply the change with `app-route sla-class voice loss-threshold 5 latency-threshold 80 probe-interval 1000 hold-down 5000`, commit, and verify with `show app-route sla-class`."
+      },
+      {
+        "subject": "reapply lte tunnel settings after upgrade on dual-sim edges",
+        "description": "Prairie State College asked what to change after an upgrade because LTE tunnels and handoff behavior changed on dual-SIM edges. They are on Atlas SD-WAN 3.2 and saw some sites come back with different tunnel characteristics after migration. They also use custom APN profiles and want to know which LTE settings should be rechecked before returning sites to service.",
+        "resolution": "TAC pointed them to GUIDE-AT and advised reapplying the LTE tunnel MTU after any 3.1 upgrade, since the upgrade may rewrite it to 1500. For most carrier LTE links, use a tunnel MTU between 1400 and 1420 bytes and validate the path with 1472-byte pings; on 3.2 systems with custom APN profiles, recheck each LTE interface because the per-interface tunnel MTU can be dropped during migration. Where applicable, set `interface lte0 tunnel-mtu 1400`, commit, and confirm tunnel state with `show sdwan tunnels`; for 3.3 dual-modem edges, also set `interface lte0 handoff-debounce 5000` to reduce CPU spikes during transient signal loss."
+      }
+    ]
+  }
+}

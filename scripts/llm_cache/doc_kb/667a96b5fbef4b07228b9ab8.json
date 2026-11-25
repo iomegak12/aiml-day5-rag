@@ -1,0 +1,26 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-4103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Orion OW-20 release 4.8, APs can remain in the joining state for several minutes and then restart the CAPWAP session before authorization completes. The issue is typically seen on higher-latency branches or links with brief loss bursts during the join exchange.",
+    "symptoms": "Affected APs appear in `joining` for 2 to 4 minutes and never transition to `authorized`. In `show ap summary`, the `join pending` count increases as additional APs stall, while the join retry counter increments twice and then stops. The AP remains reachable from the controller, but the join state does not advance, and the controller eventually abandons the session.\n\nThe condition is more visible when RTT is approximately 60 to 100 ms and the uplink experiences short retransmit bursts during registration. Operators may see repeated join attempts without a successful handoff into the authorized state, even though the AP does not fully lose connectivity.",
+    "diagnosis_steps": [
+      "Run `show ap summary` and confirm one or more APs are listed in `join pending` while the AP state remains `joining` for longer than expected.",
+      "Check `show logging last 50` for `ERR-APJ-4417` entries or repeated join retry messages followed by session teardown. The presence of a retry count that increments twice and then stops is consistent with this issue.",
+      "If available, run `show client detail <mac>` for a client associated to the AP after a successful retry path; stalled APs usually show no client activity because the AP never reaches authorized operation.",
+      "Verify the branch link conditions during the join window. If RTT is consistently in the 60 to 100 ms range and packet loss briefly exceeds 0.5%, the join stall is more likely to occur.",
+      "Confirm the controller release with `show version` or the equivalent system status display. The defect is specific to 4.8 and is not expected on fixed releases.",
+      "If join failure correlates with delayed capability exchange responses rather than AP hardware faults, treat the issue as a controller join-path defect rather than an AP-specific failure."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %APJ-5-JOIN_START: ap 00:11:22:33:44:55 join initiated from 198.51.100.24\n2026-03-14T02:13:08Z %APJ-6-JOIN_RETRY: ap 00:11:22:33:44:55 capability exchange retry 1\n2026-03-14T02:13:21Z %APJ-6-JOIN_RETRY: ap 00:11:22:33:44:55 capability exchange retry 2\n2026-03-14T02:15:09Z ERR-APJ-4417: ap 00:11:22:33:44:55 join context orphaned after delayed capability response\n2026-03-14T02:15:09Z %CAPWAP-4-SESSION_RESET: ap 00:11:22:33:44:55 restarting join session\n\nap summary\nap name              mac               state      join status\nap-branch-1          00:11:22:33:44:55 joining    join pending\nap-branch-2          00:11:22:33:44:66 joining    join pending\n\njoin statistics\ncurrent pending: 2\nretry counter: 2\nlast join age: 00:02:03",
+    "root_cause": "The 4.8 join path waits for the second capability exchange on a separate worker thread. Under retransmit pressure, that worker can be pre-empted by the join retransmit timer, which prevents the session from being re-armed correctly. When the delayed capability response finally arrives, the controller has already moved the join context into an orphaned state, so processing does not resume and the AP is forced to restart CAPWAP registration.\n\nThis is a controller-side defect in the join state machine. The AP is still reachable on the network, but the controller no longer owns a valid active join session for that AP, so the registration cannot complete.",
+    "workaround_steps": [
+      "Increase the join timeout to 180 seconds so the delayed capability exchange has time to complete before the session ages out.",
+      "Keep AP uplink loss below 0.5% during the initial join window; if the branch circuit is unstable, postpone registration until the link is clean.",
+      "If possible, stage the APs locally on a stable access segment, allow them to complete their first registration there, and then move them to the branch site after they are authorized.",
+      "Monitor the controller logs after the change and confirm that join retries stop increasing and that APs move from `joining` to `authorized`."
+    ],
+    "resolution": "The defect is fixed in release 4.9. In that release, delayed capability responses are matched to the active join session before the session can age out, preventing the orphaned join state and allowing APs to complete authorization normally."
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-NF#2",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "HA pair stability depends on separating the control path that decides failover from the data paths that carry monitored traffic. On the Nimbus NF-300, heartbeat loss and monitored-interface loss are evaluated independently, but a shared L2 failure domain can make both conditions appear at once. When the HA heartbeat links share the same switching fabric or cable bundle as monitored interfaces, a short disturbance can trigger repeated state changes, replay churn, and unnecessary session synchronization. The preferred design is to place HA heartbeat links on a dedicated L2 segment that is independent of monitored interfaces to prevent oscillation.",
+      "If dedicated cabling is not immediately possible, increase the HA monitor interval so the pair is less sensitive to brief transients. Set the HA monitor interval to 10 seconds so transient link events are less likely to trigger repeated failover. This trades faster detection for better stability; the pair will wait longer before acting on a monitored-link loss, which is usually preferable during maintenance windows, link aggregation re-convergence, or switch control-plane events. Do not use this as a substitute for proper physical separation, because it only reduces the rate of false triggers and does not remove the shared-failure risk.",
+      "On systems running 5.0.9, split-brain recovery requires special handling. After split-brain recovery, perform a full HA resync instead of relying on incremental replay. Incremental replay can leave subtle divergence if both nodes accepted state changes while isolated, especially for session tables, VPN state, or inspection counters. A full resync rebuilds the standby node from the current active node and is the safer recovery path when the pair has been partitioned. On other releases in the 5.0, 5.1, and 5.2 families, use the same operational principle: if you cannot prove that one node remained authoritative for the full outage, prefer a full resync over a partial replay.",
+      "After a node returns to service, keep failover links stable for at least 120 seconds so the replay queue can drain before you validate session state. Engineers commonly check too early and misread an incomplete table as data loss. During this interval, avoid changing monitored interfaces, restarting HA services, or forcing a second failover. The queue-drain period is especially important when the node has to rebuild large session tables, IPsec SAs, or inspection state, because those records are replayed asynchronously and may lag behind the link-state transition.",
+      "Common mistakes include placing the heartbeat on a routed interface, using the same upstream switch stack for both heartbeat and monitored links, and interpreting a transient 'standby' state as a failed resync before the 120-second stabilization window has elapsed. Another frequent error is performing a normal reboot on the restored node and then immediately verifying session counts without checking whether the HA link has remained stable. For troubleshooting, always establish whether the pair experienced a clean failover, a split-brain event, or a link flap on the heartbeat segment, because the recovery action differs in each case.",
+      "When the pair is unstable, collect the HA state first, then decide whether the issue is physical, timing-related, or an actual configuration mismatch. A stable pair should show one node active and the other standby, with synchronized state and no repeated transition messages. If the monitor interval was increased to 10 seconds, remember that failover detection and recovery will be slower by design. If you must resync after recovery, use a full resync on the affected node and wait for the pair to settle before validating sessions or VPN tunnels."
+    ],
+    "procedure_steps": [
+      "Run `show ha status` on both nodes and confirm which unit is active and which is standby.",
+      "If the heartbeat uses a shared or fragile link path, enter `config` mode and set `ha monitor-interval 10`, then `commit`.",
+      "After any split-brain recovery on 5.0.9, enter `config` mode and run `ha resync full`, then `commit`.",
+      "Keep the HA links stable for at least 120 seconds after node return; do not force another failover during this period.",
+      "Recheck `show ha status` and confirm that the standby node remains synchronized and does not transition repeatedly."
+    ],
+    "table": {
+      "caption": "HA stability and resynchronization guidance",
+      "header": [
+        "Item",
+        "Recommended value or action",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "Heartbeat placement",
+          "Dedicated L2 segment independent of monitored interfaces",
+          "Prevents oscillation caused by shared link events."
+        ],
+        [
+          "HA monitor interval",
+          "10 seconds",
+          "Use when dedicated cabling is not immediately possible."
+        ],
+        [
+          "5.0.9 split-brain recovery",
+          "Full HA resync",
+          "Do not rely on incremental replay after recovery."
+        ],
+        [
+          "Post-return stabilization",
+          "At least 120 seconds",
+          "Allow the replay queue to drain before validating state."
+        ]
+      ]
+    },
+    "verification": "Use `show ha status` on both nodes and confirm that one node reports active and the peer reports standby, with no repeated failover or resync transitions. After a resync, the output should indicate synchronized HA state and the standby unit should remain stable for at least 120 seconds. If the monitor interval was changed, verify that the configured value is 10 seconds and that the pair no longer oscillates during transient link events. If session or VPN state is still inconsistent, repeat `show ha status` before investigating application-layer tables."
+  }
+}

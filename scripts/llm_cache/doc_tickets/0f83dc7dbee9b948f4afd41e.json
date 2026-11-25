@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-5101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Voice traffic drops for 10-20 seconds after brief LTE brownout",
+        "description": "Prairie State College opened this through the customer portal after several VoIP calls were moved off the primary LTE path during a short signal drop. The affected edge is atlas-edge-17 running Atlas SD-WAN 2.8, and `show app-route sla-class` shows the voice class going down even though subsequent probes recover within a few seconds. TAC reviewed the event history and found a single missed 1-second probe followed by path switching for about 15 seconds. The edge log includes \"%SDWAN-4-SLA-DOWN\" at the time the class state changed.",
+        "resolution": "TAC identified this as KB-5101 and applied the documented workaround on atlas-edge-17 by increasing the SLA probe window to five samples and extending hold-down so one missed probe would not clear the class. The final configuration used the KB-5101 workaround commands, then was committed on the orchestrator and verified with `show app-route sla-class`. The customer confirmed the voice path remained stable after the change."
+      },
+      {
+        "subject": "SLA class flaps on short brownouts in 2.8",
+        "description": "IronGate Freight escalated through the NOC because eastbound traffic was being moved away from the preferred MPLS path after brief LTE brownouts. The branch edge, atlas-edge-04, is running Atlas SD-WAN 2.8 and shows the app-route voice class dropping for roughly 10 to 20 seconds after a single probe timeout. TAC checked `show app-route sla-class` and saw that packet loss stayed below the configured threshold after the event, but the class still recovered slowly. The issue was isolated to the 2.8 SLA decision logic rather than a transport failure.",
+        "resolution": "TAC matched the behavior to KB-5101 and confirmed it is fixed in 2.9. The customer upgraded atlas-edge-04 from 2.8 to 2.9, then revalidated the policy state after the upgrade. After the version change, the SLA class no longer dropped on a single missed probe interval."
+      },
+      {
+        "subject": "Intermittent path switch on app-aware routing after missed probe",
+        "description": "Summit Logistics reported that shipping-label traffic was intermittently rerouted during brief wireless fades, but the link never appeared fully down. The affected device is atlas-edge-22 running Atlas SD-WAN 2.8, and TAC reproduced the issue by observing one missed 1-second probe followed by a prolonged class-down state. `show app-route sla-class` showed the class as down for several intervals even though loss remained under 2 percent afterward. The edge log recorded \"%SDWAN-4-SLA-DOWN\" at the time of the transition.",
+        "resolution": "TAC identified the condition as KB-5101 and advised the customer to upgrade to 2.9, where the SLA evaluator uses the configured rolling window before changing state. Summit Logistics upgraded atlas-edge-22 to 2.9 and confirmed the routing policy held during the same brownout pattern. No further path flaps were observed after the upgrade."
+      },
+      {
+        "subject": "Branch policy marks SLA down after brief probe loss",
+        "description": "Redwood University opened this through a partner escalation for a remote campus using atlas-edge-11 on Atlas SD-WAN 2.8. The campus saw Zoom and ERP sessions shift away from LTE after a short radio fade, but the link itself remained usable. TAC reviewed `show app-route sla-class` and found the SLA class staying down for longer than expected after only one missed probe, which did not align with the configured loss and latency thresholds. The edge logs also showed \"%SDWAN-4-SLA-DOWN\" during the affected interval.",
+        "resolution": "TAC traced the behavior to KB-5101 and determined the branch was running the affected 2.8 code path. Redwood University upgraded atlas-edge-11 to 2.9, then rechecked the application-aware routing state after the same probe pattern. The upgraded system kept the SLA class up as expected, and the customer closed the issue after validation."
+      },
+      {
+        "subject": "SLA class stays down too long after a single timeout",
+        "description": "HarborPoint Retail escalated from the NOC after store traffic was repeatedly steered off the preferred LTE link during brief evening congestion. The impacted edge is atlas-edge-08 running Atlas SD-WAN 2.8, and the operator initially suspected a carrier outage because the tunnel state was briefly degraded. TAC reviewed the device output and saw `show app-route sla-class` report the class down for 10 to 20 seconds after one missed probe, even though later samples stayed within threshold. The event log contained \"%SDWAN-4-SLA-DOWN\" when the class changed state.",
+        "resolution": "TAC linked the case to KB-5101 and recommended upgrading the edge to 2.9, which corrects the SLA evaluator behavior. HarborPoint Retail completed the upgrade on atlas-edge-08 and retested the same brownout condition. After the upgrade, the class no longer dropped on a single lost probe and active flows remained on the preferred path."
+      }
+    ]
+  }
+}

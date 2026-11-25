@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "version_specific:KB-5101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "On 2.8, why does my SLA class go down after one missed probe even though the link recovers right away?",
+    "reference_answer": "In Atlas SD-WAN 2.8, the SLA evaluator applies the hold-down timer to the most recent probe result instead of the rolling window when the probe count is below five samples. With 1-second probes and a 3/5 hold-down, a single timeout can clear the class state and start a full recovery timer, so `show app-route sla-class` may report the class as down for 10 to 20 seconds even if packet loss stays below 2% afterward. This is fixed in 2.9, where the evaluator uses the configured rolling window before changing class state."
+  }
+}

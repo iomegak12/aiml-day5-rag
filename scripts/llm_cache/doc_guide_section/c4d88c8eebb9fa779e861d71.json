@@ -1,0 +1,60 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-NF#4",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Nimbus NF-300 uses an internal certificate and policy cache to accelerate outbound SSL inspection decisions. The cache stores certificate-chain metadata, server-group policy bindings, and recently validated inspection state so the dataplane does not re-evaluate every new flow from scratch. When the cache is undersized, older entries are evicted more frequently, and the appliance may fall back to a pass-through decision for a small number of new TLS sessions while it rebuilds state. On 5.2.0 and 5.2.2, the recommended cache size is 4096 entries because it reduces eviction-driven bypass events without materially increasing control-plane overhead.",
+      "In normal operation, policy changes are applied atomically at commit time, but SSL inspection is sensitive to the timing of concurrent background work. A policy edit that changes certificate trust, server-group matching, or inspection exceptions should be committed when no threat database update is active. If a threat database update is active during policy activation, the dataplane can stall packet processing on 5.1.5 while the new inspection objects are installed. This does not usually corrupt configuration, but it can create short-lived inspection gaps and elevated session setup latency.",
+      "Operators often misdiagnose intermittent bypass as a certificate or handshake problem when the root cause is cache pressure. A useful indicator is repeated eviction growth followed by new TLS flows bypassing inspection for the same server group. If outbound TLS inspection starts bypassing intermittently after cache eviction, restart SSL inspection to clear stale pointers as a temporary recovery step. This action is corrective, not preventive: it clears the invalid references, but it does not address sustained eviction pressure if the cache remains too small for the environment.",
+      "If increasing the cache to 4096 entries still leaves evictions above 1,000 entries per hour, scope the exception before disabling inspection broadly. Disable outbound inspection for the affected server group only if the cache increase does not keep evictions below 1,000 entries per hour. That trade-off preserves inspection for other traffic classes while limiting the operational impact to the servers that are driving the highest churn. Avoid disabling a global inspection profile unless you have confirmed that the traffic pattern is uniform across all server groups and that the compliance impact has been reviewed.",
+      "When planning changes, separate cache tuning from policy edits where possible. First adjust the cache size, then observe whether the eviction rate and bypass counter stabilize, and only then modify the inspection policy. This sequencing makes it easier to distinguish a capacity issue from a policy activation problem. On 5.1.5 in particular, do not change SSL inspection policy while a threat database update is active, because activation can stall packet processing. Waiting for the update to complete avoids false-positive reports of packet loss or session drops.",
+      "If you need to recover service quickly after an eviction-related bypass event, use the restart procedure for SSL inspection only after confirming that the cache is already at the recommended size or after you have decided to accept a temporary bypass window. For persistent issues, collect the cache and threat-update state together so you can correlate bypass behaviour with update activity and policy commits. This is especially important in mixed-traffic environments where a small number of high-rate TLS origins can dominate cache turnover.",
+      "Procedure changes should be validated against actual traffic rather than configuration alone. After committing the cache change, watch for eviction counters to stop climbing at the previous rate and verify that new outbound TLS sessions are being inspected consistently. If you see policy activation delays, confirm whether a threat database update was active at the time of the commit and reschedule the change window accordingly."
+    ],
+    "procedure_steps": [
+      "Enter configuration mode.",
+      "Set the SSL inspection certificate cache size to 4096 entries.",
+      "Commit the change.",
+      "Check threat database status before making any SSL inspection policy edits.",
+      "If a threat database update is active, wait for it to complete before committing policy changes.",
+      "If intermittent bypass continues after the cache increase, restart SSL inspection as a temporary recovery step; if evictions remain above 1,000 entries per hour, disable outbound inspection only for the affected server group."
+    ],
+    "table": {
+      "caption": "SSL inspection cache and policy-change guidance",
+      "header": [
+        "Item",
+        "Guidance",
+        "Operational note"
+      ],
+      "rows": [
+        [
+          "Cache size",
+          "4096 entries on 5.2.0 and 5.2.2",
+          "Reduces eviction-driven bypass events"
+        ],
+        [
+          "Eviction threshold",
+          "1,000 entries per hour",
+          "Above this level, the cache increase is not sufficient for the affected server group"
+        ],
+        [
+          "Policy change timing",
+          "Avoid changes during an active threat database update",
+          "On 5.1.5, activation can stall packet processing"
+        ],
+        [
+          "Temporary recovery",
+          "Restart SSL inspection",
+          "Clears stale pointers after intermittent bypass begins"
+        ],
+        [
+          "Scope reduction",
+          "Disable outbound inspection for the affected server group only",
+          "Use only when cache tuning does not stabilize evictions"
+        ]
+      ]
+    },
+    "verification": "Use show threat database status to confirm that no update is active before you commit SSL inspection policy changes. After the commit, confirm the cache setting with the relevant SSL inspection status output and check that eviction counters no longer increase at the previous rate and that outbound TLS sessions are inspected consistently. If bypass recurs, compare the time of the bypass event with the threat database status and any recent policy commit to determine whether the issue was caused by cache eviction or by activation during an active database update."
+  }
+}

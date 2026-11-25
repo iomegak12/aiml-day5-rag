@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-4102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "OW-20 APs stop joining after a few retries on 4.7",
+        "description": "MetroLink Telecom opened this by phone for an Orion OW-20 running 4.7. They reported that a small set of APs would come online, fail to join, and then sit offline for several minutes before recovering on their own. TAC checked `show ap detail <name>` on the affected APs and confirmed that `last-seen` only moved again after the next discovery cycle. The pattern matched an AP join retry problem rather than a pure RF or power issue.",
+        "resolution": "TAC applied the KB-4102 workaround by changing the join retry interval from 5 seconds to 2 seconds with `ap join retry-interval 2`. After the change, the APs continued through capability revalidation without being dropped from the retransmit queue. We also advised the customer to keep one-way latency under 80 ms and packet loss below 1% for remote sites."
+      },
+      {
+        "subject": "Intermittent AP join failures on Orion OW-20 4.7",
+        "description": "Crescent Health Group submitted this through the customer portal for an Orion OW-20 controller running 4.7. They stated that several APs were “stuck waiting” and only reappeared after a reboot, which initially suggested a hardware fault at the edge. TAC reviewed the controller logs and saw the APs stop after repeated join attempts, then go quiet during capability revalidation. The log contained `ERR-APJ-4417`, which aligned with the join-state issue we were seeing on 4.7.",
+        "resolution": "Per KB-4102, TAC advised an upgrade to 4.8, where join retries are not consumed until capability revalidation completes or times out. The customer upgraded the controller from 4.7 to 4.8 and retested the affected APs. After the upgrade, the APs joined normally and remained registered through subsequent reboot cycles."
+      },
+      {
+        "subject": "APs drop offline for minutes on OW-20 controller",
+        "description": "Evergreen Clinic Network opened a portal case for an Orion OW-20 running 4.7. They described APs that would join, vanish, and then come back later without any changes at the switch ports or cabling. Initial triage showed the issue was limited to a subset of APs, not the whole site, and `show ap detail <name>` indicated that the affected APs were only updating `last-seen` after a much longer delay. That pointed away from a general controller outage and toward the join process itself.",
+        "resolution": "TAC applied the KB-4102 workaround by reducing the AP join retry interval from 5 seconds to 2 seconds using `ap join retry-interval 2`. This kept the join transaction active long enough for the capability revalidation step to complete. The APs then joined successfully without waiting for the next discovery window."
+      },
+      {
+        "subject": "P2: AP onboarding delay on Orion OW-20 4.7 impacting wireless service",
+        "description": "MetroLink Telecom escalated this through the NOC for an Orion OW-20 on 4.7 after multiple APs failed to return to service in time for a planned maintenance window. They initially suspected a controller redundancy problem because the APs came back only after long delays, but the controller remained stable and no failover occurred. TAC verified the issue on `show ap detail <name>` and confirmed that the affected APs were repeatedly retrying join, then becoming inactive until the next discovery cycle. The behavior was consistent across a small number of APs, which narrowed it to the join state machine.",
+        "resolution": "TAC used the KB-4102 workaround and set `ap join retry-interval 2` to keep the join attempt active during radio capability revalidation. After the change, the affected APs completed the join sequence without dropping out of the retransmit queue. We also confirmed the WAN path met the latency and loss guidance for remote APs."
+      },
+      {
+        "subject": "AP join stalls after retries on OW-20 4.7",
+        "description": "Crescent Health Group called TAC about an Orion OW-20 running 4.7 after noticing that some APs would never finish provisioning unless they were power-cycled. The customer described it as a “stale registration” issue, but TAC saw the controller was accepting the initial join attempts and then stopping partway through the process. The event history showed repeated join retries followed by capability revalidation, after which no more CAPWAP messages arrived from the AP. The log included `ERR-APJ-4417`, matching the known 4.7 join defect.",
+        "resolution": "TAC followed KB-4102 and applied the supported workaround by changing the join retry interval from 5 seconds to 2 seconds with `ap join retry-interval 2`. This prevented the controller from expiring the transaction before capability revalidation returned. The APs subsequently joined without requiring a power cycle, and the customer confirmed the issue was no longer reproducible."
+      }
+    ]
+  }
+}

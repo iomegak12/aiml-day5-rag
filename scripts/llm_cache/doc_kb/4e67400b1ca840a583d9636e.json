@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-3107",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "Nimbus NF-300 active-standby HA pairs can oscillate when the heartbeat links and the monitored interface are both connected to the same Layer 2 switch. A brief L2 forwarding disruption, including STP recalculation, can suppress both heartbeat and monitor traffic long enough to trigger an unnecessary failover.\n\nThis condition affects all releases. The issue is topology-related, not a software defect, and is resolved by separating HA heartbeat traffic from monitored data interfaces or, when cabling changes are delayed, increasing the monitor interval.",
+    "symptoms": "Customers typically observe failover events every 15 to 30 seconds on an active-standby pair when both units are cabled to the same upstream access switch. The event log shows repeated loss and restoration of the monitored link, and the pair repeatedly swaps roles even though the physical interfaces remain administratively up.\n\nOperators may also see transient service interruption during the oscillation window. The pattern is usually repeatable during spanning-tree convergence, port flaps on the upstream switch, or any brief L2 forwarding instability affecting the shared broadcast domain.",
+    "diagnosis_steps": [
+      "Run `show ha status` on both nodes and confirm that the active and standby roles alternate several times per minute; repeated role changes without a corresponding physical link down event indicate HA oscillation.",
+      "Run `show log` or the event log viewer and look for `%HA-3-LINK_MONITOR_FLAP` messages occurring at 15 to 30 second intervals, with matching loss and restoration entries for the same monitored interface.",
+      "Run `show interface status` for the heartbeat and monitored interfaces and confirm that both are connected to the same upstream Layer 2 switch or same broadcast domain.",
+      "If available, run `show spanning-tree` on the upstream switch and check for topology changes, port reconfiguration, or blocking/unblocking events that coincide with the failover times.",
+      "Run `show ha statistics` and look for incrementing monitor-fail and failover counters even when the heartbeat interface itself does not report a sustained physical down state."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %HA-3-LINK_MONITOR_FLAP: interface monitor lost on ha1, declaring peer unreachable\n2026-03-14T02:13:10Z %HA-3-LINK_MONITOR_FLAP: interface monitor restored on ha1\n2026-03-14T02:13:22Z %HA-3-LINK_MONITOR_FLAP: interface monitor lost on ha1, declaring peer unreachable\n2026-03-14T02:13:25Z %HA-3-LINK_MONITOR_FLAP: interface monitor restored on ha1\n\nnimbus# show ha status\nlocal state          : active\npeer state           : standby\nlast failover reason : link monitor timeout\nrole changes (1h)    : 8\nmonitor interval     : 3 seconds\n\nnimbus# show ha statistics\nheartbeat tx/rx      : 18422 / 18419\nmonitor failures     : 14\nfailovers            : 8",
+    "root_cause": "The HA design uses the same Layer 2 broadcast domain for both heartbeat and interface-monitor traffic when the devices are connected through the same access switch. A single L2 forwarding event, including STP recalculation, temporary port blocking, or an upstream switch micro-outage, can interrupt both traffic classes at the same time.\n\nBecause the default monitor interval is 3 seconds, only one missed heartbeat and one missed monitor poll are required to declare the peer unreachable. When both nodes share the same L2 failure domain, the pair can repeatedly fail over and recover without any underlying hardware fault on the firewall itself.",
+    "workaround_steps": [
+      "Move the HA heartbeat links to a dedicated Layer 2 segment that is independent of the monitored interfaces. Use separate switch ports and, where possible, separate upstream paths so a single switching event cannot affect both traffic types.",
+      "If immediate cabling changes are not possible, increase the HA monitor interval from the default 3 seconds to 10 seconds to reduce sensitivity to brief L2 forwarding interruptions.",
+      "Verify that the heartbeat ports remain up and that the monitored interfaces are no longer carried on the same access switch or broadcast domain.",
+      "After applying the change, observe `show ha status` and the event log for at least 30 minutes to confirm that role changes have stopped."
+    ],
+    "resolution": "No software fix is required for this condition in any release. Prevent recurrence by designing the HA pair so heartbeat traffic and monitored interfaces do not share the same Layer 2 switch or broadcast domain, and use separate upstream paths whenever possible. If topology changes cannot be made immediately, keep the monitor interval at 10 seconds until the cabling is corrected."
+  }
+}

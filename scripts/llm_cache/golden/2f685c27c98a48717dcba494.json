@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "multi_hop:KB-2102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "We’re running Aurora AR-900 9.1.4 and after about 49.7 days of uptime some long-lived BFD sessions suddenly stop sending control packets even though the neighbor still seems to answer the last good state. In `show bfd neighbors detail`, the local side stays Up but the transmit counter stops increasing and the peer times out after a few hundred milliseconds. Which release fixes this, and what should we do as a workaround until we can upgrade?",
+    "reference_answer": "This issue is fixed in 9.1.6, where BFD transmit scheduling correctly handles the 64-bit counter wrap. Until you can upgrade, restart the BFD process or reload before the platform reaches 49 days of uptime. As a temporary containment measure on noncritical peers, set the BFD timers to 200 ms transmit/200 ms receive with detection multiplier 5 using `configure`, `router bfd`, `timers 200 200 5`."
+  }
+}

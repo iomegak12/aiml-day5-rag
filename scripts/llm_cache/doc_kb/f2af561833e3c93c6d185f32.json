@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-5101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Atlas SD-WAN 2.8, application-aware routing can incorrectly mark an SLA class down after a single missed 1-second probe interval. This can cause active flows to shift away from the preferred tunnel even when subsequent probe results remain within the configured loss and latency thresholds.",
+    "symptoms": "Branches with short brownouts may show tunnel or application-path state changing from up to degraded for 10 to 20 seconds after one missed probe. `show app-route sla-class` reports the class as down even though packet loss stays below 2% over the next several intervals, and traffic is moved away from the preferred path unnecessarily.\n\nThe issue is most visible on LTE transports or other links with intermittent loss, especially when the SLA profile uses 1-second probes and a 3/5 hold-down. Operators may also see a single `%SDWAN-4-SLA-DOWN` event followed by a recovery delay that is longer than expected for the configured thresholds.",
+    "diagnosis_steps": [
+      "Run `show app-route sla-class` and check whether the affected class is shown as down immediately after a single missed probe, even when the current loss and latency values remain inside threshold.",
+      "Run `show sdwan tunnels` and verify that the tunnel itself remains established while the application-aware routing state is degraded or down. This indicates an SLA evaluation problem rather than a transport failure.",
+      "Check the probe statistics for the class and confirm that fewer than five samples are being used in the window. In affected cases, the down state follows one timeout instead of a sustained rolling-window violation.",
+      "Review the event log for `%SDWAN-4-SLA-DOWN` entries with a timestamp matching the first missed probe. A single event followed by delayed recovery is consistent with this defect.",
+      "If the issue is on LTE, compare the behavior before and after transient brownouts. A brief probe loss followed by 10 to 20 seconds of down state strongly suggests the 2.8 evaluator issue rather than genuine path congestion."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %SDWAN-4-SLA-DOWN: app-route class voice on tunnel lte0 marked down after probe timeout\n2026-03-14T02:13:08Z show app-route sla-class\nclass      probe-interval  loss-threshold  latency-threshold  hold-down  state\nvoice      1000 ms         5%              80 ms              3000 ms    down\n\n2026-03-14T02:13:08Z show sdwan tunnels\nname   local-if  remote-peer   state     health   last-change\nlte0   lte0      198.51.100.7  up        degraded 2026-03-14T02:13:07Z\n\n2026-03-14T02:13:12Z show app-route sla-class\nclass      probe-interval  loss-threshold  latency-threshold  hold-down  state\nvoice      1000 ms         5%              80 ms              3000 ms    down\n\n2026-03-14T02:13:18Z show app-route sla-class\nclass      probe-interval  loss-threshold  latency-threshold  hold-down  state\nvoice      1000 ms         5%              80 ms              3000 ms    up",
+    "root_cause": "In Atlas SD-WAN 2.8, the SLA evaluator applies the hold-down timer to the most recent probe result when the probe count in the window is below five samples. As a result, a single timeout clears the class state and starts a full recovery timer, even if the rolling loss and latency measurements remain inside the configured thresholds.\n\nThis behavior is inconsistent with the intended rolling-window evaluation used by later releases. The defect affects application-aware routing decisions, so traffic can be moved away from a still-usable path after only one missed probe.",
+    "workaround_steps": [
+      "Adjust the SLA profile so the probe window contains at least five samples and a single missed probe does not clear the class state. Use the existing voice class as a template if you need to update the active policy.",
+      "If the affected transport is already close to threshold, increase the packet-loss threshold by 1 to 2 percent to reduce unnecessary path changes during brief brownouts.",
+      "Apply the updated SLA profile and commit the configuration so the edge receives the new probe and hold-down values.",
+      "Verify the class remains stable during the next brownout by checking `show app-route sla-class` and confirming the state no longer drops to down after one missed interval."
+    ],
+    "resolution": "The defect is fixed in release 2.9. In that release and later, the SLA evaluator uses the configured rolling window before changing class state, so a single missed probe no longer forces the SLA class down when the remaining samples are within threshold."
+  }
+}

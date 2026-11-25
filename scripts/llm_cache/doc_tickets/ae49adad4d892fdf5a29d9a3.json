@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-6108",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "EVPN type-5 routes stale after gateway MAC move on HX-5000 7.6",
+        "description": "IronGate Freight opened this as a NOC escalation after a pair of HX-5000 leafs running 7.6 lost reachability to several warehouse prefixes during a gateway failover. Their report said traffic blackholed for roughly 10 minutes after the anycast gateway moved, while the local switch still showed the routes present. TAC checked the EVPN control plane and confirmed the prefix was still installed locally on the leaf, but remote VTEPs were holding the previous next-hop. The switch log also showed \"%EVPN-4-RT5-STALL\" at the time of the MAC move.",
+        "resolution": "TAC identified this as KB-6108 and advised that the issue is fixed in 8.0. IronGate Freight upgraded the affected HX-5000 pair from 7.6 to 8.0, and the EVPN type-5 advertisements resumed updating immediately after subsequent gateway moves."
+      },
+      {
+        "subject": "HX-5000 7.6 EVPN routes not updating after gateway move",
+        "description": "Summit Logistics submitted this through the customer portal and reported intermittent blackholing between two DC pods on an HX-5000 fabric running 7.6. They initially suspected a routing loop, but TAC found the symptom occurred only after the anycast gateway MAC moved between leafs during a maintenance event. `show evpn route-type 5` still listed the affected prefixes locally, yet the remote VTEPs continued forwarding to the older next hop. The switch log included \"%EVPN-4-RT5-STALL\" shortly after the move, matching the stalled route advertisement behavior.",
+        "resolution": "TAC correlated the behavior to KB-6108 and applied the documented workaround: configure terminal, router evpn, address-family l2vpn evpn, route-refresh. After the controlled EVPN route refresh, the remote VTEPs relearned the current next hop and traffic recovered without requiring a software change."
+      },
+      {
+        "subject": "EVPN type-5 prefix stuck after anycast gateway move on 7.6",
+        "description": "Redwood University called TAC after a campus core pair built on HX-5000 switches running 7.6 started blackholing traffic to a newly announced subnet. The customer believed the issue was limited to one VLAN, but TAC observed that the route stayed present on the local leaf while downstream sites continued using the old next hop for the prefix. The timing aligned with an anycast gateway MAC move during a planned failover test. The log buffer also contained \"%EVPN-4-RT5-STALL\", which indicated the EVPN process had suppressed the refresh.",
+        "resolution": "TAC matched the symptoms to KB-6108 and used the workaround from the article. A controlled EVPN route refresh was issued under router evpn, address-family l2vpn evpn, route-refresh, which forced the type-5 advertisement to update on the fabric."
+      },
+      {
+        "subject": "Summit Logistics: VXLAN prefix stale until EVPN refresh on HX-5000",
+        "description": "Summit Logistics emailed TAC reporting that hosts behind their HX-5000 core switch on 7.6 could reach the gateway locally, but remote sites could not reach some new prefixes after a maintenance switchover. Their message suggested a BGP peer flap, but TAC found the underlay remained stable and only EVPN type-5 propagation was affected. The local switch continued to show the prefix in `show evpn route-type 5`, while remote VTEPs kept the previous next hop for several minutes. The log history included \"%EVPN-4-RT5-STALL\" at the same time as the anycast gateway MAC move.",
+        "resolution": "TAC determined the case matched KB-6108 and applied the documented workaround rather than changing software. After entering configure terminal, router evpn, address-family l2vpn evpn, and running route-refresh, the stale type-5 routes were re-advertised and the remote peers updated to the correct VTEP."
+      },
+      {
+        "subject": "Intermittent reachability loss after gateway failover on HX-5000",
+        "description": "An on-site field engineer for IronGate Freight reported brief loss of reachability between leaf-spine sites after moving an anycast gateway on an HX-5000 running 7.6. The engineer suspected duplicate MAC learning, but TAC review showed the local switch kept the type-5 prefix installed while upstream peers retained stale next-hop information. The issue reproduced only after the gateway MAC moved between leafs and then self-cleared much later. No log excerpt was included in the field notes, but packet traces confirmed the blackhole during the stale-route window.",
+        "resolution": "TAC tied the behavior to KB-6108 and recommended the operational workaround. The engineer performed a controlled EVPN route refresh after the gateway move, which caused the prefix advertisements to update immediately and restored end-to-end reachability."
+      }
+    ]
+  }
+}

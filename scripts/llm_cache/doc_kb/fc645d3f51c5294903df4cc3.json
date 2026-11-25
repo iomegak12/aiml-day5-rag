@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-2108",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Aurora AR-900 running 9.3.0, dynamic NAT can report port exhaustion after a burst of short-lived sessions even when the pool still has apparent capacity. The issue is caused by deferred return of freed ports and affects pools with 64 or fewer public addresses most noticeably under high session churn.",
+    "symptoms": "Administrators observe that new outbound flows fail with source-port allocation errors for 2 to 4 minutes after a traffic burst, even though `show nat translations` displays only a small active set. The condition is most visible when the router creates and tears down 20,000 to 30,000 sessions per minute and may appear as transient application failures, intermittent connectivity loss, or repeated NAT allocation failures in logs.\n\nThe router may also log an exhaustion event while the forwarding plane has already released the ports logically. In affected cases, the number of active translations remains well below the total pool size, which makes the failure appear inconsistent with the displayed NAT table state.",
+    "diagnosis_steps": [
+      "Run `show nat translations` and compare the active translation count with the available public address pool size. If only a small subset of ports is active but new sessions still fail, the condition is consistent with deferred-free exhaustion.",
+      "Run `show nat statistics` and check for rising allocation failures, exhausted-port counters, or a mismatch between freed-port counts and active translations. A growing failure counter during low visible utilization indicates the allocator is rejecting new sessions before the pool is truly full.",
+      "Run `show logging | include ERR-NAT-4108` and confirm that exhaustion messages occur immediately after a burst of short-lived connections. Repeated messages with a 2 to 4 minute recovery window support this issue.",
+      "If needed, run `debug nat allocator` for a brief interval and look for messages indicating ports are marked free by forwarding but remain counted as deferred in the allocator. The defect is present when allocator rejection occurs while translations remain low.",
+      "Check the configured NAT pool size with `show running-config | include ip nat pool` and note whether the pool uses 64 or fewer public addresses. Smaller pools are more likely to show the problem under bursty churn."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %NAT-3-ALLOCFAIL ERR-NAT-4108 dynamic port exhaustion detected in pool edge-pool\n2026-03-14T02:13:08Z %NAT-4-INFO session churn rate 24816/min, active translations 142\n2026-03-14T02:13:10Z %NAT-4-INFO deferred-free ports 3821, allocator free list 27\n\nAurora-AR900# show nat translations\nPro  Inside global       Inside local        Outside local       Outside global\nudp  198.51.100.10:40218 10.0.10.14:54721    203.0.113.8:443     203.0.113.8:443\nudp  198.51.100.11:40219 10.0.10.15:54722    203.0.113.9:53      203.0.113.9:53\nTotal active translations: 142\n\nAurora-AR900# show nat statistics\nPool edge-pool: 2 addresses active, 27 ports available, 3821 deferred frees\nAllocation failures: 614\nLast failure reason: source-port allocation error",
+    "root_cause": "In 9.3.0, the NAT allocator defers returning freed ports until the end of a 240-second aging cycle. During that window, the exhaustion check still counts those deferred ports as in use. When session churn is high, the allocator can temporarily reject new sessions even though the forwarding plane has already released the ports logically.\n\nThis is primarily a bookkeeping issue in the allocator state machine rather than a true depletion of usable ports. The failure window closes as deferred entries age out, which is why the condition is self-clearing after a few minutes if traffic rate drops.",
+    "workaround_steps": [
+      "Increase the NAT pool capacity so the allocator has enough headroom to absorb the 240-second deferred-free window. If possible, add at least one additional public address to the pool used by the affected traffic.",
+      "If the application design allows it, reduce connection churn by increasing keepalive intervals to 60 seconds or more so fewer sessions are torn down in rapid succession.",
+      "Apply the NAT pool and translation timeout settings in configuration mode using the provided commands, then verify that the pool shows increased available headroom and fewer deferred-free entries.",
+      "Monitor `show nat statistics` during the next traffic burst to confirm that allocation failures stop occurring before the deferred-free timer expires."
+    ],
+    "resolution": "No software fix is required for this release. Prevent recurrence by sizing NAT pools to tolerate the 240-second deferred-free window and by reducing short-lived session churn where possible. After applying the workaround, validate that pool headroom remains sufficient during peak connection bursts and that `ERR-NAT-4108` no longer appears in the logs."
+  }
+}

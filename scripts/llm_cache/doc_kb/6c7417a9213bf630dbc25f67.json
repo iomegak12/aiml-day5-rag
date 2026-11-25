@@ -1,0 +1,26 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-4111",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "Orion OW-20 release 5.0 can fail a direct upgrade from 4.6 when the configuration database contains legacy guest portal ACL objects created before 4.7. In affected upgrades, the controller boots the 5.0 image, begins post-upgrade migration, then aborts and rolls back to the previous image.",
+    "symptoms": "During the upgrade, the controller reboots into the target image but does not complete the database migration. In most cases, the process stalls for 8-12 minutes and then the controller returns to the prior release with the old image still active. The upgrade log stops during guest portal object conversion, and the controller may briefly report database migration errors before rollback.\n\nThis issue is most often seen on systems with more than 50 legacy guest ACL objects that were created before 4.7. The configuration otherwise appears valid, but the upgrade consistently fails at the same migration stage.",
+    "diagnosis_steps": [
+      "Run `show version` and confirm the controller is attempting a 4.6 to 5.0 direct upgrade. A rollback to the older image after reboot is consistent with this defect.",
+      "Run `show configuration database summary` and check for a large guest portal object count, especially databases with many legacy entries preserved from pre-4.7 builds.",
+      "Run `show guest acl summary` and look for ACL objects with empty destination fields or other legacy formatting. These entries indicate the pre-4.7 schema that triggers the failure.",
+      "Review the upgrade log around the migration window. The failure is confirmed if the log stops at guest portal object conversion and then reports ERR-UPG-2204 before rollback.",
+      "If the controller exposes a failed upgrade state, verify that no other subsystem errors are present. AP join, RADIUS, and redundancy status are typically normal; the failure is isolated to configuration migration."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %UPG-5-START: upgrade apply 5.0 initiated\n2026-03-14T02:13:19Z %UPG-5-REBOOT: booting into new image\n2026-03-14T02:17:44Z %UPG-4-MIGRATE: starting configuration database migration\n2026-03-14T02:18:02Z %UPG-4-ACL-CONVERT: converting guest portal ACL object acl-guest-041\n2026-03-14T02:18:02Z %UPG-3-ERROR: ERR-UPG-2204 guest portal acl object conversion failed: legacy schema entry has empty destination field\n2026-03-14T02:18:03Z %UPG-3-ABORT: migration aborted, initiating rollback\n2026-03-14T02:21:11Z %UPG-5-ROLLBACK: previous image restored",
+    "root_cause": "The 5.0 migration tool expects guest portal ACL entries to already be normalized into the post-4.7 schema. On 4.6 systems, the configuration database may still contain older guest ACL objects with empty destination fields and other legacy layout details. When the converter encounters one of these objects, it treats the entry as malformed instead of translating it into the newer schema.\n\nBecause the migration aborts during database conversion, the upgrade does not complete and the controller rolls back to the previous image. The issue is more likely when the database includes a large number of legacy guest ACL objects, because the probability of encountering a malformed pre-4.7 entry increases with object count.",
+    "workaround_steps": [
+      "Before upgrading, review the configuration database and identify unused guest portal ACL objects, with emphasis on entries created before 4.7.",
+      "Remove stale or duplicate legacy guest ACL objects so that the database contains only normalized entries. Keep the intended policy set intact, and export the configuration for review before making changes.",
+      "Confirm the guest ACL inventory is reduced and that no remaining objects show legacy formatting or empty destination fields.",
+      "Retry the upgrade to 5.0 after pruning the stale objects. If the controller already failed the upgrade, boot the old image first, clean up the legacy ACL objects, and then rerun the upgrade path.",
+      "After the controller returns to service, verify the migration completed and the configuration database is consistent."
+    ],
+    "resolution": "This defect is fixed in release 5.1. In 5.1, the migration tool translates legacy guest portal ACL objects instead of aborting when it encounters the older schema."
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-5110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "After upgrading Atlas SD-WAN edges from 3.1 to 3.2, LTE transports that use a nondefault APN may lose their configured per-interface tunnel MTU during migration. The tunnel remains established, but traffic larger than the effective post-upgrade encapsulation limit is fragmented or dropped.\n\nThis issue affects the edge configuration only after upgrade; branches using the default APN retain the expected MTU value.",
+    "symptoms": "Following a 3.1 to 3.2 upgrade, the LTE interface comes up and the overlay tunnel shows as established, but applications that send larger packets begin to experience fragmentation or loss. In practice, packets above about 1418 bytes fail on the affected circuit, while smaller probes continue to pass.\n\nThe post-upgrade running configuration no longer shows the prior `tunnel-mtu` statement on LTE interfaces bound to a custom APN. Branches using the default APN do not show the same configuration loss and continue to operate with the original MTU setting.",
+    "diagnosis_steps": [
+      "Run `show sdwan tunnels` on the edge and verify that the LTE tunnel is in `established` state. If the tunnel is up but user traffic fails at larger packet sizes, continue with MTU verification.",
+      "Run `show running-config interface lte0` and inspect the LTE interface stanza. If the pre-upgrade `tunnel-mtu` line is missing after the upgrade, this matches the defect.",
+      "Run `show app-route sla-class` or the relevant path-policy view to confirm that routing decisions are unchanged and that the symptom is limited to packet size handling rather than path selection.",
+      "Send 1400-byte and 1472-byte probes across the LTE path. If 1400-byte traffic passes and 1472-byte traffic fragments or fails, the effective tunnel MTU is lower than the configured value.",
+      "Check the APN binding in the LTE interface configuration. If the interface uses a custom APN and the MTU override disappeared only on that interface, the issue is the 3.2 migration defect.",
+      "Review edge logs for the upgrade event. A matching `%UPG-5-MTU-MIGRATE` message indicates the migration path processed the LTE interface and omitted the MTU field for a nondefault APN."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z edge-01 %UPG-5-MTU-MIGRATE: interface lte0 apn=corp-apn tunnel-mtu not migrated; default value applied\n2026-03-14T02:13:09Z edge-01 show sdwan tunnels\nTunnel  Local Intf  Remote Peer     State       Encapsulation  Loss  Latency  Jitter\n-----   ----------  --------------  ----------  -------------  ----  -------  ------\n1       lte0        198.51.100.14   established ipsec         0%    18 ms    3 ms\n\n2026-03-14T02:13:12Z edge-01 show running-config interface lte0\ninterface lte0\n apn corp-apn\n address dhcp\n mtu 1500\n ! tunnel-mtu omitted after upgrade\n\n2026-03-14T02:13:18Z edge-01 ping 203.0.113.10 size 1472 df-bit\nsendto: message too long\n2026-03-14T02:13:20Z edge-01 ping 203.0.113.10 size 1400 df-bit\n5 packets transmitted, 5 received, 0% packet loss",
+    "root_cause": "The 3.2 migration parser only copies the LTE tunnel MTU when the APN name matches the default profile. If a custom APN is in use, the parser preserves the interface object but silently omits the MTU field, so the overlay inherits the platform default value instead of the configured one.\n\nAs a result, the tunnel remains operational, but its effective encapsulation budget is smaller than expected. The defect is limited to migrated LTE interfaces with nondefault APNs and does not affect branches using the default APN.",
+    "workaround_steps": [
+      "Identify every LTE interface that uses a custom APN on the upgraded edge.",
+      "Reapply the expected tunnel MTU on each affected LTE interface after the upgrade. Use the value that was configured before migration; in affected deployments this is commonly 1400 bytes.",
+      "Save the configuration and confirm that the interface stanza now includes the `tunnel-mtu` setting.",
+      "Validate the path by testing both a 1400-byte probe and a 1472-byte probe. The smaller probe should succeed, and the larger probe should pass only if the end-to-end encapsulation budget allows it.",
+      "Return the circuit to production only after the larger-packet test behaves as expected for the site design."
+    ],
+    "resolution": "The defect is fixed in release 3.3. The 3.3 migration preserves LTE tunnel MTU values for both default and nondefault APNs, so upgraded edges retain the configured per-interface MTU setting."
+  }
+}

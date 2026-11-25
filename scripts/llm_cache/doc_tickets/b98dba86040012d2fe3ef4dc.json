@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-3102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "NF-300 IPsec tunnel flaps every hour on 5.1.3",
+        "description": "Partner escalated for Evergreen Clinic Network reporting intermittent IPsec tunnel drops between a Nimbus NF-300 and a remote healthcare hub. The customer sees the tunnel recover on its own, then drop again roughly 30 to 60 minutes later, which is causing brief loss of access to imaging and scheduling systems. The firewall is running 5.1.3. Initial TAC review of `show crypto ikev2 sa` shows the child SA lifetimes alternating between rekey cycles, which matches the rekey instability pattern seen on this release.",
+        "resolution": "TAC identified the behavior as KB-3102 and applied the documented workaround by pinning a single DH group on both peers. The customer set `crypto ikev2 proposal default dh-group 14` in config mode and committed the change. After the update, the tunnel stopped flapping and rekeys completed normally."
+      },
+      {
+        "subject": "IKEv2 child SA resets after rekey on 5.1.5",
+        "description": "Evergreen Clinic Network NOC opened this case after their Nimbus NF-300 began dropping one of several site-to-site VPNs during scheduled rekey events. They reported the issue started after a maintenance window and that only one peer was affected, while others remained stable. The firewall is running 5.1.5. TAC reviewed the tunnel history and found that `show crypto ikev2 sa` showed rekey activity consistent with a phase 2 reset rather than a transport outage, and the device log included `%IKEV2-3-PROPOSAL_MISMATCH` immediately after the peer attempted the rekey.",
+        "resolution": "TAC tied the symptoms to KB-3102 and advised upgrade to the fixed release. The customer upgraded the firewall from 5.1.5 to 5.2.0, where the responder uses the negotiated DH group from the active child SA context. After the upgrade, rekey events completed without child SA resets."
+      },
+      {
+        "subject": "VPN drops on MetroLink NF-300 during rekey window",
+        "description": "Partner escalated for MetroLink Telecom with reports that a routed IPsec tunnel between two WAN edge sites would fail and then rebuild without manual intervention. The customer initially suspected a peer-side timing issue because the disconnects were periodic and aligned with traffic bursts, but packet loss was limited to the encrypted path. The Nimbus NF-300 is running 5.1.5. During triage, TAC confirmed that the tunnel state oscillated during rekey and quoted the device log entry `%IKEV2-3-PROPOSAL_MISMATCH` immediately after the peer initiated a child-SA rekey.",
+        "resolution": "TAC identified the issue as KB-3102 and applied the workaround by forcing a single DH group on the tunnel policy. The customer configured `crypto ikev2 proposal default dh-group 14` in config mode and committed the change on both ends. The tunnel stabilized after the change, and no further proposal mismatch events were observed."
+      },
+      {
+        "subject": "Intermittent site-to-site VPN resets on NF-300",
+        "description": "Summit Logistics submitted this case through the customer portal after a branch-to-datacenter VPN started resetting every 45 minutes. They reported that the tunnel came back quickly, but any active file transfer or remote session was interrupted. The Nimbus NF-300 is running 5.1.3. TAC checked the IKEv2 state table and saw the child SA lifetimes change from one rekey to the next, and the firewall log included `%IKEV2-3-PROPOSAL_MISMATCH` at the moment the peer attempted to rekey with an alternate acceptable transform.",
+        "resolution": "TAC matched the behavior to KB-3102 and implemented the documented workaround. A single DH group, group 14, was pinned on both peers using `crypto ikev2 proposal default dh-group 14`, followed by `commit`. After that change, the branch tunnel remained up through subsequent rekeys."
+      },
+      {
+        "subject": "Encrypted path intermittently drops between freight sites",
+        "description": "IronGate Freight opened an NOC escalation for a Nimbus NF-300 at a regional distribution site. Operators reported that the IPsec tunnel to the head office would drop and re-establish without any obvious WAN outage, usually once or twice per hour. The firewall is running 5.1.5. TAC triage found no interface errors or session table saturation, and the IKEv2 rekey timing aligned with the recurrence pattern seen on affected releases. The customer did not provide logs, but the symptoms were consistent with a phase 2 rekey failure.",
+        "resolution": "TAC identified the issue as KB-3102 and applied the workaround from the article. The tunnel policy was updated to use a single DH group, preferably group 14, on both peers with `crypto ikev2 proposal default dh-group 14`, then committed. After the configuration change, the VPN stayed stable and the periodic drops stopped."
+      }
+    ]
+  }
+}

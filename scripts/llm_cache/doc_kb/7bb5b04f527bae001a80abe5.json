@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-5105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Atlas SD-WAN 2.9, overlay tunnels can oscillate between up and degraded when SLA probes are delayed by bursty best-effort traffic. The issue is most visible on links carrying sustained backup or replication traffic, where application steering reacts to false path degradation even though the physical transport remains up.",
+    "symptoms": "On affected 2.9 edges, overlay tunnels flap between up and degraded at intervals of roughly 30 to 60 seconds while the underlay interface remains operational. `show sdwan tunnels` typically shows increasing loss counters or intermittent SLA failures during traffic bursts, and `show app-route sla-class` may show the preferred path being withdrawn for voice or interactive sessions.\n\nThe condition is usually reproducible only when the circuit is busy. When traffic load stays below about 70 percent, the same tunnel and application policy may remain stable, which can make the issue appear intermittent or path-specific.",
+    "diagnosis_steps": [
+      "Run `show sdwan tunnels` on the edge and identify tunnels that alternate between up and degraded while the transport interface remains up. Look for rising loss, latency, or jitter counters that align with peak traffic periods.",
+      "Run `show app-route sla-class` and verify whether the affected SLA class reports consecutive probe misses or threshold violations around 50 ms latency. A pattern of probe failures during backup bursts supports this issue.",
+      "Check interface utilization with `show interface statistics` or the equivalent per-transport counter view. Sustained outbound utilization near or above 70 percent on the same link is a strong indicator that probe delay is queue-related.",
+      "If packet capture is available, capture on the transport interface during a traffic burst and confirm that SLA probe packets are transmitted after large data bursts rather than in a consistent cadence.",
+      "Review the event log for `%SDWAN-4-SLA-DOWN` entries that coincide with the tunnel state changes. Repeated entries with no corresponding underlay link down event point to a datapath scheduling problem rather than a physical fault."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z edge-01 %SDWAN-4-SLA-DOWN: tunnel overlay0 degraded, probe latency 63 ms exceeded threshold 50 ms\n2026-03-14T02:13:07Z edge-01 %SDWAN-4-SLA-DOWN: path 198.51.100.14 loss 3.8% jitter 4 ms during queue contention\n\nedge-01# show sdwan tunnels\nTunnel      Local        Remote        State     Latency  Loss  Jitter\noverlay0    192.0.2.10   198.51.100.14  degraded  63 ms    3.8%  4 ms\noverlay1    192.0.2.10   203.0.113.22   up        18 ms    0.0%  1 ms\n\nedge-01# show app-route sla-class\nSLA Class   Probe Freq  Thresholds        Result\nvoice       1 s         latency 50 ms     missed 3/5 probes\ninteractive  1 s         latency 50 ms     degraded on primary path",
+    "root_cause": "In release 2.9, the datapath schedules SLA probe packets in the same egress queue as best-effort application traffic. Under bursty load, large data transfers can delay probe transmission long enough for the measured latency to exceed the 50 ms SLA threshold, which causes tunnel health evaluation to mark the path degraded.\n\nBecause the underlay link itself remains up and user traffic may still be forwarded successfully, the condition is specific to probe scheduling and queue contention rather than an actual transport failure. This is why the issue is commonly seen during backup windows or other sustained bulk-traffic periods.",
+    "workaround_steps": [
+      "Identify the busy transport link and confirm that the tunnel flaps correlate with burst traffic rather than with physical interface loss.",
+      "Change the affected SLA class so probes are sent from a higher-priority control queue, or reserve at least 10 percent bandwidth for control traffic on links that carry sustained bulk transfers.",
+      "If shaping is already enabled, reduce the bulk-traffic class limit to roughly 60 to 70 percent to prevent probe packets from being delayed behind large data bursts.",
+      "Apply the change to the voice SLA class on the orchestrator or edge CLI, then commit the configuration and verify that tunnel state remains stable during the next traffic burst."
+    ],
+    "resolution": "The defect is fixed in release 3.0. In that release and later, SLA probes are sent on a dedicated control queue and no longer inherit delay from bulk application traffic."
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-4112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "OW-20 backup missing recent WLAN edits after restore",
+        "description": "Pinnacle Energy reported that an Orion OW-20 running 5.1 restored from a manual configuration backup, but the newest SSID rename and radio profile change from earlier the same morning were gone. Their portal note said the backup completed cleanly and there was no warning, but the restored controller reverted the last WLAN changes to the prior values. TAC reviewed the configuration database status and confirmed the commit queue was not empty when the backup was taken. The behavior matches a backup captured before pending WLAN edits were committed.",
+        "resolution": "TAC identified the issue as KB-4112 and advised the customer to wait until the commit queue drains to zero before taking a configuration backup. We recommended using `show configuration database summary` to verify the queue is empty, then `commit` if needed and run `backup configuration` only after at least 30 seconds of idle time following the last WLAN edit."
+      },
+      {
+        "subject": "Recent wireless changes not present after OW-20 restore",
+        "description": "Cornerstone Supermarkets called to report that their Orion OW-20 on 5.1 restored successfully from a backup, but two WLAN tweaks made shortly before the backup were not present afterward. The customer believed the restore had failed because the system came back without any corruption message and all other settings looked normal. TAC checked the sequence of changes and found the backup was initiated while WLAN edits were still staged in the commit queue. The restored image matched the last committed state rather than the most recent in-memory edits.",
+        "resolution": "TAC closed the case under KB-4112 and instructed the customer to take backups only after the commit queue is empty. We had them confirm the pending state with `show configuration database summary`, commit the WLAN changes, and wait for the queue to drain before rerunning `backup configuration`."
+      },
+      {
+        "subject": "OW-20 backup rolled back last SSID change after restore",
+        "description": "BlueRiver Credit Union emailed that an Orion OW-20 running 4.9 restored without error, but the last SSID security update made before the backup was missing. They noted that the backup was taken after several WLAN edits were staged, and the restored controller appeared to revert only the newest change. TAC reproduced the timing with a similar configuration state and confirmed the commit queue was still non-empty when the backup snapshot was created. There was no database corruption; the backup simply captured the previously committed configuration.",
+        "resolution": "TAC referenced KB-4112 and advised the customer to wait for the commit queue to clear before performing backups. We recommended verifying the queue state with `show configuration database summary`, issuing `commit` for the staged WLAN edits, and then running `backup configuration` after the system had been idle for 30 seconds."
+      },
+      {
+        "subject": "Backup on OW-20 missing staged WLAN edits after restore",
+        "description": "MetroLink Telecom reported from an on-site field engineer that an Orion OW-20 on 4.7 restored cleanly, but the most recent wireless profile change was absent after the restore. The engineer initially suspected a bad backup file, but the controller otherwise loaded normally and no integrity alarms were present. TAC reviewed the change timing and found the backup had been taken while the configuration database commit queue was still active. The controller had backed up the persisted state only, so the latest staged WLAN edit was not included. \"%ERR-DB-1809: backup snapshot taken with non-empty commit queue; pending WLAN edits omitted\"",
+        "resolution": "TAC resolved the case using KB-4112 and explained that no software defect needed to be remediated in the field. We instructed the engineer to check `show configuration database summary`, wait until the queue reaches zero, then `commit` and take `backup configuration` only after the WLAN changes have been idle for at least 30 seconds."
+      },
+      {
+        "subject": "OW-20 restore came back without last wireless edits",
+        "description": "CivicWorks Public Agency emailed TAC about an Orion OW-20 running 5.1. Their message said a scheduled backup restored successfully, but the newest WLAN change was missing and the controller looked like it had been rolled back by a few minutes. TAC saw that the backup was triggered immediately after a batch of wireless edits, while the configuration database was still processing pending commits. The event log included \"%ERR-DB-1809: backup snapshot taken with non-empty commit queue; pending WLAN edits omitted\". This matched the reported symptom of a clean restore with incomplete recent WLAN changes.",
+        "resolution": "TAC handled the issue per KB-4112 and advised the agency to back up only after the commit queue drains to zero. We recommended checking `show configuration database summary`, running `commit` for any staged WLAN edits, and waiting at least 30 seconds after the last change before `backup configuration`."
+      }
+    ]
+  }
+}

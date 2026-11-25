@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-5104",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "After upgrading an Atlas SD-WAN edge from 3.0 to 3.1, dual-SIM LTE sites may continue to form overlay tunnels but begin dropping larger packets. The tunnel state remains up in `show sdwan tunnels`, while application traffic above the effective path MTU fails and the edge logs repeated MTU mismatch notices.",
+    "symptoms": "This issue is observed only on edges that had an explicit LTE tunnel MTU configured before the upgrade and that present two modem profiles on the same LTE interface. Following the upgrade to 3.1, the overlay may remain established, but flows with payloads above roughly 1420 bytes experience loss, retransmissions, or intermittent fragmentation alerts. Operators commonly report that small probes succeed while larger pings or application sessions fail across the LTE transport.\n\nOn affected edges, `show sdwan tunnels` reports the tunnel as up and forwarding, which can delay detection. The edge log contains repeated upgrade and MTU mismatch messages, and the configured tunnel MTU shown in the running configuration no longer matches the pre-upgrade value.",
+    "diagnosis_steps": [
+      "Run `show sdwan tunnels` on the affected edge and confirm the LTE tunnel is up while packet loss or fragmentation is reported only for larger traffic sizes.",
+      "Run `show running-config interface lte0` and check whether `tunnel-mtu` is absent or has reverted to the default 1500 bytes after the upgrade.",
+      "Run `show app-route sla-class` if application-aware routing is in use and verify whether the SLA class is marking the LTE path degraded due to loss or reordering on larger probes.",
+      "Generate a size-limited test from the edge or a reachable host using 1472-byte ICMP payloads. If smaller pings succeed but 1472-byte probes fail, the path MTU is inconsistent with the expected LTE tunnel MTU.",
+      "Check the edge log for upgrade migration notices and MTU mismatch entries. The presence of `%UPG-5-MTU-MIGRATE` together with repeated MTU warnings indicates the migration did not preserve the configured LTE tunnel MTU."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z edge01 %UPG-5-MTU-MIGRATE: interface lte0 dual-sim profile detected, applying default tunnel mtu\n2026-03-14T02:13:09Z edge01 %TUN-4-MTU-MISMATCH: lte0 configured mtu 1500 exceeds carrier path mtu 1420\n2026-03-14T02:13:11Z edge01 %TUN-4-FRAG-ALERT: overlay packet size 1472 dropped on tunnel lte0\n\nedge01# show sdwan tunnels\nname     state  transport  local-ip       remote-ip      mtu  loss  latency\nlte0     up     lte        198.51.100.14  203.0.113.21   1500  0.0%  48ms\n\nedge01# show running-config interface lte0\ninterface lte0\n  sim-profile primary\n  sim-profile secondary\n  tunnel-mtu 1500",
+    "root_cause": "The 3.1 migration script copies the LTE profile but falls back to the default tunnel MTU when it detects two modem profiles on the same interface. As a result, the saved pre-upgrade MTU value is not preserved in the upgraded running configuration.\n\nBecause the edge advertises an encapsulation size larger than the carrier LTE link can carry, large overlay packets exceed the effective path MTU. The tunnel stays operational, but traffic that depends on the original smaller MTU is fragmented or dropped.",
+    "workaround_steps": [
+      "After the upgrade, identify each affected LTE interface on the edge and compare the running configuration with the pre-upgrade tunnel MTU value.",
+      "Reapply the correct tunnel MTU on the LTE interface. For most carrier LTE links, use a value between 1400 and 1420 bytes; 1400 bytes is a safe starting point when the original value is unknown.",
+      "Commit the configuration and wait for the overlay to reconverge.",
+      "Retest with 1472-byte pings to the remote endpoint or next-hop service. Confirm that larger payloads now pass without fragmentation or loss before returning the site to service."
+    ],
+    "resolution": "The defect is fixed in release 3.2. In that release, the migration preserves the configured LTE tunnel MTU across dual-SIM upgrades, preventing the tunnel from advertising an MTU larger than the LTE path can support."
+  }
+}

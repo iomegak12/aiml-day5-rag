@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "how_to:GUIDE-OW#1",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "How should I tune AP join behavior so remote APs finish registration reliably on affected releases?",
+    "reference_answer": "For Orion OW-20 on 4.6, remove any RF profile override from the AP group with `ap-group default rf-profile none` so the controller does not emit a zero-length RF profile TLV. On 4.7, set the AP join retry interval to 2 seconds with `ap join retry-interval 2`, and keep one-way latency under 80 ms. On 4.8, set the AP join timeout to 180 seconds with `ap join timeout 180`, and keep uplink loss below 0.5% during join operations; use `show ap summary` and `show logging last 50` to verify behavior."
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-5108",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "In Atlas SD-WAN 2.8, an edge can complete certificate renewal successfully but fail to re-register with the orchestrator after the renewal. The orchestrator then marks the edge disconnected and rejects subsequent policy pushes because the certificate chain no longer validates to a trusted root.",
+    "symptoms": "After a certificate rotation, an edge that previously renewed without error may disappear from the orchestrator UI and show as disconnected within 2 to 6 minutes. Policy updates for that site fail, and the orchestrator reports certificate validation errors when trying to re-establish the session.\n\nOn the edge, the local renewal workflow completes and the new certificate is installed, but the next registration attempt is rejected. The failure is most often seen when the intermediate CA has been replaced or has expired, while the orchestrator still holds the older trust bundle and cannot build a valid chain to the new certificate.",
+    "diagnosis_steps": [
+      "On the edge, run `show sdwan tunnels` and confirm that overlay tunnels are down or flapping after the certificate renewal. This issue often appears as a loss of control-plane reachability shortly after the new certificate becomes active.",
+      "On the edge, run `show log | include PKI` and look for a completed renewal followed by a chain validation failure. A matching `%PKI-3-CHAIN-UNTRUSTED` message indicates the edge certificate is no longer trusted by the orchestrator chain.",
+      "On the orchestrator, review the edge status in the site inventory and confirm that the device changes to disconnected within 2 to 6 minutes of renewal. If policy push attempts fail for the same site, check for certificate validation errors in the policy task output.",
+      "On the orchestrator, run `show certificate trust-bundle` and verify whether the current intermediate CA is present. If the bundle still references the previous intermediate or lacks the new chain, the orchestrator will continue to reject the edge registration attempt.",
+      "If available, run `show certificate chain edge <edge-name>` on the orchestrator and confirm that validation stops at an untrusted or expired intermediate rather than the current root CA. This supports a trust-bundle mismatch rather than a local edge certificate generation problem."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z edge-17 %PKI-3-CHAIN-UNTRUSTED: certificate chain validation failed; issuer CN=Atlas Intermediate CA 2025 is not trusted\n2026-03-14T02:13:08Z edge-17 pki: renewal complete, new device certificate installed\n2026-03-14T02:13:12Z orchestrator pki: registration rejected for edge-17, unable to validate chain to trusted root\n2026-03-14T02:15:01Z orchestrator policy: push to site edge-17 failed, certificate validation error\n\nedge-17# show sdwan tunnels\nsite-id   color    local-ip        remote-ip       state   uptime\n17        internet 198.51.100.17   203.0.113.10    down    00:02:41\n17        lte       10.17.0.2       203.0.113.11    down    00:02:38",
+    "root_cause": "The orchestrator stores the edge trust bundle separately from the active device certificate. In release 2.8, certificate renewal updates the device certificate but does not automatically refresh the stored intermediate CA chain used for subsequent validation.\n\nIf the intermediate certificate is replaced or expires, the orchestrator continues to validate the edge against the previous chain. The edge can complete renewal locally, but the next registration attempt is rejected because the certificate chain cannot be built back to a trusted root, resulting in `%PKI-3-CHAIN-UNTRUSTED`.",
+    "workaround_steps": [
+      "Before renewing the edge certificate, import the complete current chain into the orchestrator, including the active intermediate CA and any required issuer certificates. Use the orchestrator certificate management workflow to stage the new trust material.",
+      "Verify that the trust bundle now contains the current intermediate CA and that the chain validates cleanly before starting certificate rotation for the edge site.",
+      "In large deployments, stage the new chain at least 24 hours before the previous intermediate expires to avoid a registration gap during the switchover.",
+      "After the trust bundle is updated, renew the edge certificate and confirm that the edge re-registers and policy pushes succeed without certificate validation errors."
+    ],
+    "resolution": "This defect is fixed in release 2.9. Certificate renewal now refreshes the stored intermediate chain automatically, so the orchestrator can validate the edge against the updated trust bundle without manual intervention."
+  }
+}

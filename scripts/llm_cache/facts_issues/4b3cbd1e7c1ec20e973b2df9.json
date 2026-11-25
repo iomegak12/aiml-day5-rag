@@ -1,0 +1,323 @@
+{
+  "stage": "facts_issues",
+  "label": "AT",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "issues": [
+      {
+        "ref": "I01",
+        "category": "Routing",
+        "error_code": "%SDWAN-4-SLA-DOWN",
+        "title": "Atlas SD-WAN 2.8: application-aware routing marks SLA class down after a 1-second probe loss spike",
+        "symptoms": "On Atlas SD-WAN 2.8, branches with short brownouts can see tunnel state change from up to degraded for 10 to 20 seconds after a single missed probe interval. `show app-route sla-class` reports the class as down even when packet loss remains below 2% over the next several intervals, and active flows are moved away from the preferred path. The issue is easiest to reproduce on LTE links with 1-second probes and a 3/5 hold-down.",
+        "root_cause": "The 2.8 SLA evaluator applies the hold-down timer to the most recent probe result instead of the rolling window when the probe count is below five samples. A single timeout therefore clears the class state and starts a full recovery timer, which is not consistent with the configured loss and latency thresholds.",
+        "workaround": "Increase the SLA probe window to at least five samples and extend the hold-down so one missed probe does not clear the class. If the link is already marginal, raise the packet-loss threshold by 1 to 2 percent to prevent unnecessary path switching.",
+        "workaround_commands": [
+          "app-route sla-class voice loss-threshold 5 latency-threshold 80 probe-interval 1000 hold-down 5000",
+          "commit"
+        ],
+        "fix": "Fixed in 2.9: the SLA evaluator uses the configured rolling window before changing class state.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "2.8"
+        ],
+        "fixed_in": "2.9",
+        "engineer_question": "On 2.8, why does my SLA class go down after one missed probe even though the link recovers right away?",
+        "twin_of": "I05",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I02",
+        "category": "Certificates",
+        "error_code": "%PKI-3-CHAIN-UNTRUSTED",
+        "title": "Atlas SD-WAN 2.8: orchestrator rejects edge certificate renewal when the intermediate CA is not reimported",
+        "symptoms": "Edges that renewed successfully before an orchestrator change can stop checking in after certificate rotation. The orchestrator UI shows the edge as disconnected within 2 to 6 minutes, and policy pushes to that site fail with certificate validation errors. In the edge log, the renewal completes locally, but the next registration attempt is denied because the chain cannot be built to a trusted root.",
+        "root_cause": "The orchestrator stores the edge trust bundle separately from the active device certificate and does not automatically repopulate the intermediate CA list after a renewal. If the intermediate expires or is replaced, the orchestrator continues to validate against the old chain until the bundle is manually refreshed.",
+        "workaround": "Reimport the full certificate chain, including the active intermediate CA, on the orchestrator before renewing the edge certificate. For large deployments, stage the new chain at least 24 hours before the old intermediate expires.",
+        "workaround_commands": [
+          "certificate import trust-bundle edge-chain.pem",
+          "commit"
+        ],
+        "fix": "Fixed in 2.9: certificate renewal now refreshes the stored intermediate chain automatically.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "2.8"
+        ],
+        "fixed_in": "2.9",
+        "engineer_question": "After we renewed the edge cert, why did 2.8 start rejecting the device until we reloaded the CA chain?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I03",
+        "category": "Software",
+        "error_code": "ERR-ORCH-4412",
+        "title": "Atlas SD-WAN 3.0: policy push hangs when a route-map contains more than 256 entries",
+        "symptoms": "On orchestrators running 3.0, a policy push can remain in 'processing' for 8 to 15 minutes and then fail on large tenants. The affected tenant typically has one route-map with 257 or more rules, and the orchestrator CPU on the policy worker stays above 90 percent during the attempt. Edges keep their previous policy, so the intended change never reaches the branch.",
+        "root_cause": "The 3.0 policy compiler allocates a fixed 256-entry array for route-map expansion and then retries serialization when the list overflows. The retry path never clears the partial buffer, so the worker loops until the orchestration watchdog aborts the push.",
+        "workaround": "Split large route-maps into two smaller maps of 256 entries or fewer and reference them from separate policy objects. If the existing tenant already has a larger map, remove 10 to 20 entries, push the change, and then re-add the remainder in a second commit.",
+        "workaround_commands": [
+          "policy route-map RM-BRANCH-1 split-after 256",
+          "commit"
+        ],
+        "fix": "Fixed in 3.1: the policy compiler uses a dynamically sized route-map serializer.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "3.0"
+        ],
+        "fixed_in": "3.1",
+        "engineer_question": "Why does a 3.0 policy push never finish once the route-map gets bigger than 256 lines?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I04",
+        "category": "Upgrade",
+        "error_code": "%UPG-5-MTU-MIGRATE",
+        "title": "Atlas SD-WAN 3.1: upgrade rewrites LTE tunnel MTU to 1500 on dual-SIM edges",
+        "symptoms": "After upgrading an edge from 3.0 to 3.1, some LTE-based tunnels start dropping large packets and the overlay shows intermittent fragmentation alerts. `show sdwan tunnels` reports the tunnel as up, but traffic with payloads above 1420 bytes fails, and the edge log records repeated MTU mismatch notices. The problem appears only on devices with an explicitly configured LTE tunnel MTU below 1500 before the upgrade.",
+        "root_cause": "The 3.1 migration script copies the LTE profile but falls back to the default tunnel MTU when it sees two modem profiles on the same interface. The saved value is not preserved in the upgraded running configuration, so the edge advertises a larger encapsulation size than the link can carry.",
+        "workaround": "After the upgrade, manually reapply the tunnel MTU on each LTE interface and verify that the configured value matches the pre-upgrade setting. Use 1400 to 1420 bytes for most carrier LTE links, and retest with 1472-byte pings before returning the site to service.",
+        "workaround_commands": [
+          "interface lte0 tunnel-mtu 1400",
+          "commit"
+        ],
+        "fix": "Fixed in 3.2: the migration preserves the configured LTE tunnel MTU across dual-SIM upgrades.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "3.1"
+        ],
+        "fixed_in": "3.2",
+        "engineer_question": "Why did my LTE tunnel MTU reset to 1500 after a 3.1 upgrade?",
+        "twin_of": "I10",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I05",
+        "category": "Routing",
+        "error_code": "%SDWAN-4-SLA-DOWN",
+        "title": "Atlas SD-WAN 2.9: overlay tunnel flaps when SLA probes share the data-plane queue with burst traffic",
+        "symptoms": "On 2.9 edges under sustained backup traffic, overlay tunnels can move between up and degraded every 30 to 60 seconds even though the transport link stays physically up. `show sdwan tunnels` shows rising loss counters during upload bursts, and application steering diverts voice and interactive sessions away from the preferred path. The same circuit is stable if the traffic load stays below about 70 percent.",
+        "root_cause": "The 2.9 datapath schedules SLA probes in the same egress queue as best-effort application traffic. Under bursty load, probe packets are delayed long enough to exceed the 50 ms latency threshold and trip tunnel health evaluation, even though user traffic would still meet the path SLA.",
+        "workaround": "Place SLA probes into a high-priority queue or reserve at least 10 percent bandwidth for control traffic on busy links. If shaping is already enabled, lower the bulk-traffic class to 60 to 70 percent so probes are not delayed behind large data bursts.",
+        "workaround_commands": [
+          "app-route sla-class voice probe-queue priority",
+          "commit"
+        ],
+        "fix": "Fixed in 3.0: SLA probes are sent on a dedicated control queue and no longer inherit bulk-traffic delay.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "2.9"
+        ],
+        "fixed_in": "3.0",
+        "engineer_question": "On 2.9, why do tunnels keep bouncing when the link is busy even though the circuit itself is fine?",
+        "twin_of": "I01",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I06",
+        "category": "Interoperability",
+        "error_code": "%IKE-3-PROPOSAL-MISMATCH",
+        "title": "Atlas SD-WAN 3.2: IPSec tunnel negotiation fails with peers that require AES-GCM and SHA-384 on the same proposal",
+        "symptoms": "When an Atlas edge in 3.2 peers with a remote device that insists on a single combined ESP proposal, the tunnel never reaches established. The edge retries every 10 seconds, and `show sdwan tunnels` remains stuck in negotiating while the peer rejects the transform set. Sites using separate integrity and encryption proposals do not show the issue.",
+        "root_cause": "The 3.2 negotiator advertises AES-GCM as an encryption-only suite when the peer requests a single proposal containing both encryption and integrity attributes. Some peers require the combined form defined in their policy, so they never accept the Atlas proposal even though the cryptographic primitives are compatible.",
+        "workaround": "Configure the remote peer to accept an AES-GCM proposal without a separate integrity field, or use AES-CBC with SHA-384 if the peer allows alternate transforms. Verify the resulting SA proposal on both sides before restoring traffic.",
+        "workaround_commands": [
+          "tunnel ipsec proposal set aes-gcm-256 sha384",
+          "commit"
+        ],
+        "fix": "Fixed in 3.3: the negotiator emits a combined ESP proposal when required by the peer.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "3.2"
+        ],
+        "fixed_in": "3.3",
+        "engineer_question": "Why won't a 3.2 edge bring up the IPSec tunnel against a peer that insists on AES-GCM plus SHA-384?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I07",
+        "category": "Performance",
+        "error_code": "ERR-ORCH-5178",
+        "title": "Atlas SD-WAN 3.3: reporting jobs consume excessive CPU when flow history exceeds 7 days",
+        "symptoms": "On 3.3 orchestrators with long retention, scheduled reports start taking 20 to 30 minutes instead of 3 to 4 minutes once flow history grows past roughly 7 days. CPU on the reporting service can stay above 85 percent during the job window, and dashboard updates lag by several minutes. The system remains functional, but concurrent policy changes may be delayed while the report runs.",
+        "root_cause": "The 3.3 report generator performs a full in-memory sort of the entire flow-history set before filtering by tenant and time range. With more than about 5 million rows, the memory footprint and garbage collection overhead dominate the job runtime, even when the final report only needs a small subset of records.",
+        "workaround": "Reduce the flow-history retention window to 3 to 5 days or split reporting into narrower 24-hour jobs. If the dataset must stay large, run reports during a low-change maintenance window so policy updates are not contending with the same CPU cores.",
+        "workaround_commands": [
+          "reporting flow-history retention 5d",
+          "commit"
+        ],
+        "fix": "No software fix required; this is a scaling limit in 3.3 reporting and must be mitigated by reducing retention or job size.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "3.3"
+        ],
+        "fixed_in": null,
+        "engineer_question": "Why do 3.3 reports crawl once flow history gets past a week?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I08",
+        "category": "Certificates",
+        "error_code": "%PKI-3-CHAIN-UNTRUSTED",
+        "title": "Atlas SD-WAN 3.0: edge registration fails after root CA rollover until the trust store is rebuilt",
+        "symptoms": "After a root CA rollover, newly booted 3.0 edges may fail to register for 5 to 10 minutes and then remain disconnected until the trust store is refreshed. The orchestrator shows repeated authentication failures, and the edge log indicates that the presented certificate chains to an expired root even though the new root is installed. Existing tunnels can remain up until the next reconnect attempt.",
+        "root_cause": "The 3.0 trust-store loader caches the first matching root certificate and does not invalidate the cache when a newer root with the same subject appears. During rollover, the validator keeps using the expired root entry until the device is rebooted or the trust bundle is rebuilt.",
+        "workaround": "Rebuild the trust store on the orchestrator immediately after importing the new root CA, then force the edge to retry registration. Plan the rollover so both roots are present for at least one day before the old root expires.",
+        "workaround_commands": [
+          "certificate rebuild trust-store",
+          "commit"
+        ],
+        "fix": "Fixed in 3.1: trust-store validation refreshes cached roots when a rollover introduces a newer certificate.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "3.0"
+        ],
+        "fixed_in": "3.1",
+        "engineer_question": "After a root CA rollover, why do 3.0 edges still try to authenticate with the expired chain?",
+        "twin_of": null,
+        "duplicate_of": "I02"
+      },
+      {
+        "ref": "I09",
+        "category": "Routing",
+        "error_code": "%SDWAN-4-ROUTE-CACHE",
+        "title": "Atlas SD-WAN 3.1: app-aware routing keeps using a withdrawn route until the cache ages out",
+        "symptoms": "When a preferred underlay route is withdrawn on a 3.1 edge, application-aware routing can continue forwarding to the stale next-hop for up to 180 seconds. `show app-route sla-class` still shows the route as eligible after the withdrawal, and only a manual policy refresh forces the edge to select the backup path. The problem is most visible during WAN maintenance windows or BGP reconvergence events.",
+        "root_cause": "The 3.1 route cache listens for withdrawal events but only invalidates entries when the route metric changes, not when the route is removed entirely. As a result, the application policy reads a stale cached candidate until the normal aging timer expires.",
+        "workaround": "Trigger a route-refresh after any planned underlay withdrawal, or shorten the route-cache timer to 60 seconds during maintenance windows. Confirm that the stale candidate disappears before changing traffic to the backup link.",
+        "workaround_commands": [
+          "app-route cache age-time 60",
+          "commit"
+        ],
+        "fix": "Fixed in 3.2: route withdrawals now invalidate the application-routing cache immediately.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "3.1"
+        ],
+        "fixed_in": "3.2",
+        "engineer_question": "On 3.1, why does app-aware routing keep sending traffic to a path that was already withdrawn?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I10",
+        "category": "Upgrade",
+        "error_code": "%UPG-5-MTU-MIGRATE",
+        "title": "Atlas SD-WAN 3.2: migration drops per-interface LTE tunnel MTU when the profile uses a nondefault APN",
+        "symptoms": "After upgrading a branch from 3.1 to 3.2, some LTE circuits come up but immediately fragment packets larger than about 1418 bytes. The edge shows the tunnel as established, yet the post-upgrade configuration no longer contains the preexisting MTU override on interfaces bound to a custom APN. Branches using the default APN keep the correct setting.",
+        "root_cause": "The 3.2 migration parser only copies the LTE tunnel MTU when the APN name matches the default profile. If a custom APN is in use, the parser preserves the interface object but silently omits the MTU field, so the overlay inherits the platform default value instead of the configured one.",
+        "workaround": "Reapply the tunnel MTU manually on every LTE interface that uses a custom APN after upgrading to 3.2. Validate the resulting encapsulation size with 1400-byte and 1472-byte probes before returning the circuit to production.",
+        "workaround_commands": [
+          "interface lte0 tunnel-mtu 1400",
+          "commit"
+        ],
+        "fix": "Fixed in 3.3: the migration preserves LTE tunnel MTU values for default and nondefault APNs.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "3.2"
+        ],
+        "fixed_in": "3.3",
+        "engineer_question": "Why did a 3.2 upgrade lose my LTE MTU only on the custom APN links?",
+        "twin_of": "I04",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I11",
+        "category": "Security",
+        "error_code": "%PKI-4-CRL-EXPIRED",
+        "title": "Atlas SD-WAN 2.9: orchestrator blocks policy push when the CRL update is older than 24 hours",
+        "symptoms": "On 2.9 orchestrators, policy pushes begin failing as soon as the revocation list ages past 24 hours, even if no certificates have actually been revoked. The job stops before it reaches the edges, and the orchestrator log shows the certificate check failing during preflight validation. Existing tunnels stay up, but any configuration change that requires a policy push is blocked until the CRL timestamp is refreshed.",
+        "root_cause": "The preflight validator treats the CRL as hard-expired exactly 24 hours after the last update, regardless of the CA's nextUpdate field. If the external PKI publishes CRLs on a 48-hour schedule, the orchestrator rejects otherwise valid pushes halfway through the intended interval.",
+        "workaround": "Refresh the CRL on the orchestrator before the 24-hour mark, or align the CA publication interval to 12 to 18 hours so the push window never overlaps the hard-expiry check. Confirm the updated CRL timestamp before retrying the policy push.",
+        "workaround_commands": [
+          "certificate import crl revocation-list.pem",
+          "commit"
+        ],
+        "fix": "Fixed in 3.1: the validator honors the CRL nextUpdate field instead of a fixed 24-hour timer.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "2.9"
+        ],
+        "fixed_in": "3.1",
+        "engineer_question": "Why do policy pushes stop working on 2.9 once the CRL gets a day old?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I12",
+        "category": "Performance",
+        "error_code": "ERR-LTE-2201",
+        "title": "Atlas SD-WAN 3.3: edge CPU spikes during LTE handoff when both modems are enabled",
+        "symptoms": "On dual-modem 3.3 edges, LTE handoff can drive control-plane CPU to 95 to 100 percent for 15 to 30 seconds. During that interval, tunnel keepalives are delayed and some sites briefly show degraded overlay status, especially when the handoff coincides with a policy refresh. Single-modem deployments do not exhibit the spike.",
+        "root_cause": "The 3.3 LTE manager processes both modem state machines synchronously during a handoff and repeatedly reevaluates the same transport profile on each link-state notification. When both modems are enabled, the duplicate notifications create a burst of unnecessary control-plane work and starve tunnel maintenance timers.",
+        "workaround": "Stagger the modem failover by disabling the standby modem during maintenance windows, or raise the LTE handoff debounce to 5 seconds so the state machines do not oscillate on transient signal loss. If possible, avoid pushing policy changes during a carrier switchover.",
+        "workaround_commands": [
+          "interface lte0 handoff-debounce 5000",
+          "commit"
+        ],
+        "fix": "No software fix required; the workaround is to dampen LTE handoff events on dual-modem 3.3 edges.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "3.3"
+        ],
+        "fixed_in": null,
+        "engineer_question": "Why does CPU peg on a 3.3 edge whenever the LTE modems hand off?",
+        "twin_of": null,
+        "duplicate_of": null
+      }
+    ],
+    "releases": [
+      {
+        "version": "2.8",
+        "features": [
+          "Initial overlay tunnel formation",
+          "Basic application-aware routing",
+          "Certificate-based edge registration"
+        ]
+      },
+      {
+        "version": "2.9",
+        "features": [
+          "SLA class hold-down tuning",
+          "LTE transport profile support",
+          "Policy push preflight validation"
+        ]
+      },
+      {
+        "version": "3.0",
+        "features": [
+          "Policy compiler overhaul",
+          "Improved trust-store handling",
+          "SLA probe queue separation"
+        ]
+      },
+      {
+        "version": "3.1",
+        "features": [
+          "Route-cache aging controls",
+          "Upgrade migration for LTE profiles",
+          "Reporting retention configuration"
+        ]
+      },
+      {
+        "version": "3.2",
+        "features": [
+          "Immediate route-withdrawal invalidation",
+          "Dual-SIM LTE upgrade preservation",
+          "IPSec proposal negotiation updates"
+        ]
+      },
+      {
+        "version": "3.3",
+        "features": [
+          "Expanded flow-history reporting",
+          "LTE handoff telemetry",
+          "Certificate validation tightening"
+        ]
+      }
+    ]
+  }
+}

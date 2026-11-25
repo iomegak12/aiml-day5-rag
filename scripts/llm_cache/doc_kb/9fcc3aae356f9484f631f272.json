@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-4101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "Orion OW-20 release 4.6 can reject CAPWAP joins from some access points when the join request includes a zero-length RF profile TLV. Affected APs repeatedly rediscover the controller, remain in join retries, and never complete configuration download.",
+    "symptoms": "After upgrading the controller to 4.6, some APs remain in discovery for 30 to 60 seconds, then retry the join sequence in a loop. On the controller, the APs appear as `down/joining` in `show ap summary`, with radios not enabled and no stable CAPWAP session established.\n\nThe APs typically have a valid management IP address and can reach UDP ports 5246 and 5247 on the controller, so basic reachability checks succeed. The failure occurs during the initial CAPWAP capability exchange, and the controller logs repeated join rejects for the affected AP MAC addresses.",
+    "diagnosis_steps": [
+      "Run `show ap summary` and confirm the affected APs remain in `down/joining` state for multiple retry intervals instead of progressing to `up`.",
+      "Run `show logging last 50` and look for repeated `%CAPWAP-3-JOIN_REJECT` entries that coincide with the AP join attempts; the rejects typically repeat every 30 to 60 seconds.",
+      "If packet capture is available, verify that the AP sends a CAPWAP join request containing an RF profile TLV with length 0 during the initial capability exchange.",
+      "Check whether the APs are members of an AP group with custom RF settings; this issue is most common when an RF profile override is configured at the group or per-radio level.",
+      "Confirm the controller is running release 4.6; the defect is limited to that release family and is resolved in 4.7."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %CAPWAP-3-JOIN_REJECT: ap 00:11:22:33:44:55 join rejected: invalid RF profile tlv length 0\n2026-03-14T02:13:38Z %CAPWAP-3-JOIN_REJECT: ap 00:11:22:33:44:55 join rejected: invalid RF profile tlv length 0\n2026-03-14T02:14:09Z %CAPWAP-3-JOIN_REJECT: ap 00:11:22:33:44:55 join rejected: invalid RF profile tlv length 0\n\nshow ap summary\nap name            mac                ip address      state        radios\nap-branch-01       00:11:22:33:44:55  192.0.2.21      down/joining  0/2\nap-branch-02       00:11:22:33:44:66  192.0.2.22      up            2/2",
+    "root_cause": "In release 4.6, the CAPWAP join parser incorrectly treats an empty RF profile TLV as a fatal error instead of ignoring it. Certain AP models send this TLV with length 0 during initial capability exchange, and the controller rejects the join before the configuration download phase begins.\n\nBecause the reject occurs before the AP receives its full radio configuration, the AP never transitions out of the join loop and continues to rediscover and retry against the same controller.",
+    "workaround_steps": [
+      "Remove the RF profile override from the AP group so the controller no longer emits the empty TLV during join processing.",
+      "If only a subset of APs is affected, place those APs in a group with no custom RF settings or temporarily remove any per-radio override from the affected APs until the upgrade is complete.",
+      "After applying the configuration change, verify that the APs reattempt join and transition from `down/joining` to `up` without further reject messages.",
+      "Use the provided show commands to confirm that the join rejects stop appearing and that the AP radios become enabled."
+    ],
+    "resolution": "This defect is fixed in release 4.7, where the join parser ignores zero-length RF profile TLVs during CAPWAP negotiation."
+  }
+}

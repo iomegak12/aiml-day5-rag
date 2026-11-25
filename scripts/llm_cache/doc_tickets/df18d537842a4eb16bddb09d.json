@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-2109",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "SNMP traps missing during interface flap storm on AR-900 9.3.0",
+        "description": "Evergreen Clinic Network reported that their Aurora AR-900 edge router running 9.3.0 stopped sending some linkUp and linkDown traps during a maintenance window on the access layer. The on-site field engineer saw the NMS show gaps in port-state history even though polling continued to report the interfaces correctly. In the system log, the router emitted \"ERR-SNMP-3019\" while the flap rate was high. Initial triage confirmed the event loss started after a burst of interface transitions exceeded the trap queue capacity.",
+        "resolution": "TAC identified this as KB-2109, a fixed-depth SNMP trap queue limit on the AR-900. We applied the documented workaround by enabling link debounce on the affected access ports to reduce the event rate and advised the team to use 30-second polling for state reconciliation. The customer kept the router on 9.3.0; no software change was required."
+      },
+      {
+        "subject": "Interface traps arriving out of order on 9.3.0 during link oscillation",
+        "description": "Crescent Health Group opened the case after their Aurora AR-900 on 9.3.0 began sending interface alarms out of order to the monitoring system. The on-site field engineer said the NMS was missing some linkDown notifications and then receiving stale linkUp alerts several seconds later. The router log included \"ERR-SNMP-3019\" while multiple copper ports were bouncing during a patch-panel issue. TAC confirmed that polling remained stable and the loss was limited to trap delivery during the burst.",
+        "resolution": "TAC mapped the behavior to KB-2109 and explained that the SNMP notification queue can overflow under a flap storm. We applied the workaround from the article by configuring link debounce on the affected interfaces to suppress rapid transitions, and recommended treating traps as advisory while relying on short-interval polling. No upgrade was performed; the customer remained on 9.3.0."
+      },
+      {
+        "subject": "SNMP alert gaps on AR-900 after port flapping, 9.2.0",
+        "description": "Evergreen Clinic Network submitted this through the customer portal for an Aurora AR-900 running 9.2.0. They reported that the monitoring platform was missing some interface-down alerts and later replaying them out of sequence, which made the incident timeline confusing. During TAC review, we saw repeated trap loss consistent with a notification burst rather than a polling failure, and the router logged \"ERR-SNMP-3019\" during the event window. The issue was reproduced only when the access ports were flapping rapidly over a short interval.",
+        "resolution": "TAC traced the symptoms to KB-2109, which documents the AR-900 SNMP trap queue limit. We implemented the workaround by enabling 500 ms link debounce on the affected Ethernet ports and advised the customer to shorten polling to 30 seconds so the NMS could reconcile state changes if traps were dropped. The device stayed on 9.2.0 because no software fix is available for this queue-capacity behavior."
+      },
+      {
+        "subject": "Missing link traps from edge router; monitoring gap during outage, AR-900 9.1.4",
+        "description": "CivicWorks Public Agency emailed TAC about an Aurora AR-900 edge router running 9.1.4 that appeared to stop reporting some interface alarms during a building-wide network disturbance. They initially suspected an SNMP outage because the management station showed missing interface events, but periodic polling still showed the ports correctly. No detailed log bundle was attached, only a note that the problem happened when multiple switches were power-cycled in quick succession. TAC reviewed the case and determined the symptoms were consistent with a trap-burst condition on the router.",
+        "resolution": "TAC associated the issue with KB-2109 and confirmed it is caused by the fixed 1024-entry SNMP trap queue on the AR-900. We advised the customer to reduce the event rate by enabling link debounce on the unstable access ports and to depend on polling at a 30-second interval for history reconstruction. The unit remained on 9.1.4, and no software update was required."
+      },
+      {
+        "subject": "Repeated trap loss from interface bouncing on AR-900 9.1.4",
+        "description": "CivicWorks Public Agency reported from the site that their Aurora AR-900 running 9.1.4 was dropping some interface traps during a brief physical-layer fault on several user-facing ports. The on-site field engineer observed that the monitoring system received the first few link changes but then began missing later notifications while polling still reported the correct state. In the router log, TAC found \"ERR-SNMP-3019\" coincident with the burst of link transitions. The symptom pattern matched trap loss under heavy event load rather than a general SNMP failure.",
+        "resolution": "TAC resolved the case using KB-2109, which documents the AR-900 trap queue overflow behavior. We applied the recommended workaround by configuring 500 ms link debounce on the affected Ethernet interfaces to suppress the storm and advised the customer to keep polling as the source of record for interface state. The customer remained on 9.1.4; no software fix was needed."
+      }
+    ]
+  }
+}

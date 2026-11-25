@@ -1,0 +1,54 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-OW#5",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "Orion OW-20 guest portal sessions are bound to the active controller node at the time the session cookie is issued. In normal operation, the cookie records the portal transaction state and the node UUID of the active unit so the guest can move through registration, acceptance, and authorization without restarting the workflow. When the controller pair fails over, the surviving node may not have the same portal session context, even though it has the configuration database and WLAN state. As a result, a guest can be left with a valid browser cookie that no longer maps cleanly to the new active node.",
+      "The operational goal is to choose between continuity and determinism. If you expect a maintenance window or a controlled switchover, the safest approach is to expire guest sessions before a planned redundancy failover when guest access continuity matters, or, if you need to preserve an in-progress registration flow, keep failover inhibited so portal cookies remain pinned to the active node UUID during the registration window. This avoids presenting a guest with a partially valid session that appears authenticated in the browser but is not accepted by the new active controller. In mixed-use environments, that distinction matters more than raw failover speed.",
+      "A common mistake is to leave portal sessions long-lived and then initiate failover during an active registration wave. In that case, the guest browser can retain a cookie that references the old active node while backend authorization state has already moved. Users typically see a portal reload loop, repeated login prompts, or an immediate return to the captive portal after redirection. Another mistake is to assume that an automatic redundancy switchover preserves every portal transaction transparently. The redundancy subsystem preserves control-plane availability, but guest portal transactions are application sessions and must be treated as stateful user interactions, not as pure forwarding state.",
+      "For planned maintenance, set guest portal session timeout to 15 minutes before invoking failover. This shortens the lifetime of pre-existing portal state so stale cookies age out quickly and reduces the chance that a guest will carry a pre-failover session into the post-failover node. If you know the maintenance window is imminent and guest access continuity is not required, you can also expire guest sessions before a planned redundancy failover when guest access continuity matters. Use the same approach when portal registration is intermittent and users are likely to pause mid-flow, because a shorter timeout limits the number of stranded sessions after the switchover.",
+      "During a live incident, first determine whether a failover already occurred or whether it is still pending. If a switchover already occurred, clear the portal cookie and require the guest to reauthenticate. That action forces the browser to establish a new session against the current active node and removes ambiguity between old and new session state. If failover has not yet happened, consider delaying it until the registration window closes, or inhibiting it long enough to complete the current guest batch. This reduces support calls from users who were redirected during registration and helps keep the portal behavior predictable.",
+      "Operationally, the best practice is to align the redundancy action with the guest workflow rather than the other way around. The active node UUID is the key pivot for portal session validity, so any change in active role should be treated as a session boundary unless you have explicitly planned for it. Make the guest-session decision before you touch redundancy state, and document whether the event is a maintenance failover or an unplanned switchover. That distinction drives whether you prefer to preserve continuity with redundancy inhibited, shorten the session timer, or force reauthentication after the failover."
+    ],
+    "procedure_steps": [
+      "Check the current active controller and confirm whether a redundancy event is planned with show redundancy status.",
+      "If the change is planned and guest users are actively registering, apply redundancy failover inhibit to keep portal cookies pinned to the active node UUID.",
+      "If guest access continuity is not required, set guest portal session timeout to 15 minutes before the maintenance window.",
+      "Initiate the failover only after the portal timeout or after current registrations are complete.",
+      "If a switchover already occurred and users report repeated portal prompts, clear the portal cookie and require the guest to reauthenticate.",
+      "After the event, recheck redundancy state and confirm that new guest registrations complete against the current active node."
+    ],
+    "table": {
+      "caption": "Guest portal failover handling",
+      "header": [
+        "Condition",
+        "Recommended action",
+        "Operational effect"
+      ],
+      "rows": [
+        [
+          "Active guest registrations during planned maintenance",
+          "redundancy failover inhibit",
+          "Keeps portal cookies pinned to the active node UUID until registrations complete"
+        ],
+        [
+          "Planned failover with no continuity requirement",
+          "guest portal session timeout 15",
+          "Shortens stale-session lifetime before switchover"
+        ],
+        [
+          "Switchover already occurred",
+          "Clear the portal cookie and require reauthentication",
+          "Forces the browser to establish a new session on the active node"
+        ],
+        [
+          "Guest continuity must be preserved during a maintenance window",
+          "Expire guest sessions before a planned redundancy failover when guest access continuity matters",
+          "Avoids carrying in-flight portal state across failover"
+        ]
+      ]
+    },
+    "verification": "Use show redundancy status to confirm which node is active and whether failover inhibition is in effect. For a controlled test, create a guest portal session, verify that authentication completes, then trigger the planned redundancy action and confirm that new guests are redirected to the current active node without looping. If guest portal session timeout was set to 15 minutes, verify that stale sessions age out and are no longer accepted after the timeout interval. Expected output should show the active node changing only when intended, with no repeated portal-authentication failures in the controller logs."
+  }
+}

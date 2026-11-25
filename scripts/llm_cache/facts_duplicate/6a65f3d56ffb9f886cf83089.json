@@ -1,0 +1,12 @@
+{
+  "stage": "facts_duplicate",
+  "label": "KB-3109",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "title": "Nimbus NF-300 5.2.0 uneven session-table distribution with asymmetric routing on concentrated /24 traffic",
+    "symptoms": "On 5.2.0, turning on asymmetric path handling can drive one or two session-table shards to 88 percent occupancy while the remaining shards remain below 40 percent. The condition typically appears after about 300,000 new sessions and is accompanied by intermittent latency spikes of 3 to 4 milliseconds for flows assigned to the overloaded shard.",
+    "root_cause": "When asymmetric routing is enabled, the shard allocator fails to mix the low-order bits of the 5-tuple, causing traffic from the same /24 prefix to be mapped to the same worker queue. In addition, the load-balancer redistribution threshold is configured too high, so the imbalance remains localized instead of being spread across the other shards.",
+    "workaround": "Disable asymmetric routing handling for the affected policy set, or split the large prefix into smaller policy groups so sessions are distributed more evenly. Continue monitoring the busiest shard and keep occupancy below 75 percent until a software fix is available.\nconfig\nsession-table asymmetric-routing disable\ncommit",
+    "fix": "Fixed in 5.2.2: session hashing uses the full 5-tuple and shard redistribution is triggered once occupancy exceeds 75 percent."
+  }
+}

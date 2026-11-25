@@ -1,0 +1,16 @@
+{
+  "stage": "doc_guide_front",
+  "label": "GUIDE-HX",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "about": "This guide covers configuration and troubleshooting for the Helix HX-5000 core switch across releases 7.2 through 8.0, with emphasis on the areas most often investigated by TAC: optics and transceiver health, stack stability and master election, spanning tree behavior on access ports, LACP and EtherChannel member handling, EVPN route handling and memory protection, and queue, buffer, and burst management.\n\nUse this guide as a procedural reference alongside product release notes and knowledge-base articles. Release notes identify changed behavior, fixed issues, and version-specific caveats; knowledge-base articles provide targeted workarounds and defect-specific guidance. Where behavior differs by release family, follow the applicable version notes before applying configuration changes or troubleshooting steps.",
+    "audience": "This guide is intended for network engineers and TAC support engineers who administer Helix HX-5000 switches. Readers should be familiar with Layer 2 and Layer 3 switching concepts, Ethernet optics, link aggregation, spanning tree, VXLAN/EVPN, and queueing behavior, and should have access to the device CLI, relevant logs, and basic operational commands.",
+    "conventions": [
+      "CLI examples use lower-case syntax and show commands exactly as entered, for example: show interfaces transceiver detail.",
+      "Configuration mode is entered with configure terminal; subcommands are shown within hierarchical context when needed.",
+      "Sample output, timestamps, and log messages are illustrative only; timestamps use ISO 8601 UTC format.",
+      "Log entries use vendor-formatted severity prefixes such as %FACILITY-SEVERITY-MNEMONIC or ERR-AREA-NNNN.",
+      "IP addresses in examples use documentation ranges only, such as 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, and 10.0.0.0/8."
+    ]
+  }
+}

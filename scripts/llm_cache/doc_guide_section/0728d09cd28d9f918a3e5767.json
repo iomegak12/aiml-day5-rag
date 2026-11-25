@@ -1,0 +1,59 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AR#2",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "BFD on the Aurora AR-900 is typically used to detect next-hop or adjacency failure faster than the routing protocol dead timer. That benefit comes with a cost: when the transmit and detection timers are set aggressively, any temporary scheduler delay, control-plane congestion, or brief packet loss can look like a fault. For long-lived routers, the most important design consideration is not just failure detection speed, but whether the platform can continue to transmit BFD control packets consistently over months of uptime without process degradation.",
+      "On 9.1.4, restart the BFD process or reload the router during a maintenance window before platform uptime reaches 49 days. That recommendation is specific to long-uptime maintenance, not a general tuning target. If the router has already approached that uptime range and BFD behavior becomes inconsistent, do not assume the physical link or peer is unstable. Treat it as a process recovery issue and plan a controlled restart rather than repeatedly changing timers in production.",
+      "For noncritical peers where transient loss is acceptable, the temporary containment profile is 200 ms transmit, 200 ms receive, and detection multiplier 5. Use the same 200/200/5 timer profile consistently on peers where transient loss is acceptable, and verify the session state after the change. This profile reduces false positives caused by short bursts of CPU contention or queueing, while still detecting real loss in a reasonable interval. The detection time becomes approximately 1 second, which is materially less sensitive than sub-second profiles but often more stable on busy edge routers.",
+      "A common mistake is to lower only one side of the session and expect symmetrical behavior. BFD is negotiated per session, but operational consistency matters: mixed timer values often lead to confusing troubleshooting because one side may declare the session down earlier than the other. Another mistake is using very low timers on peers that traverse shared or congested paths. If BFD is protecting BGP or OSPF adjacencies, overly aggressive timers can cause route churn, dampening events, and control-plane load that is worse than the failure mode being mitigated.",
+      "If BFD stops transmitting after long uptime, the symptom usually appears as a session that remains up until one side times out, followed by a lack of outgoing control packets or repeated stale state in the session detail output. In that case, the correct response is to schedule the process restart or platform reload, not to keep tightening timers. Timer reduction cannot fix a transmit path that has stopped scheduling packets. Use the longer timer profile as a containment measure only when the peer can tolerate slower failure detection.",
+      "When applying the 200/200/5 profile, do so in a controlled window and monitor adjacent routing protocols for stability. BFD should be aligned with the tolerance of the protected application or route domain. For example, if BGP is carrying important but non-immediate traffic, a 1-second BFD detection interval may be acceptable; if the path is carrying latency-sensitive failover traffic, the operator may need a different design rather than simply lowering timers further. Keep the operational objective clear: prevent unnecessary flap while still detecting real loss before the routing protocol times out."
+    ],
+    "procedure_steps": [
+      "Enter configuration mode with `configure`.",
+      "Select the BFD configuration context with `router bfd`.",
+      "Apply the timer profile with `timers 200 200 5` on peers where transient loss is acceptable.",
+      "Save the configuration using the platform's normal commit or write procedure for your deployment.",
+      "If the router is on 9.1.4 and platform uptime is approaching 49 days, schedule a maintenance window to restart the BFD process or reload the router.",
+      "After the change, check session behavior and confirm the peer state is stable."
+    ],
+    "table": {
+      "caption": "BFD timer guidance for AR-900 long-uptime operation",
+      "header": [
+        "Item",
+        "Value",
+        "Operational meaning"
+      ],
+      "rows": [
+        [
+          "Maintenance threshold on 9.1.4",
+          "49 days uptime",
+          "Restart the BFD process or reload the router before this point during a maintenance window."
+        ],
+        [
+          "Transmit interval",
+          "200 ms",
+          "Used in the temporary containment profile for noncritical peers."
+        ],
+        [
+          "Receive interval",
+          "200 ms",
+          "Matches the transmit interval for consistent session negotiation."
+        ],
+        [
+          "Detection multiplier",
+          "5",
+          "Produces an effective detection time of about 1 second."
+        ],
+        [
+          "Recommended use",
+          "Transient loss acceptable",
+          "Apply consistently across peers with similar tolerance for short outages."
+        ]
+      ]
+    },
+    "verification": "Use `show bfd neighbors detail` to confirm that the session remains established after the timer change and that the negotiated timers reflect 200 ms transmit, 200 ms receive, and multiplier 5. Expected output should show the peer in up state, stable transmit and receive counters, and no recent timeout or state-flap entries. If BFD was previously stalled after long uptime, verify that packet transmission resumes after the controlled restart and that the neighbor detail output no longer shows stale last-tx or last-rx behavior."
+  }
+}

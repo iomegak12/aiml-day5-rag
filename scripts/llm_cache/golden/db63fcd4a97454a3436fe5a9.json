@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "multi_hop:KB-6112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "On Helix HX-5000 running 7.6, the routing process memory keeps climbing after repeated EVPN route-refresh activity, and after a while control-plane latency gets worse because free memory drops too low. Which release fixes this, and what should we do until we can upgrade?",
+    "reference_answer": "This issue is fixed in 8.0. Until you can upgrade, reduce the frequency of route-refresh events by limiting unnecessary neighbor resets, keep EVPN adjacency changes out of peak traffic windows if the fabric is stable, and schedule a reload before free memory drops below 15 percent. The related workaround is to disable route-refresh on the affected neighbor if needed."
+  }
+}

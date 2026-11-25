@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-2111",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "AR-900 upgrade rolls back on 9.1.6 with BGP sessions flapping",
+        "description": "Prairie State College opened a P2 after an in-service upgrade of an Aurora AR-900 from 9.1.6 to 9.2.0 rolled back to the previous release. The router stayed reachable, but BGP adjacencies dropped for about a minute during the rollback and then recovered; the team initially suspected a software image corruption issue. TAC confirmed the device was running 9.1.6 and that BGP add-path was configured toward at least one neighbor with more than 1,000 advertised paths. No hardware alarms or storage errors were present, and the failure reproduced at the installer precheck stage rather than during image transfer.",
+        "resolution": "TAC identified this as the upgrade migrator issue described in KB-2111 and had the customer disable BGP add-path before retrying the upgrade. After removing the add-path send configuration on the affected neighbor, the upgrade to 9.2.0 completed normally. Once the router was stable on 9.2.0, the customer re-enabled add-path on the required session."
+      },
+      {
+        "subject": "Upgrade to 9.2.0 aborts on AR-900 with add-path state error",
+        "description": "Summit Logistics reported that their Aurora AR-900 on 9.1.4 failed an in-service upgrade to 9.2.0 and stayed on the old release after rollback. The event log included \"ERR-UPG-1307\" during the session migration step after the image was staged. TAC reviewed the configuration and found BGP add-path enabled on an external neighbor, with the router advertising well over 1,000 paths at the time of the attempt. The symptom set matched an installer precheck abort rather than a routing-plane crash.",
+        "resolution": "TAC traced the failure to KB-2111 and recommended upgrading to 9.2.1, where the migrator handles add-path state correctly. The customer completed the upgrade path by first moving the router from 9.1.4 to 9.2.1, which succeeded without rollback. After booting 9.2.1, BGP add-path was left enabled and sessions came up normally."
+      },
+      {
+        "subject": "AR-900 9.1.6 to 9.2.0 fails during install; add-path migration error",
+        "description": "Pinnacle Energy escalated through a partner after repeated failures upgrading an Aurora AR-900 from 9.1.6 to 9.2.0. The partner reported that the installer staged the image, then aborted and reverted to the prior release; the router was briefly unavailable to BGP peers during rollback. TAC confirmed the device was on 9.1.6 and saw the quoted log entry \"ERR-UPG-1307\" associated with the add-path migration step. Configuration review showed add-path send active on one neighbor, and the routing table contained more than 1,000 advertised paths at the time of upgrade.",
+        "resolution": "TAC mapped the behavior to KB-2111 and advised moving the appliance to 9.2.1, which contains the fix for add-path migration during upgrade. The customer upgraded the AR-900 directly to 9.2.1 and the install completed successfully. After the upgrade, BGP came back without further intervention and add-path remained configured."
+      },
+      {
+        "subject": "Critical upgrade rollback on AR-900 9.1.6 with BGP downtime",
+        "description": "BlueRiver Credit Union emailed TAC about an Aurora AR-900 running 9.1.6 that could not complete an in-service upgrade to 9.2.0. Their note said the unit \"half-upgraded\" and then reverted, leaving branch routing interrupted until BGP reestablished. TAC reviewed the upgrade output and observed the quoted message \"ERR-UPG-1307\" at the point where the installer tried to migrate session state. The router had BGP add-path configured on a neighbor, and the device was advertising more than 1,000 paths, which matched the known failure conditions.",
+        "resolution": "TAC advised the customer to move to 9.2.1, per KB-2111, because that release includes the corrected migrator. The customer performed the upgrade from 9.1.6 to 9.2.1 and the process completed without rollback. After boot, the AR-900 returned to service with BGP stable and no further upgrade errors."
+      },
+      {
+        "subject": "Partner escalation: AR-900 upgrade from 9.1.4 aborts at add-path migration",
+        "description": "Lakeside Hospitality escalated through a partner for an Aurora AR-900 running 9.1.4 that repeatedly failed an in-service upgrade to 9.2.0. The partner initially suspected a bad image because the device rebooted back into 9.1.4 after staging, but the router showed no flash or bootloader faults. TAC confirmed the upgrade log contained \"ERR-UPG-1307\" and that BGP add-path was enabled on at least one neighbor. The configuration and path count both matched the known trigger condition, with more than 1,000 advertised paths present during the attempt.",
+        "resolution": "TAC referenced KB-2111 and instructed the customer to proceed to 9.2.1 instead of 9.2.0, since the fix is present in 9.2.1. The partner completed the upgrade from 9.1.4 to 9.2.1 successfully. Once on 9.2.1, the AR-900 resumed normal operation and the add-path configuration remained in place."
+      }
+    ]
+  }
+}

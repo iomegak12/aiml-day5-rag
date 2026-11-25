@@ -1,0 +1,16 @@
+{
+  "stage": "doc_guide_front",
+  "label": "GUIDE-OW",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "about": "This guide provides configuration and troubleshooting procedures for Orion OW-20 wireless LAN controllers across releases 4.6 through 5.1. It focuses on the problem areas most often handled by TAC, including AP join behavior, controller redundancy, 802.11r/k/v roaming validation, RADIUS and 802.1X authentication, guest portal continuity during failover, RF management, and configuration database hygiene. Use this guide for task-oriented procedures and operational checks; it complements product knowledge-base articles and release notes, which should be consulted for version-specific limitations, defect corrections, and interim workarounds.",
+    "audience": "This guide is intended for enterprise network engineers and TAC support engineers who administer Orion OW-20 controllers. Readers should be familiar with wireless LAN fundamentals, 802.1X and RADIUS, IEEE 802.11 roaming features, controller redundancy concepts, and the Orion CLI. Access to controller privileges sufficient to view status, change configuration, and collect troubleshooting output is assumed.",
+    "conventions": [
+      "CLI commands are shown in lower-case and are entered as single-line commands unless explicitly stated otherwise.",
+      "Placeholders in command syntax are shown in angle brackets, such as <mac>, and must be replaced with a valid value.",
+      "Sample output, log messages, and timestamps are illustrative; timestamps use ISO 8601 UTC format.",
+      "Notes provide supporting information; warnings call out conditions that can disrupt service, authentication, or redundancy state.",
+      "Commands and outputs are specific to the documented Orion OW-20 release family and may vary between major.minor versions."
+    ]
+  }
+}

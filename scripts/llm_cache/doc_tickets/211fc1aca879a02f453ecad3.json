@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-5109",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "App traffic stays on withdrawn WAN path after failover",
+        "description": "Summit Logistics reported that application traffic kept using the primary WAN path even after the circuit was intentionally withdrawn during a maintenance window. The issue was observed on an Atlas SD-WAN edge running 3.1, while the orchestrator still showed the route as present for a short period after the withdrawal. TAC checked the edge state and confirmed that `show app-route sla-class` continued to list the withdrawn next-hop as eligible until the cache aged out. The customer also captured the log message \"%SDWAN-4-ROUTE-CACHE\" during the event, which aligned with the stale route-cache behavior.",
+        "resolution": "TAC identified this as the 3.1 route-cache defect described in KB-5109. As a workaround, TAC changed the route-cache aging timer to 60 seconds with `app-route cache age-time 60` and then committed the change so the stale candidate would clear sooner during planned underlay changes. The customer was instructed to refresh policy before shifting traffic to the backup link and to restore the normal timer after the maintenance window."
+      },
+      {
+        "subject": "Backup path not selected until cache expires on edge 3.1",
+        "description": "HarborPoint Retail opened the case through a partner escalation after several stores saw traffic remain on a decommissioned circuit for a few minutes longer than expected. The affected Atlas SD-WAN edge is running 3.1, and the customer initially suspected an SLA probe issue because application traffic did eventually move without any manual changes. TAC reviewed the edge behavior and found that the withdrawn route was still being treated as a valid candidate by the application policy until the route cache aged out. No log bundle was attached, but the symptom pattern matched a stale route-candidate issue during underlay withdrawal.",
+        "resolution": "TAC tied the behavior to KB-5109 and applied the documented workaround. The route-cache timer was shortened to 60 seconds with `app-route cache age-time 60`, followed by `commit`, so the stale entry would clear more quickly during planned maintenance. The partner was advised to confirm the stale candidate no longer appeared in `show app-route sla-class` before moving traffic to the backup link."
+      },
+      {
+        "subject": "App-aware routing held old next-hop after BGP withdraw",
+        "description": "Prairie State College called TAC because VoIP and web traffic kept taking the old WAN next-hop after a BGP change on an Atlas SD-WAN edge running 3.1. The caller said the circuit had been shut down, but application traffic continued to prefer it for roughly two to three minutes before failing over on its own. TAC validated on the edge that the withdrawn path was still present in the application-routing view and that `show app-route sla-class` did not drop the candidate immediately after the route disappeared. The log bundle included \"%SDWAN-4-ROUTE-CACHE\", which matched the stale cache condition.",
+        "resolution": "TAC confirmed this was the known 3.1 routing defect documented in KB-5109. To mitigate the issue, TAC set the route-cache aging timer to 60 seconds using `app-route cache age-time 60` and committed the change, which shortens the window in which the withdrawn route can remain selected. The customer was told to trigger a route-refresh before planned underlay withdrawals and to verify the backup path before returning services to production."
+      },
+      {
+        "subject": "Traffic not failing over immediately after underlay withdrawal",
+        "description": "BlueRiver Credit Union's partner opened an escalation after branch traffic stayed on the primary underlay during a planned ISP cutover. The Atlas SD-WAN edge in question is running 3.1, and the partner reported that the edge continued to send application traffic toward the removed next-hop even though the link was no longer advertised upstream. TAC reproduced the behavior in the lab and saw that the withdrawn route remained eligible in the app-routing cache until the normal aging timer expired. The event logs included \"%SDWAN-4-ROUTE-CACHE\", which supported the stale route-cache diagnosis.",
+        "resolution": "TAC identified the defect as KB-5109 and used the supported workaround rather than waiting for cache expiry. The route-cache timer was reduced to 60 seconds with `app-route cache age-time 60`, then `commit` was applied so the stale candidate would clear faster during maintenance. The partner was instructed to confirm the backup path was selected before removing the primary underlay from service."
+      },
+      {
+        "subject": "Critical application traffic stayed on dead WAN route after maintenance",
+        "description": "Pinnacle Energy submitted a portal report that a critical application kept sending traffic to a removed WAN route during a scheduled circuit change. The affected Atlas SD-WAN edge is running 3.1, and the customer stated that failover only happened after they waited a few minutes and retried the change. TAC examined the configuration and confirmed that the application-routing policy was still reading the withdrawn path from the local cache until the aging timer expired. This behavior was consistent with the route-cache defect seen on 3.1 edges during underlay withdrawal events.",
+        "resolution": "TAC resolved the case by applying the workaround described in KB-5109. The route-cache aging timer was changed to 60 seconds with `app-route cache age-time 60`, and the configuration was committed so the stale route would age out sooner during planned cutovers. The customer was advised to use a route-refresh before any future maintenance window and to verify the backup next-hop is selected before proceeding."
+      }
+    ]
+  }
+}

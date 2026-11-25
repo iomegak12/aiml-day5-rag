@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-6105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Repeated topology change events on access switch ports after host reboot",
+        "description": "Redwood University opened this by email after a reboot of a downstream virtualization host attached to a Helix HX-5000 running 7.4. The campus network team reports that several access switches started relearning MAC addresses and the MAC table aged out much faster than the configured 300-second timer. TAC checked `show spanning-tree detail` and confirmed the same access port was reentering forwarding every 2 to 4 seconds even though the physical link stayed up and the host cabling did not change. No hardware fault indicators or interface errors were present.",
+        "resolution": "TAC identified this as the known rapid-pvst design limitation described in KB-6105. We advised the customer not to use rapid-pvst on ports facing multi-MAC downstream virtualization hosts and to place the server on a dedicated edge VLAN design or restrict the port to a single access device. The customer applied the workaround and the topology-change events stopped."
+      },
+      {
+        "subject": "HX-5000 sending constant spanning-tree TCNs on one edge port",
+        "description": "Crescent Health Group called TAC about a Helix HX-5000 running 7.4 that was generating frequent network instability after a nurse station appliance rebooted. Their report said the switch was “flapping,” but interface counters and the physical link were stable when TAC reviewed the case. `show spanning-tree detail` showed the affected access port repeatedly transitioning back to forwarding and the MAC table entries for the downstream appliance aging out in under a minute. The behavior was isolated to a single 10G edge port connected to a device that presents multiple MAC addresses.",
+        "resolution": "TAC matched the symptoms to KB-6105 and confirmed there was no software defect to correct. We instructed the customer to remove rapid-pvst from that multi-MAC edge design and to use a dedicated access VLAN or a single-device edge connection instead. After the port was treated as a restricted edge attachment, the topology-change notifications ceased."
+      },
+      {
+        "subject": "Frequent stp notifications on 10g access port after host restart",
+        "description": "HarborPoint Retail called in on a Helix HX-5000 running 7.5 after a warehouse virtualization host rebooted. The site saw repeated spanning-tree events every few seconds and initially suspected a cabling issue, but the port stayed link-up and did not increment physical error counters. TAC captured the switch logs and saw \"%STP-5-TCN-STORM\" repeating while `show mac address-table flapping` indicated the same downstream MACs moving on the access interface. `show spanning-tree detail` also showed the port repeatedly reentering forwarding even though the attachment was unchanged.",
+        "resolution": "TAC identified the condition as KB-6105, which describes rapid-pvst generating continuous topology-change notifications on multi-MAC edge ports. We applied the documented workaround: move the host to a dedicated edge VLAN design and avoid running rapid-pvst on that port, with portfast retained only where the port connects to a single access device. After the configuration change, the TCN storm stopped and MAC aging returned to the normal 300-second interval."
+      },
+      {
+        "subject": "Topology-change storm on access switch after virtual host reboot",
+        "description": "Redwood University phoned TAC about a Helix HX-5000 running 7.2 in a lab network. After one downstream virtualization host rebooted, the switch began emitting topology-change notifications every 2 to 4 seconds for several minutes, which the customer first described as an STP loop. TAC reviewed the logs and observed \"%STP-5-TCN-STORM\" on the affected access interface. `show spanning-tree detail` showed the same port reentering forwarding repeatedly, and MAC entries on that segment were aging out long before the configured timer expired.",
+        "resolution": "TAC traced the issue to KB-6105 and confirmed it is a configuration and design constraint of rapid-pvst on ports that learn multiple moving MAC addresses. We instructed the customer to stop using rapid-pvst on that edge connection and to place the server behind a dedicated edge VLAN design or restrict the port to a single access device. The workaround was implemented and the repeated topology-change notifications stopped."
+      },
+      {
+        "subject": "Repeated TCN storms from edge port on helix hx-5000",
+        "description": "CivicWorks Public Agency emailed TAC about a Helix HX-5000 running 7.4 that was causing intermittent campus outages on a security appliance uplink. They reported that the switch was “rebooting the port” after a downstream device restart, but the port never actually bounced. TAC found the log message \"%STP-5-TCN-STORM\" recurring every few seconds, and `show spanning-tree detail` showed the same access port reentering forwarding while the MAC table on that interface aged out far faster than 300 seconds. The affected device was a clustered appliance that legitimately moves multiple MAC addresses, which matched the pattern of a stable physical link with repeated topology-change events.",
+        "resolution": "TAC identified the case as KB-6105 and advised that there is no software fix for this behavior. We applied the documented workaround by removing rapid-pvst from that multi-MAC edge design and recommending a dedicated edge VLAN or a port restricted to a single access device. After the change, the TCN storm cleared and the MAC aging behavior normalized."
+      }
+    ]
+  }
+}

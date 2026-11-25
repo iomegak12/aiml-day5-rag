@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-3104",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Nimbus NF-300 release 5.0.8, a staged upgrade to 5.0.9 over HTTPS can fail during the first reboot even when the downloaded image is valid. The unit returns to the prior release after image verification, and the console reports a checksum mismatch that does not align with the published SHA-256 hash.",
+    "symptoms": "Administrators see the 5.0.9 image download complete successfully when using HTTPS staging, but the appliance does not proceed to the new image on reboot. Instead, boot stops during image verification, the system logs an image verification failure, and the appliance rolls back to the previous release. The failure is reproducible only with the 5.0.8 boot loader and HTTPS-staged images.\n\nThe downloaded file itself is intact. In affected cases, a manual hash check of the stored image matches the published SHA-256 value, which makes the verification failure appear inconsistent with the on-disk file contents.",
+    "diagnosis_steps": [
+      "Run `show software image` and confirm that the staged image reports version 5.0.9 and a hash that matches the published SHA-256 value. If the image is present and the hash is correct, the file transfer completed successfully.",
+      "Run `show log system` and look for `%UPGRADE-3-IMAGE_VERIFY_FAIL` at the next boot. This confirms the boot loader rejected the image during verification rather than during download.",
+      "From the console, review the boot messages and confirm that the device rolls back to the previous release after the verification stage. The system should not reach the normal startup banner for 5.0.9.",
+      "If available in your maintenance window, compare the staging method. The issue is associated with HTTPS staging only; SCP or USB staging should not reproduce the failure on the same hardware and image.",
+      "Check the running release with `show version` after rollback. The device will typically return to 5.0.8, confirming that the failure occurred before the new image was committed as active."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %UPGRADE-5-INFO: staging image nf300-5.0.9.bin over https\n2026-03-14T02:13:19Z %UPGRADE-6-INFO: image transfer complete, sha-256 verified\n2026-03-14T02:14:02Z %UPGRADE-3-IMAGE_VERIFY_FAIL: boot loader rejected system image nf300-5.0.9.bin; checksum mismatch during verification\n2026-03-14T02:14:05Z %UPGRADE-4-ROLLBACK: reverting to previous bootable release 5.0.8\n\nnf-300# show software image\nimage slot 1: active\n  version: 5.0.8\n  filename: nf300-5.0.9.bin\n  sha-256: 7a4e2d8b3f0c1a9c6d2e0f4b8a1c7e9d5f0a2b6c8d1e3f4a5b6c7d8e9f0a1b2c\n  status: verified on disk\n  boot status: rejected by loader",
+    "root_cause": "The 5.0.8 boot loader calculates the verification digest across the padded image length instead of the actual payload length. When the image is transferred over HTTPS, the staged file is padded to a 4 KB boundary before reboot. As a result, the boot loader computes a digest that does not match the published image hash, even though the image payload is correct and unchanged.\n\nThis defect affects only the 5.0.8 loader path. The image itself is valid, and the failure is caused by the loader’s handling of padded HTTPS-staged content during the verification step.",
+    "workaround_steps": [
+      "Stage the 5.0.9 image using SCP or USB instead of HTTPS so the image is written without the 4 KB padding behavior that triggers the verification failure.",
+      "Before scheduling the reboot, verify that the stored image hash matches the expected SHA-256 value and confirm the image is listed as present with the correct version using `show software image`.",
+      "If the device must be upgraded from 5.0.8 and only HTTPS staging is available, first upgrade through an intermediate loader that understands the 4 KB-aligned payload, then proceed to 5.0.9.",
+      "Reboot only after confirming the image is verified on disk and the staging method is no longer HTTPS-padded."
+    ],
+    "resolution": "The defect is fixed in release 5.0.9. In 5.0.9, the boot loader hashes only the unpadded payload, so valid images staged over HTTPS no longer fail verification and the appliance boots normally into the new release."
+  }
+}

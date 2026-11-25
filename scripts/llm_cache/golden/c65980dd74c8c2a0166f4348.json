@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "version_specific:KB-4103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why do APs on 4.8 get stuck joining for minutes even though the controller still sees them on the network?",
+    "reference_answer": "On Orion OW-20 4.8, APs can remain in `joining` for 2-4 minutes because the join path waits for the second capability exchange on a separate worker, and that worker can be pre-empted by the retransmit timer. The controller then moves the join context to an orphaned state, so the AP is still reachable but the delayed response is not resumed and the session resets without reaching `authorized`. This is tracked as KB-4103 / ERR-APJ-4417, is more visible with 60-100 ms RTT and brief retransmit bursts, and is fixed in 4.9."
+  }
+}

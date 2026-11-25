@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "version_specific:KB-4106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why does 5.0 still show roam pauses on 802.11r clients when many devices move at once?",
+    "reference_answer": "In Orion OW-20 5.0, the roaming daemon batches FT key pushes to reduce CPU usage, and the batch flush can be delayed by the per-client state cleanup thread. When more than about 40 clients roam within 10 seconds, the FT key push can miss the 300 ms completion window, so the client reverts to a slower transition sequence and you still see 150-300 ms service gaps every few moves. This is fixed in 5.1, where FT key pushes are sent immediately when the client enters reassociation, regardless of cleanup batching."
+  }
+}

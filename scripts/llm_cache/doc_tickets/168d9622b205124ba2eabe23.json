@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-2110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "AR-900 CPU spikes after repeated BGP soft clears",
+        "description": "HarborPoint Retail reported that their Aurora AR-900 running 9.2.1 began pegging the routing process after several `clear bgp ipv4 unicast 65001 soft` commands were issued during a prefix refresh window. The on-site engineer noted that forwarding stayed up, but route convergence slowed and the control plane became sluggish for roughly a minute at a time. TAC reviewed `show process cpu` and confirmed the routing task was consuming most of the scheduler slice, with the problem worsening while inbound updates were still arriving. The platform is a busy edge router with a large BGP table, which matches the observed behavior.",
+        "resolution": "TAC identified the issue as KB-2110 and advised avoiding repeated soft clears during peak update activity. The customer was instructed to wait at least 60 seconds after route churn settled before issuing any refresh, or use a single hard clear during a maintenance window if a full session reset was required. After changing the operational procedure, the CPU spikes stopped recurring."
+      },
+      {
+        "subject": "Routing process at 95% after BGP refresh on 9.2.1",
+        "description": "Sunset Power Authority opened this case through the customer portal after seeing the AR-900’s routing process spike and the router become slow to respond during BGP maintenance. The device is running 9.2.1 and is used as an edge router with a large IPv4 unicast table. Their notes said the issue happened after several soft clears in a row while the network was still learning routes from peers. TAC confirmed the pattern in `show process cpu` and found the routing thread holding most of the CPU time. The system log also showed \"ERR-CPU-7781\" during the event, which aligned with the repeated refresh behavior.",
+        "resolution": "TAC tied the behavior to KB-2110 and recommended upgrading the Aurora AR-900 from 9.2.1 to 9.2.3, where BGP refresh no longer rebuilds the full outbound queue on each soft clear. The customer completed the upgrade and verified that repeated soft clears no longer drove the routing process above normal levels. Post-upgrade monitoring showed stable convergence and no further CPU spikes."
+      },
+      {
+        "subject": "Soft clear causes CPU spike on AR-900",
+        "description": "Sunset Power Authority reported that their Aurora AR-900 on 9.2.1 shows a short but repeatable CPU surge after BGP refresh operations. The portal submission included the log line \"ERR-CPU-7781\" and described intermittent control-plane lag, but data forwarding was not impacted. TAC checked `show process cpu` and saw the routing task dominate the scheduler slice during route churn. The router carries more than 250,000 prefixes, so the symptoms align with a scaling problem in the refresh path.",
+        "resolution": "TAC matched the case to KB-2110 and advised the customer to use the documented workaround: avoid repeated soft clears while updates are actively arriving, and if a refresh is needed, either wait until churn has been quiet for at least 60 seconds or use a single hard clear in a maintenance window. The customer applied the workaround and the CPU spikes no longer reproduced. We advised continued monitoring during future routing changes."
+      },
+      {
+        "subject": "AR-900 routing process pegged after BGP maintenance",
+        "description": "IronGate Freight emailed TAC about an Aurora AR-900 running 9.2.1 that became slow after multiple BGP soft clears were issued during a peering change. They initially suspected an ACL or NAT problem because forwarding traffic stayed mostly intact while the management plane lagged. TAC reviewed the device state and confirmed the routing process was briefly consuming almost all CPU, especially when updates were still being received. The customer also provided a system message quoting \"ERR-CPU-7781\" during the event.",
+        "resolution": "TAC identified the issue as KB-2110 and applied the workaround from the article. The customer was told to stop repeating soft clears during active update periods and to wait for route churn to settle before performing any refresh, or use a single hard clear in a maintenance window if necessary. After adopting that procedure, the router remained stable and the CPU spike did not recur."
+      },
+      {
+        "subject": "Repeated BGP soft clears overload routing process on 9.2.1",
+        "description": "IronGate Freight called the NOC with a P2 escalation after the Aurora AR-900 at one of their sites started lagging during BGP maintenance. The router is running 9.2.1, and the issue appeared only after several `clear bgp ipv4 unicast 65001 soft` operations were performed back to back on a busy table. TAC observed that `show process cpu` showed the routing task consuming most of the scheduler slice for about a minute, while packet forwarding remained mostly intact. The customer did not report link loss, but route convergence was noticeably delayed.",
+        "resolution": "TAC referenced KB-2110 and advised the customer to upgrade the Aurora AR-900 to 9.2.3, which fixes the refresh path so it reuses prefix state instead of rebuilding the outbound queue on every soft clear. After the upgrade, the customer repeated the maintenance sequence in a lab window and no longer saw the CPU spike. The unit returned to normal convergence behavior under load."
+      }
+    ]
+  }
+}

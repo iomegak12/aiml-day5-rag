@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-OW-5.0",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Orion OW-20 release 5.0 adds improvements to RADIUS challenge handling, roaming scheduler behaviour, and pre-upgrade validation. The update focuses on reducing authentication edge cases during Access-Challenge processing, improving the ordering of fast roaming work under load, and catching upgrade conditions earlier before the controller applies an incompatible configuration. This release also includes defect corrections for 4.9 issues affecting 802.11r key installation, Vendor-Specific attribute handling, and guest portal failover behaviour. Administrators planning an upgrade should review existing guest portal objects and validate upgrade sources before changing the active controller image.",
+    "features": [
+      {
+        "name": "RADIUS challenge repacking",
+        "description": "The controller now repacks Access-Challenge replies before forwarding them to the client authentication flow. This preserves Vendor-Specific attribute 26 when a reply contains a larger attribute set and reduces the chance of partial attribute loss during RADIUS processing. No configuration change is required, but TAC recommends verifying any custom RADIUS policy that depends on attribute ordering or attribute count limits."
+      },
+      {
+        "name": "fast roaming queue priority",
+        "description": "The roaming scheduler gives higher priority to 802.11r fast transition key work when the controller is processing concurrent roaming events. This lowers the chance that FT key installation is delayed behind less time-sensitive tasks during busy mobility periods. The feature is automatic; existing FT profiles continue to use the same enablement and timer settings."
+      },
+      {
+        "name": "upgrade migration checks",
+        "description": "The upgrade workflow now performs additional migration validation before committing the new image. The controller checks for configuration objects known to block upgrade, including legacy guest portal ACL content, and reports the condition before the upgrade proceeds. Administrators should review any reported conflicts and clean up unsupported objects prior to starting the upgrade."
+      }
+    ],
+    "compatibility": "Orion OW-20 5.0 supports direct upgrade from 4.9 and retains compatibility with the existing OW-20 hardware platform and controller-wide CLI model. Configuration syntax remains unchanged for wireless, roaming, RADIUS, guest portal, redundancy, and RF features, but the pre-upgrade migration checks can block upgrades from older configurations that contain unsupported legacy guest portal ACL objects. Interoperability with 802.1X, 802.11r/k/v, and standard RADIUS servers is preserved; however, environments using custom Access-Challenge policies should verify that Vendor-Specific attribute 26 is handled as expected after upgrade. Existing standby and redundancy designs remain supported, including n-plus-1 operation.",
+    "upgrade_steps": [
+      "Back up the running configuration and export any local certificates, guest portal content, and RADIUS-related policy objects before the maintenance window.",
+      "Verify the target 5.0 image checksum and confirm sufficient flash space on the controller before copying the image.",
+      "Review the configuration for legacy guest portal ACL objects and remove or replace unsupported entries if the pre-upgrade migration checks report them.",
+      "Schedule a maintenance window, place the controller into an upgrade-ready state, and stage the 5.0 image on the active node.",
+      "Apply the upgrade on the active controller, monitor the migration checks and boot messages, and confirm that the standby node resumes synchronization after failover.",
+      "After reboot, run post-checks including show ap summary, show client detail <mac>, and redundancy status verification, then test 802.1X authentication, guest portal login, and a sample fast-roaming event."
+    ]
+  }
+}

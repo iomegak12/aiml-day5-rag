@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-5106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why won't a 3.2 edge bring up the IPSec tunnel against a peer that insists on AES-GCM plus SHA-384?",
+    "reference_answer": "In Atlas SD-WAN 3.2, the tunnel can fail because the negotiator advertises AES-GCM as an encryption-only suite when the peer requires a single combined ESP proposal with both encryption and integrity attributes. As a result, the peer rejects the transform set, `show sdwan tunnels` stays in negotiating, and the edge retries every 10 seconds. This is tracked as KB-5106 with %IKE-3-PROPOSAL-MISMATCH, affects 3.2, and is fixed in 3.3. A workaround is to configure the remote peer to accept AES-GCM without a separate integrity field, or use AES-CBC with SHA-384 if the peer allows alternate transforms; on the Atlas side, `tunnel ipsec proposal set aes-gcm-256 sha384` followed by `commit` can be used to verify the resulting SA proposal."
+  }
+}

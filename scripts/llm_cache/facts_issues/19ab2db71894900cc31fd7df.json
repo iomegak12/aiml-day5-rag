@@ -1,0 +1,335 @@
+{
+  "stage": "facts_issues",
+  "label": "NF",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "issues": [
+      {
+        "ref": "I01",
+        "category": "VPN",
+        "error_code": "%IKEV2-3-PROPOSAL_MISMATCH",
+        "title": "Nimbus NF-300 5.0.8 and 5.0.9: ikev2 child-sa renegotiation fails after pfs group change when rekey traffic is active",
+        "symptoms": "On 5.0.8 and 5.0.9, an existing site-to-site tunnel stays up for hours, then the child SA drops during rekey and traffic blackholes for 10 to 20 seconds. `show crypto ikev2 sa` shows the IKE SA in ESTABLISHED while the child SA counter resets, and the peer reports repeated ESP rekey failures.",
+        "root_cause": "The IKEv2 rekey path reuses the last negotiated PFS group from the old child SA instead of rebuilding the proposal list after a policy change. If the peer rekeys from group 14 to group 19, the local responder sends a stale proposal set and rejects the inbound CREATE_CHILD_SA exchange.",
+        "workaround": "Keep the PFS group unchanged on both peers, or disable child SA rekey and force a manual tunnel restart during a maintenance window. If you must change the group, apply the same group on both sides and clear the SA after the change.",
+        "workaround_commands": [
+          "config",
+          "crypto ikev2 child-sa rekey disable",
+          "commit"
+        ],
+        "fix": "Fixed in 5.1.3: the child SA proposal list is rebuilt on every rekey exchange.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.0.8",
+          "5.0.9"
+        ],
+        "fixed_in": "5.1.3",
+        "engineer_question": "Why does my tunnel on 5.0.9 drop for a few seconds whenever the child SA rekeys after I change the PFS group?",
+        "twin_of": "I02",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I02",
+        "category": "VPN",
+        "error_code": "%IKEV2-3-PROPOSAL_MISMATCH",
+        "title": "Nimbus NF-300 5.1.3 and 5.1.5: IKEv2 phase 2 resets when responder selects a different DH group than the initiator",
+        "symptoms": "On 5.1.3 and 5.1.5, some tunnels flap every 30 to 60 minutes, especially when the peer uses multiple transform sets. `show crypto ikev2 sa` shows alternating child SA lifetimes, and the peer logs proposal rejection immediately after a rekey attempt.",
+        "root_cause": "The responder accepts the peer's child-SA proposal but caches the initiator's DH group number in the rekey state machine. When the peer picks a different acceptable group on the next exchange, the local engine compares against the cached value instead of the negotiated one and tears down the child SA.",
+        "workaround": "Pin a single DH group for the tunnel, preferably group 14, on both peers and avoid mixed transform sets. If the peer cannot be changed, shorten the lifetime to 1800 seconds so rekeys occur at predictable intervals and can be monitored.",
+        "workaround_commands": [
+          "config",
+          "crypto ikev2 proposal default dh-group 14",
+          "commit"
+        ],
+        "fix": "Fixed in 5.2.0: the responder uses the negotiated DH group from the active child SA context.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.1.3",
+          "5.1.5"
+        ],
+        "fixed_in": "5.2.0",
+        "engineer_question": "Why does my tunnel on 5.1.5 keep resetting during phase 2 rekey when the peer offers more than one DH group?",
+        "twin_of": "I01",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I03",
+        "category": "High Availability",
+        "error_code": "%HA-4-RSYNC_STALE_SEQ",
+        "title": "Nimbus NF-300 5.0.9: standby drops replicated sessions after split-brain recovery",
+        "symptoms": "After a brief split-brain event, the standby unit comes back online but 5 to 15 percent of sessions are missing from the replicated table. `show ha status` reports synced, yet `show session table summary` on the standby is lower by 20,000 to 40,000 entries compared with the active unit for several minutes.",
+        "root_cause": "During split-brain recovery the replication agent accepts the peer's sequence number before draining the local replay queue. If the queue still contains older updates, the standby discards them as stale and the session table converges only after the next full sync cycle.",
+        "workaround": "Manually force a full HA resync after recovery instead of relying on the incremental replay. Keep failover links stable for at least 120 seconds after node return so the replay queue can drain.",
+        "workaround_commands": [
+          "show ha status",
+          "config",
+          "ha resync full",
+          "commit"
+        ],
+        "fix": "Fixed in 5.2.2: the standby defers sequence-number advancement until the replay queue is empty.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.0.9"
+        ],
+        "fixed_in": "5.2.2",
+        "engineer_question": "After a split-brain, why does my standby on 5.0.9 come back synced but still miss part of the session table?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I04",
+        "category": "Software",
+        "error_code": "%UPGRADE-3-IMAGE_VERIFY_FAIL",
+        "title": "Nimbus NF-300 5.0.8: boot loader rejects a valid 5.0.9 image after HTTPS stage download",
+        "symptoms": "When upgrading from 5.0.8 by HTTPS stage download, the appliance downloads the 5.0.9 image successfully, but the next boot stops in image verification and rolls back to the previous release. The console shows a checksum verification failure even though the image hash matches the published SHA-256 value.",
+        "root_cause": "The 5.0.8 boot loader computes the verification digest over the padded image length rather than the actual payload length. Images transferred over HTTPS are padded to a 4 KB boundary, so the digest comparison fails even though the image file is intact.",
+        "workaround": "Use SCP or USB staging so the image is written without HTTPS padding, or upgrade first through an intermediate loader that understands the 4 KB-aligned payload. Verify the image hash before scheduling the reboot.",
+        "workaround_commands": [
+          "copy scp://198.51.100.10/nf300-5.0.9.bin system image",
+          "show software image"
+        ],
+        "fix": "Fixed in 5.0.9: the boot loader hashes only the unpadded payload.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.0.8"
+        ],
+        "fixed_in": "5.0.9",
+        "engineer_question": "Why does a 5.0.9 upgrade downloaded over HTTPS keep failing verification on a 5.0.8 box?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I05",
+        "category": "Threat Prevention",
+        "error_code": "%TP-4-SIGNATURE_STALL",
+        "title": "Nimbus NF-300 5.1.5: threat database update can stall packet processing when signature bundle exceeds 128 MB",
+        "symptoms": "On 5.1.5, a large threat database update completes, but throughput drops from about 8 Gbps to under 1 Gbps for 30 to 90 seconds while the new signatures are activated. During the stall, `show session table summary` shows new sessions increasing but existing sessions age out at normal rates.",
+        "root_cause": "The signature activation thread holds the inspection mutex while loading the new bundle into the classifier cache. Bundles larger than 128 MB exceed the single-pass load window, so the dataplane waits on the mutex until the cache rebuild finishes.",
+        "workaround": "Schedule threat database updates during a maintenance window and, if possible, reduce the feed set so the bundle stays below 128 MB. If an update is already in progress, avoid initiating SSL inspection policy changes until activation is complete.",
+        "workaround_commands": [
+          "show threat database status",
+          "config",
+          "threat update window 02:00 02:15",
+          "commit"
+        ],
+        "fix": "Fixed in 5.2.0: signature activation is chunked and no longer blocks the dataplane mutex for the full load duration.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.1.5"
+        ],
+        "fixed_in": "5.2.0",
+        "engineer_question": "Why does traffic on 5.1.5 almost stop for a minute when the threat signatures update?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I06",
+        "category": "SSL Inspection",
+        "error_code": "%SSL-5-CERT_CHAIN_CACHE",
+        "title": "Nimbus NF-300 5.2.0 and 5.2.2: outbound TLS sessions intermittently bypass inspection after certificate cache eviction",
+        "symptoms": "On 5.2.0 and 5.2.2, some HTTPS flows are forwarded without decryption after the certificate cache has been under pressure for 5 to 10 minutes. `show ssl inspection statistics` shows cache evictions increasing above 5,000 per hour, and affected clients receive the server certificate instead of the forged inspection certificate.",
+        "root_cause": "The cache eviction routine removes the leaf certificate entry but leaves the associated policy pointer in the fast-path lookup table until the next timer sweep. When a new TLS session hashes to that stale pointer, the engine assumes inspection already completed and passes the flow in clear mode.",
+        "workaround": "Increase the certificate cache size so eviction stays below 1,000 entries per hour, or disable outbound inspection for the affected server group until a fix is applied. Restarting SSL inspection clears the stale pointers temporarily.",
+        "workaround_commands": [
+          "config",
+          "ssl inspection cache size 4096",
+          "commit"
+        ],
+        "fix": "No software fix required; this is a configuration-sensitive bypass condition and the supported workaround is to raise the cache size and reduce eviction pressure.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.2.0",
+          "5.2.2"
+        ],
+        "fixed_in": null,
+        "engineer_question": "Why are a few HTTPS sessions on 5.2.2 suddenly skipping SSL inspection after the cache fills up?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I07",
+        "category": "High Availability",
+        "error_code": "%HA-3-LINK_MONITOR_FLAP",
+        "title": "Nimbus NF-300 all versions: HA failover pair can oscillate if heartbeat and monitored interface share the same L2 switch",
+        "symptoms": "A pair configured with active-standby HA may fail over every 15 to 30 seconds when both units connect to the same upstream access switch. The event log shows repeated monitor loss and restoration messages, and `show ha status` alternates between active and standby several times per minute.",
+        "root_cause": "The design ties heartbeat and interface-monitor traffic to the same broadcast domain, so a single Layer 2 forwarding glitch or STP recalculation can suppress both signals at once. Because the monitor timer is only 3 seconds by default, one missed heartbeat plus one missed poll is enough to trigger failover.",
+        "workaround": "Place the heartbeat links on a dedicated L2 segment that is independent of the monitored interfaces, or increase the monitor interval to 10 seconds if cabling changes are not immediately possible. Keep both nodes attached to separate switch ports with independent upstream paths.",
+        "workaround_commands": [
+          "config",
+          "ha monitor-interval 10",
+          "commit"
+        ],
+        "fix": "No software fix required; this is a topology requirement for all releases.",
+        "affects_all_versions": true,
+        "affected_versions": [],
+        "fixed_in": null,
+        "engineer_question": "My HA pair keeps flipping back and forth every few seconds when both units sit on the same switch. Is that expected?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I08",
+        "category": "VPN",
+        "error_code": "%IKEV2-3-TS_UNSUPPORTED",
+        "title": "Nimbus NF-300 all versions: policy-based IKEv2 tunnel fails when local selector is narrower than /30",
+        "symptoms": "A policy-based VPN comes up only when the local selector is set to a /30 or larger. If the selector is narrowed to a /31 or host route, the IKE SA establishes but the child SA never installs, and traffic counters remain at zero while the peer retries every 10 seconds.",
+        "root_cause": "The selector compiler assumes at least two addresses in the local subnet and generates an out-of-range upper bound for a /31 or host route. That invalid traffic-selector pair is rejected during CHILD_SA negotiation even though the policy is otherwise valid.",
+        "workaround": "Use route-based VPN for host-to-host tunnels, or widen the local selector to /30 and restrict traffic with a firewall policy instead. If the peer supports it, define a single-address object on the remote side and map it through a broader local subnet.",
+        "workaround_commands": [
+          "config",
+          "vpn ikev2 policy-based disable",
+          "commit"
+        ],
+        "fix": "No software fix required; this is a configuration limitation that applies to every release.",
+        "affects_all_versions": true,
+        "affected_versions": [],
+        "fixed_in": null,
+        "engineer_question": "Why will my IKEv2 tunnel on any release never install the child SA when I use a /31 selector?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I09",
+        "category": "Session Tables",
+        "error_code": "%SESSION-4-HASH_SKEW",
+        "title": "Nimbus NF-300 5.2.0: session table becomes uneven across worker cores after enabling asymmetric routing hash",
+        "symptoms": "After asymmetric routing is enabled on 5.2.0, one dataplane core reaches 85 to 90 percent utilization while the others remain near 30 percent. `show session table summary` reports one bucket with more than 2 million entries, and new sessions on that core take 2 to 5 milliseconds longer to install.",
+        "root_cause": "The new asymmetric hash mode seeds only the low 8 bits of the flow hash, so connections with similar source prefixes cluster into the same bucket. The rebalance daemon then sees the skew as normal because the bucket watermark is still below the hard overflow threshold.",
+        "workaround": "Disable asymmetric routing hash and use symmetric path steering, or reduce the number of session-table buckets to force a wider spread across cores. If available, pin large subnets to dedicated forwarding policies so the bucket distribution is less concentrated.",
+        "workaround_commands": [
+          "config",
+          "session-table asymmetric-hash disable",
+          "commit"
+        ],
+        "fix": "Fixed in 5.2.2: the hash seed uses the full 32-bit flow key and rebalancing reacts to bucket skew above 70 percent.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.2.0"
+        ],
+        "fixed_in": "5.2.2",
+        "engineer_question": "Why does one core on 5.2.0 get overloaded after I turn on asymmetric routing hashing?",
+        "twin_of": null,
+        "duplicate_of": "I10"
+      },
+      {
+        "ref": "I10",
+        "category": "Session Tables",
+        "error_code": "%SESSION-4-HASH_SKEW",
+        "title": "Nimbus NF-300 5.2.0 session-table imbalance after enabling asymmetric routing on large-prefix traffic",
+        "symptoms": "On 5.2.0, enabling asymmetric path handling can leave one or two session-table shards at 88 percent occupancy while the remaining shards stay below 40 percent. The imbalance appears after roughly 300,000 new sessions and causes intermittent latency spikes of 3 to 4 milliseconds on flows that land in the hot shard.",
+        "root_cause": "The shard allocator does not mix the low-order bits of the 5-tuple when asymmetric routing is enabled, so prefixes from the same /24 are directed to the same worker queue. The load-balancer threshold for redistribution is set too high, so the skew persists instead of being spread across the other shards.",
+        "workaround": "Disable asymmetric routing handling for the affected policy set, or break the large prefix into smaller policy groups so the sessions distribute more evenly. Monitor the hottest shard and keep occupancy below 75 percent until a software fix is available.",
+        "workaround_commands": [
+          "config",
+          "session-table asymmetric-routing disable",
+          "commit"
+        ],
+        "fix": "Fixed in 5.2.2: session hashing incorporates the full 5-tuple and redistributes shards once occupancy exceeds 75 percent.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.2.0"
+        ],
+        "fixed_in": "5.2.2",
+        "engineer_question": "Why does 5.2.0 build a hot session-table shard after I enable asymmetric routing for a /24?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I11",
+        "category": "Software",
+        "error_code": "%UPGRADE-4-REPLAY_CURSOR",
+        "title": "Nimbus NF-300 5.1.3 and 5.1.5: upgrade from 5.0.x may reset configuration objects if checkpoint replay exceeds 4,096 entries",
+        "symptoms": "When upgrading a heavily configured system from 5.0.x to 5.1.3 or 5.1.5, the boot process completes but some objects are missing after the first login. Customers usually report 50 to 200 absent policy entries, and `show running-config` shows default values where custom objects used to exist.",
+        "root_cause": "The migration engine replays configuration checkpoints in 4,096-entry batches and loses its cursor after the first full batch if the destination schema adds a new object type. The remaining batches are accepted but not committed to the runtime database, so part of the configuration is silently reset.",
+        "workaround": "Break the configuration into smaller chunks before upgrading, or export and re-import the policy objects after the first boot. For large deployments, keep each checkpoint file under 4,000 entries and verify the running configuration immediately after reboot.",
+        "workaround_commands": [
+          "show configuration checkpoint summary",
+          "copy running-config backup://198.51.100.20/nf300-preupgrade.cfg"
+        ],
+        "fix": "Fixed in 5.2.0: replay cursor state is preserved across all checkpoint batches.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.1.3",
+          "5.1.5"
+        ],
+        "fixed_in": "5.2.0",
+        "engineer_question": "After upgrading to 5.1.5, why did a bunch of firewall objects disappear even though the boot finished cleanly?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I12",
+        "category": "VPN",
+        "error_code": "%IKEV2-4-REKEY_TIMER",
+        "title": "Nimbus NF-300 5.2.2: route-based IPsec tunnels may briefly blackhole traffic when dpd and rekey timers are both 10 seconds",
+        "symptoms": "On 5.2.2, a route-based tunnel with aggressive liveness settings can stop forwarding for 1 to 2 seconds every few minutes. `show crypto ikev2 sa` remains ESTABLISHED, but packet counters pause during the overlap between DPD probe handling and child-SA rekey, especially when both timers are configured to 10 seconds.",
+        "root_cause": "The DPD timer and child-SA rekey timer share a single scheduler slot in 5.2.2. When both expire in the same tick, the engine sends the liveness probe first and defers the rekey state transition, leaving the installed route pointing at the old SPI until the next scheduler cycle.",
+        "workaround": "Stagger the timers so DPD is at least 3 seconds shorter or longer than the rekey interval, for example `crypto ikev2 dpd 10 3` with a 300-second rekey. Avoid setting both timers to the same 10-second value on route-based tunnels.",
+        "workaround_commands": [
+          "config",
+          "crypto ikev2 dpd 10 3",
+          "commit"
+        ],
+        "fix": "No software fix required; use non-aligned DPD and rekey timers to avoid the scheduler overlap.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.2.2"
+        ],
+        "fixed_in": null,
+        "engineer_question": "Why do my route-based tunnels on 5.2.2 pause for a second whenever DPD and rekey hit at the same time?",
+        "twin_of": null,
+        "duplicate_of": null
+      }
+    ],
+    "releases": [
+      {
+        "version": "5.0.8",
+        "features": [
+          "Baseline NF-300 firewall services",
+          "Initial IKEv2 and HA implementation",
+          "HTTPS image staging"
+        ]
+      },
+      {
+        "version": "5.0.9",
+        "features": [
+          "Boot loader verification update",
+          "Child SA rekey stability improvements",
+          "HA replay logging"
+        ]
+      },
+      {
+        "version": "5.1.3",
+        "features": [
+          "Expanded VPN transform support",
+          "Configuration checkpoint migration",
+          "Session-table instrumentation"
+        ]
+      },
+      {
+        "version": "5.1.5",
+        "features": [
+          "Threat prevention signature cache changes",
+          "SSL inspection policy scaling",
+          "HA resync telemetry"
+        ]
+      },
+      {
+        "version": "5.2.0",
+        "features": [
+          "Asymmetric session hashing",
+          "Chunked signature activation",
+          "Improved VPN policy parsing"
+        ]
+      },
+      {
+        "version": "5.2.2",
+        "features": [
+          "Session-table rebalance tuning",
+          "HA recovery sequencing",
+          "TLS inspection cache controls"
+        ]
+      }
+    ]
+  }
+}

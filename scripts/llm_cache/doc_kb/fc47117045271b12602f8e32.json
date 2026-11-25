@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-2101",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Aurora AR-900 release 9.1.4 and 9.1.6, eBGP IPv4 routes can remain installed in the BGP table with a valid AS path while the selected next hop is shown as unresolved after an underlay route flap. The BGP session remains Established, but the affected prefixes are not installed in the routing table until recursion is forced to run again.",
+    "symptoms": "This issue is usually seen after a connected or static underlay route is withdrawn and then relearned within a short interval, commonly after a track event or interface flap. Within about 5 to 10 seconds, 50 to 200 eBGP IPv4 prefixes may stop appearing in `show ip route bgp` even though `show bgp summary` still shows the peer as Established and the prefixes are still present in the BGP table with a valid AS path.\n\nOperators typically observe that the route selection state shows the next hop as unresolved or not resolvable. The condition persists until BGP is cleared for the affected address family or the underlay route is removed and re-added so recursion is recomputed.",
+    "diagnosis_steps": [
+      "Run `show bgp summary` and confirm the affected neighbor remains in the Established state. If the session is up but routes are missing from the RIB, continue.",
+      "Run `show bgp ipv4 unicast` for one of the missing prefixes and verify that the route is present in BGP with a valid AS path but the next-hop state is unresolved.",
+      "Run `show ip route bgp` and confirm that the affected prefixes are absent from the installed routing table even though BGP still lists them.",
+      "Run `show ip route 198.51.100.0/24` or the relevant underlay prefix and verify that the resolving connected/static route was recently withdrawn and relearned.",
+      "If available, run `debug bgp recursion` during the flap window and look for a negative recursion entry that is not cleared after the underlay route returns. A matching `%BGP-4-NH-RESOLVE` event confirms the condition.",
+      "Check `show bgp ipv4 unicast neighbors <peer> advertised-routes` or the equivalent peer view to confirm the session continues to exchange updates while only the recursion state is stale."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %BGP-4-NH-RESOLVE: prefix 203.0.113.0/24 next-hop 198.51.100.1 unresolved after route withdrawal\n2026-03-14T02:13:09Z %BGP-4-NH-RESOLVE: prefix 203.0.113.16/28 next-hop 198.51.100.1 unresolved after route withdrawal\n\nar900# show bgp summary\nBGP router identifier 10.0.0.1, local AS number 65001\nNeighbor        V    AS MsgRcvd MsgSent   Up/Down  State/PfxRcd\n192.0.2.2       4 65002    8421    8398  00:18:41 Established 184\n\nar900# show bgp ipv4 unicast 203.0.113.0/24\nBGP routing table entry for 203.0.113.0/24\n  Paths: 1 available\n  65002 65003\n  Nexthop 198.51.100.1 (unresolved)\n  Not installed in RIB\n\nar900# show ip route bgp\n% No BGP routes installed\n\nar900# show ip route 198.51.100.0/24\nRouting entry for 198.51.100.0/24\n  Known via connected, interface xe-0/0/0\n  Last change 2026-03-14T02:12:58Z",
+    "root_cause": "In the 9.1 family, the BGP next-hop recursion cache can retain a stale negative resolution entry when the route used to resolve the next hop is withdrawn and relearned within the 30-second hold interval. In that state, the BGP session stays up and the best-path remains valid, but the recursion engine does not retry resolution immediately.\n\nAs a result, the affected prefixes remain present in BGP but are not programmed into the routing table until another incremental update occurs or the recursion state is forced to refresh manually.",
+    "workaround_steps": [
+      "If the affected path is critical, schedule a maintenance window and clear the BGP process for the affected IPv4 unicast address family to force next-hop recursion to be rebuilt.",
+      "If you prefer to avoid a BGP clear, remove and re-add the underlay resolving route so the recursion engine recomputes the next hop. This is most effective when the route can be flapped cleanly without traffic impact.",
+      "For short-term protection during the maintenance window, use a static discard route with a lower distance than the learned underlay so the resolving path remains stable while the change is made."
+    ],
+    "resolution": "The defect is fixed in release 9.2.0. In that release and later, BGP invalidates the next-hop recursion cache whenever the resolving route changes state, so withdrawn and relearned underlay routes no longer leave eBGP IPv4 prefixes stuck in an unresolved state."
+  }
+}

@@ -1,0 +1,338 @@
+{
+  "stage": "facts_issues",
+  "label": "HX",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "issues": [
+      {
+        "ref": "I01",
+        "category": "Optics",
+        "error_code": "%TRANSCEIVER-4-LOS",
+        "title": "HX-5000 7.2 SFP28 link drops with DOM bias current spike and remote LOS alarms",
+        "symptoms": "On HX-5000 systems running 7.2, 25G ports with specific SFP28 optics drop link every 8 to 12 minutes under steady traffic. `show interfaces transceiver detail` shows a bias current jump from about 6.1 mA to 11.4 mA immediately before the port goes down, and the far-end device reports LOS within 1 second.",
+        "root_cause": "The 7.2 optical polling path latches an incorrect DOM snapshot when the module temperature changes by more than 7 C during a 30-second sampling window. The switch then asserts a false low-power condition and clears the SerDes lane, which produces a transient LOS event even though the optic remains seated and powered.",
+        "workaround": "Reduce DOM polling activity on the affected ports and keep the optics below 50 C case temperature if possible. If the port is flapping under load, move the optic to a port running a later release or replace it with a module that has a stable bias current profile.",
+        "workaround_commands": [
+          "configure terminal",
+          "interface ethernet 1/1",
+          "transceiver monitoring interval 120"
+        ],
+        "fix": "Fixed in 7.3: the DOM sampling logic now validates consecutive readings before acting on bias current excursions.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "7.2"
+        ],
+        "fixed_in": "7.3",
+        "engineer_question": "On 7.2, why does a 25G port keep dropping with transceiver alarms even though the optic looks seated fine?",
+        "twin_of": "I02",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I02",
+        "category": "Optics",
+        "error_code": "%TRANSCEIVER-4-LOS",
+        "title": "HX-5000 7.5 QSFP28 uplinks report intermittent LOS after DOM threshold recalculation",
+        "symptoms": "On 7.5, 100G uplinks using QSFP28 optics can show a brief down/up cycle after a temperature or voltage alarm clears. `show interfaces transceiver detail` shows the module recovering, but the port is withdrawn for 3 to 5 seconds and the remote switch records a clean LOS transition.",
+        "root_cause": "The 7.5 transceiver manager recalculates alarm thresholds after a DOM read and briefly re-evaluates link state against the new limits before the debounce timer expires. That causes a spurious LOS assertion on optics that are otherwise operating within vendor specifications.",
+        "workaround": "Disable aggressive DOM alarm action on the affected interface and leave the port in service if the module readings stay inside the normal operating range. If the uplink is critical, move it to a release that contains the corrected debounce handling.",
+        "workaround_commands": [
+          "configure terminal",
+          "interface ethernet 1/49",
+          "transceiver alarm-action link-down disable"
+        ],
+        "fix": "Fixed in 7.6: threshold recomputation no longer triggers link-state reevaluation until the 5-second debounce timer completes.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "7.5"
+        ],
+        "fixed_in": "7.6",
+        "engineer_question": "In 7.5, why do my 100G optics briefly bounce after a transceiver warning clears?",
+        "twin_of": "I01",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I03",
+        "category": "Stacking",
+        "error_code": "%STACK-3-SPLIT-BRAIN",
+        "title": "HX-5000 stack master election oscillates in 7.3 when stack cables negotiate at mixed speed",
+        "symptoms": "In 7.3 stacks with mixed 50 cm and 1 m stack cables, the master can change 2 to 4 times per hour under moderate control-plane load. `show stack` shows the members briefly in separate election domains, and the log records repeated stack re-election events without a physical cable loss.",
+        "root_cause": "The 7.3 stack election code incorrectly prefers the lowest latency sample from the last three keepalive intervals instead of the current two-way adjacency score. When one member experiences a 20 ms scheduling delay, the election result can flip and the stack re-runs master selection even though both links remain operational.",
+        "workaround": "Use matched-length stack cables between all members and keep control-plane load below 60 percent until the software is upgraded. If possible, pin the desired master with a higher priority value and avoid adding or removing members during the unstable period.",
+        "workaround_commands": [
+          "configure terminal",
+          "stack member 1 priority 200",
+          "stack member 2 priority 100"
+        ],
+        "fix": "Fixed in 7.4: master election now uses the current adjacency score and ignores transient scheduler delay spikes.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "7.3"
+        ],
+        "fixed_in": "7.4",
+        "engineer_question": "On 7.3, why does the stack keep changing masters even though the cables are fine?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I04",
+        "category": "Stacking",
+        "error_code": "%STACK-3-SPLIT-BRAIN",
+        "title": "HX-5000 7.6 stack members briefly separate after dual-path heartbeat jitter on long cable runs",
+        "symptoms": "On 7.6 stacks built with 2 m stack cables, the master can remain up while one member disappears from `show stack` for 10 to 15 seconds and then rejoins automatically. Operators usually see a short burst of `split-brain` messages during the event, but the physical links never go down.",
+        "root_cause": "The 7.6 stack heartbeat code treats a single delayed heartbeat as a missed neighbor and immediately clears the adjacency state on long cable runs where propagation and scheduler jitter can align. This differs from 7.3 because the adjacency timer is too aggressive rather than the election algorithm being unstable.",
+        "workaround": "Keep stack cabling under 1 m when possible and avoid chaining all members through a single long physical path. If the installation must use 2 m cables, place the stack on a release with the corrected heartbeat hold-down timer.",
+        "workaround_commands": [
+          "configure terminal",
+          "stack heartbeat timeout 900"
+        ],
+        "fix": "Fixed in 8.0: stack heartbeat processing now requires three consecutive missed intervals before adjacency teardown.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "7.6"
+        ],
+        "fixed_in": "8.0",
+        "engineer_question": "Why does my 7.6 stack briefly split even though none of the stack links are dropping?",
+        "twin_of": "I03",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I05",
+        "category": "Spanning Tree",
+        "error_code": "%STP-5-TCN-STORM",
+        "title": "Rapid-PVST generates continuous topology-change notifications on 10G access ports in all releases",
+        "symptoms": "After a single downstream host reboots, some access switches emit a new topology-change notification every 2 to 4 seconds for several minutes. `show spanning-tree detail` shows the same port repeatedly reentering forwarding even though the edge device never changes attachment, and the MAC table ages out much faster than the configured 300-second timer.",
+        "root_cause": "This is a design limitation in the access-edge loop guard behavior when rapid-pvst is used on ports that also learn moving MAC addresses from downstream virtual devices. Each learned MAC move resets the topology-change state, so the switch keeps generating notifications even though the physical topology is stable.",
+        "workaround": "Do not run rapid-pvst on ports facing devices that legitimately move multiple MAC addresses, such as downstream virtualization hosts or clustered appliances. Use a dedicated edge VLAN design or restrict the port to a single access device.",
+        "workaround_commands": [
+          "configure terminal",
+          "spanning-tree mode rapid-pvst",
+          "interface ethernet 1/10",
+          "spanning-tree portfast"
+        ],
+        "fix": "No software fix required; this is a configuration and design constraint of rapid-pvst on multi-MAC edge ports.",
+        "affects_all_versions": true,
+        "affected_versions": [],
+        "fixed_in": null,
+        "engineer_question": "Why do my access ports keep firing topology-change events after a normal host reboot?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I06",
+        "category": "LACP",
+        "error_code": "%LACP-4-MISBUNDLE",
+        "title": "HX-5000 7.4 EtherChannel mis-bundles member ports when partner uses slow LACP timers",
+        "symptoms": "In 7.4, a 4-link LACP bundle to a neighboring switch can come up with only 2 active members, and the missing links appear as suspended for 30 to 90 seconds. `show lacp neighbor` shows the partner in sync state, but `show interfaces port-channel` reports repeated collect/distribute mismatch events after a link flap.",
+        "root_cause": "The 7.4 LACP state machine starts collecting traffic before it has confirmed the partner's timeout bit when the peer is using slow LACP timers. That creates a transient aggregation mismatch, so the local system suspends links that should have joined the bundle.",
+        "workaround": "Configure the peer and local bundle for fast LACP timers if the design permits it, or manually clear the affected EtherChannel after link restoration. If the bundle must stay on slow timers, avoid flapping individual member links during maintenance.",
+        "workaround_commands": [
+          "configure terminal",
+          "interface port-channel 10",
+          "lacp rate fast"
+        ],
+        "fix": "Fixed in 7.5: member ports now wait for partner timer confirmation before entering collect/distribute.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "7.4"
+        ],
+        "fixed_in": "7.5",
+        "engineer_question": "On 7.4, why does my port-channel lose members when the far end is using slow LACP?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I07",
+        "category": "LACP",
+        "error_code": "%LACP-4-MISBUNDLE",
+        "title": "HX-5000 7.5 port-channel suspends members after a reload when peer sends delayed LACP markers",
+        "symptoms": "After a reboot on 7.5, one or more port-channel members may remain suspended for about 60 seconds even though the peer is already forwarding. `show lacp neighbor detail` shows the adjacency as up, but `show interfaces port-channel` reports the member as waiting for synchronization and traffic only uses a subset of the links.",
+        "root_cause": "The 7.5 aggregator applies the marker-response guard before it replays the cached partner state, so a delayed marker frame makes the member look out of sync with the bundle. The same symptom exists as I06, but the root cause is a delayed marker-processing path rather than slow timer negotiation.",
+        "workaround": "Clear the port-channel after the peer completes link-up, or wait for the one-minute synchronization timer to expire if traffic impact is acceptable. For maintenance windows, bring up the bundle only after both sides have fully initialized.",
+        "workaround_commands": [
+          "configure terminal",
+          "interface port-channel 10",
+          "shutdown",
+          "no shutdown"
+        ],
+        "fix": "Fixed in 7.6: cached partner state is restored before marker validation runs after reload.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "7.5"
+        ],
+        "fixed_in": "7.6",
+        "engineer_question": "Why do my 7.5 EtherChannel members stay suspended after a reboot even though LACP is up?",
+        "twin_of": null,
+        "duplicate_of": "I06"
+      },
+      {
+        "ref": "I08",
+        "category": "VXLAN/EVPN",
+        "error_code": "%EVPN-4-RT5-STALL",
+        "title": "HX-5000 7.6 EVPN type-5 routes stop advertising after anycast gateway MAC move",
+        "symptoms": "On 7.6 VXLAN fabrics, type-5 prefixes can stop updating for 5 to 20 minutes after an anycast gateway MAC moves between leafs. `show evpn route-type 5` still lists the prefix locally, but remote VTEPs keep the old next hop and new host traffic blackholes until the route is refreshed manually.",
+        "root_cause": "The 7.6 EVPN process incorrectly ties type-5 advertisement refresh to the gateway MAC mobility timer instead of the prefix change event. When the MAC moves, the route reflector suppresses a needed update and leaves remote peers with stale VTEP information.",
+        "workaround": "Trigger a controlled EVPN route refresh after moving the anycast gateway, or avoid gateway MAC mobility during periods when the fabric is carrying active type-5 routes. If operationally possible, keep the gateway anchored on a single leaf pair until the software is upgraded.",
+        "workaround_commands": [
+          "configure terminal",
+          "router evpn",
+          "address-family l2vpn evpn",
+          "route-refresh"
+        ],
+        "fix": "Fixed in 8.0: type-5 advertisements are refreshed on prefix change independent of gateway MAC mobility.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "7.6"
+        ],
+        "fixed_in": "8.0",
+        "engineer_question": "In 7.6, why do EVPN routes go stale after the anycast gateway moves?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I09",
+        "category": "Performance",
+        "error_code": "%BUF-3-OVERFLOW",
+        "title": "HX-5000 7.2 oversubscribed 100G egress queues drop bursts above 85 percent utilization",
+        "symptoms": "On 7.2, line-rate traffic with microbursts larger than 48 KB can produce sustained output drops on oversubscribed 100G ports even when average utilization is only 70 to 80 percent. `show queue counters` shows tail drops climbing by several thousand packets per minute, and latency on neighboring flows increases from under 1 ms to more than 12 ms.",
+        "root_cause": "The 7.2 egress scheduler uses a fixed 8-cell reservation window that underestimates burst depth on 100G ports with multiple active priority groups. Once the queue occupancy exceeds 85 percent, the local buffer watermark is hit too late to preserve the burst, so frames are discarded instead of being shaped.",
+        "workaround": "Reduce burstiness with traffic shaping upstream, or spread the workload across additional uplinks so no single egress port remains above 85 percent sustained utilization. For critical low-latency flows, reserve a dedicated queue on the affected interface.",
+        "workaround_commands": [
+          "configure terminal",
+          "interface ethernet 1/52",
+          "queue-set 3",
+          "priority-flow-control disable"
+        ],
+        "fix": "Fixed in 7.4: the scheduler reservation window was expanded and buffer watermark checks run earlier in the transmit path.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "7.2"
+        ],
+        "fixed_in": "7.4",
+        "engineer_question": "On 7.2, why am I seeing drops on a 100G port even though average traffic is only around 75 percent?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I10",
+        "category": "Performance",
+        "error_code": "%BUF-3-OVERFLOW",
+        "title": "HX-5000 8.0 multicast replication can starve uplink buffers during short bursts",
+        "symptoms": "On 8.0, a fabric leaf under heavy VXLAN multicast replication can show brief output loss on unrelated unicast flows every few minutes. `show queue counters` reports bursts of discard increments on the uplink queue, typically 200 to 600 packets per event, while interface utilization remains below 80 percent.",
+        "root_cause": "The 8.0 replication engine reserves too much shared buffer for multicast fanout and does not return the reservation quickly enough after a burst ends. That leaves the unicast egress queue with insufficient headroom and causes a drop even though the port is not continuously oversubscribed.",
+        "workaround": "Limit multicast fanout on the busiest leafs, or move replication-heavy workloads onto a separate uplink group so the shared buffer pool is not exhausted. If the burst is predictable, schedule the traffic outside congestion-sensitive windows.",
+        "workaround_commands": [
+          "configure terminal",
+          "hardware buffer multicast-reservation 12",
+          "interface port-channel 20",
+          "queue-limit 4096"
+        ],
+        "fix": "No software fix available yet; the issue remains open in 8.0.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "8.0"
+        ],
+        "fixed_in": null,
+        "engineer_question": "Why does 8.0 drop some unicast traffic when multicast bursts happen, even though the link is not full?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I11",
+        "category": "Upgrade",
+        "error_code": "ERR-UPG-2207",
+        "title": "Upgrade from 7.2 to 7.4 can fail when saved transceiver calibration data exceeds 32 KB",
+        "symptoms": "During an in-service upgrade from 7.2 to 7.4, the process can halt at 78 to 82 percent and the management plane restarts once before rolling back. The upgrade log shows a calibration import failure, and after rollback `show interfaces transceiver detail` may take 20 to 30 seconds to return on systems with many populated optics.",
+        "root_cause": "The 7.4 image expects a compact transceiver calibration record, but some 7.2 systems store expanded DOM history blocks that exceed 32 KB per chassis. The upgrade parser does not trim the legacy records before migration, so the boot loader rejects the converted configuration and aborts the upgrade.",
+        "workaround": "Back up the configuration, clear nonessential DOM history, and retry the upgrade from a maintenance window with fewer populated optics. If the system has many optics, remove and reseat the most recently installed modules before retrying so the calibration cache is rebuilt smaller.",
+        "workaround_commands": [
+          "configure terminal",
+          "no transceiver calibration-history",
+          "write memory",
+          "reload"
+        ],
+        "fix": "Fixed in 7.5: the migration process now truncates legacy transceiver history before the target image is committed.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "7.2"
+        ],
+        "fixed_in": "7.5",
+        "engineer_question": "Why does the 7.2-to-7.4 upgrade stop around 80 percent on a chassis with lots of optics?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I12",
+        "category": "Software",
+        "error_code": "%MEM-4-LEAK",
+        "title": "HX-5000 7.6 routing process leaks memory after repeated EVPN route-refresh events",
+        "symptoms": "On 7.6, the routing process RSS can grow from about 900 MB to more than 1.8 GB over 24 hours when the fabric receives frequent EVPN route-refresh messages. Once free memory falls below 12 percent, control-plane latency rises and `show process memory` reports steady growth in the same daemon.",
+        "root_cause": "The 7.6 EVPN refresh handler allocates a new per-peer attribute cache on every refresh and fails to release the previous generation when the remote peer sends back-to-back updates. The leak is cumulative, so the process recovers only after a reload or after the refresh storm stops for long enough to drain the cache.",
+        "workaround": "Reduce the frequency of route-refresh events by limiting unnecessary neighbor resets and schedule a reload before free memory drops below 15 percent. If the fabric is stable, keep EVPN adjacency changes out of peak traffic windows.",
+        "workaround_commands": [
+          "configure terminal",
+          "router evpn",
+          "neighbor 198.51.100.1 route-refresh disable"
+        ],
+        "fix": "Fixed in 8.0: the refresh handler now reuses attribute cache objects and frees stale generations immediately.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "7.6"
+        ],
+        "fixed_in": "8.0",
+        "engineer_question": "Why does memory keep climbing on 7.6 after EVPN refreshes, and when does it need a reboot?",
+        "twin_of": null,
+        "duplicate_of": null
+      }
+    ],
+    "releases": [
+      {
+        "version": "7.2",
+        "features": [
+          "25G optical DOM telemetry",
+          "enhanced queue counters",
+          "basic rapid-pvst support"
+        ]
+      },
+      {
+        "version": "7.3",
+        "features": [
+          "stack election optimization",
+          "transceiver polling stabilization",
+          "LACP neighbor visibility"
+        ]
+      },
+      {
+        "version": "7.4",
+        "features": [
+          "expanded buffer scheduling",
+          "dom threshold validation",
+          "upgrade migration checks"
+        ]
+      },
+      {
+        "version": "7.5",
+        "features": [
+          "LACP marker handling",
+          "transceiver debounce tuning",
+          "configuration parser hardening"
+        ]
+      },
+      {
+        "version": "7.6",
+        "features": [
+          "EVPN route-refresh support",
+          "stack heartbeat refinements",
+          "multicast buffer accounting"
+        ]
+      },
+      {
+        "version": "8.0",
+        "features": [
+          "EVPN type-5 refresh fixes",
+          "stack failure detection",
+          "memory management cleanup"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-3103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "HA pair shows synced but standby session count stays low after failover event",
+        "description": "CivicWorks Public Agency emailed TAC to report that their Nimbus NF-300 HA pair on 5.0.9 recovered from a brief split-brain event, but the standby unit was still missing a portion of sessions. They said the firewall pair showed healthy and synced, yet the standby session table remained lower than the active unit by roughly 25,000 entries for several minutes. On review, TAC confirmed the device was running Nimbus NF-300 5.0.9 and noted the log message \"%HA-4-RSYNC_STALE_SEQ\" on the standby during recovery. The behavior matches a replay/sequence mismatch during HA resynchronization rather than a general session table capacity issue.",
+        "resolution": "TAC identified the issue as KB-3103 and applied the documented workaround. The customer forced a full HA resync from config mode with `ha resync full`, then kept the failover links stable long enough for the replay queue to drain. Session counts converged after the full resync completed."
+      },
+      {
+        "subject": "Standby missing sessions after split-brain recovery on NF-300",
+        "description": "CivicWorks Public Agency called TAC after noticing that one side of their Nimbus NF-300 cluster on 5.0.9 came back from a split-brain condition with fewer sessions on standby. The caller initially suspected a session-leak condition because the standby table stayed short by about 20,000 to 30,000 entries even though `show ha status` reported the pair as synced. TAC checked the device version and confirmed both units were running Nimbus NF-300 5.0.9. The issue appeared only after the recovery event and then slowly improved, which is consistent with delayed replication catch-up rather than a permanent data loss condition.",
+        "resolution": "TAC matched the behavior to KB-3103 and used the recommended workaround. A full HA resync was initiated from config mode with `ha resync full`, followed by `commit`, and the customer was instructed to keep the failover links stable for at least 120 seconds after node return. After resync, the standby session table matched the active unit."
+      },
+      {
+        "subject": "HA pair recovers but standby session table lags behind",
+        "description": "Prairie State College opened a case through the customer portal for a Nimbus NF-300 running 5.0.9. They reported a short network interruption and said the firewall pair recovered cleanly, but the standby unit continued to show fewer sessions than the active unit for several minutes after failover. TAC verified that `show ha status` indicated synced state, while the session table on the standby remained lower by tens of thousands of entries. No log bundle was attached, but the symptoms were limited to the post-recovery window and then began to self-correct.",
+        "resolution": "TAC identified the condition as KB-3103 and advised the standard workaround. The customer issued `ha resync full` from config mode and waited for the replay queue to drain before allowing another failover event. The session counts converged without requiring a software change."
+      },
+      {
+        "subject": "Standby drops replicated sessions after split-brain; recommend code fix",
+        "description": "A partner escalated on behalf of Prairie State College after repeated HA recovery issues on a Nimbus NF-300 pair running 5.0.9. The customer reported that after a split-brain event, the standby firewall returned to service with a noticeably smaller session table, even though `show ha status` still showed the pair as healthy and synced. TAC reproduced the behavior in lab terms consistent with the customer report and noted the log message \"%HA-4-RSYNC_STALE_SEQ\" during the recovery path. The pattern matched stale replication handling during resync rather than an outage on the dataplane.",
+        "resolution": "TAC traced the problem to KB-3103 and, because the customer requested a permanent fix path, recommended upgrading the cluster to 5.2.2. After the upgrade, the standby no longer discarded queued session updates during split-brain recovery. TAC confirmed the issue was resolved without needing repeated manual resyncs."
+      },
+      {
+        "subject": "Session table on standby lags after HA recovery event",
+        "description": "Cornerstone Supermarkets reported on-site that their Nimbus NF-300 appliance on 5.0.9 recovered from an HA flap, but the standby box still showed fewer sessions than the active unit. The field engineer said the cluster looked normal in `show ha status`, yet the standby remained behind by about 40,000 sessions before gradually catching up. TAC reviewed the device state and found the log message \"%HA-4-RSYNC_STALE_SEQ\" associated with the recovery period. The symptom profile fit a replication ordering issue after split-brain rather than a packet-loss or licensing problem.",
+        "resolution": "TAC identified the issue as KB-3103 and applied the documented workaround. The engineer ran `ha resync full` in config mode and committed the change, then left the failover links stable for longer than 120 seconds so the replay queue could drain. The standby session table converged to match the active unit."
+      }
+    ]
+  }
+}

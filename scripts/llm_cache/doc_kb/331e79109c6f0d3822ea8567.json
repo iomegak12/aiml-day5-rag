@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-3112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Nimbus NF-300 5.2.2, route-based IPsec tunnels can briefly stop forwarding when DPD and child-SA rekey timers expire at the same time. The IKEv2 security association remains established, but traffic may pause for 1 to 2 seconds until the next scheduler cycle completes the rekey transition.",
+    "symptoms": "Affected systems typically use aggressive liveness settings on route-based IPsec tunnels. Customers report intermittent packet loss or brief blackholes every few minutes, while the tunnel itself still appears up.\n\nDuring the event, `show crypto ikev2 sa` continues to display the SA as ESTABLISHED. Packet and byte counters on the tunnel interface or the child SA pause momentarily, then resume after the rekey completes. The issue is most visible when both DPD and rekey timers are configured to 10 seconds.",
+    "diagnosis_steps": [
+      "Run `show crypto ikev2 sa` and verify that the IKEv2 SA remains in ESTABLISHED state during the interruption. If the SA does not drop, the tunnel is not failing at the IKE control-plane level.",
+      "Run `show crypto ipsec sa` or `show crypto ikev2 sa detail` and check whether packet counters stop incrementing for 1 to 2 seconds at regular intervals. A pause that repeats every few minutes is consistent with the timer overlap.",
+      "Check the configured timers with `show running-config | include crypto ikev2 dpd|rekey`. If DPD and child-SA rekey are both set to 10 seconds, the configuration matches the known trigger.",
+      "Enable transient IKEv2 logging and review timestamps around the event. A matching `%IKEV2-4-REKEY_TIMER` message at the same second as a DPD probe indicates the scheduler overlap.",
+      "If available, confirm that traffic on the route-based tunnel resumes without manual intervention after the next scheduler tick. This differentiates the issue from peer reachability loss or persistent phase-2 failure."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %IKEV2-4-REKEY_TIMER: dpd probe and child-sa rekey scheduled for the same tick on tunnel 12, deferring rekey transition\n2026-03-14T02:13:07Z show crypto ikev2 sa\n203.0.113.10 203.0.113.20 ESTABLISHED  1  1  00:17:42  10  10\n2026-03-14T02:13:07Z show crypto ipsec sa\npeer 203.0.113.20\n  inbound spi 0x7c1a2d4e, outbound spi 0x4f8b91c3\n  packets encrypted 184220, decrypted 184117\n  packets encrypted 184220, decrypted 184117\n2026-03-14T02:13:08Z show crypto ipsec sa\npeer 203.0.113.20\n  inbound spi 0x7c1a2d4e, outbound spi 0x4f8b91c3\n  packets encrypted 184220, decrypted 184117\n  packets encrypted 184220, decrypted 184117",
+    "root_cause": "In 5.2.2, the DPD timer and child-SA rekey timer share a single scheduler slot. When both timers expire in the same tick, the engine processes the liveness probe first and defers the rekey state transition to the next scheduler cycle.\n\nBecause the route-based tunnel continues to point at the old SPI until rekey installation completes, traffic can blackhole briefly even though the IKEv2 SA remains established. The condition is timing-dependent and most likely when both timers are configured to the same 10-second value.",
+    "workaround_steps": [
+      "Change the tunnel liveness configuration so DPD and child-SA rekey do not expire on the same second. Keep the timers separated by at least 3 seconds; a shorter DPD interval than the rekey interval is acceptable.",
+      "Apply the updated DPD setting in configuration mode and commit the change. For example, set DPD to 10 seconds with 3 retries and leave the rekey interval at 300 seconds.",
+      "Verify the new values with `show running-config | include crypto ikev2 dpd|rekey` and confirm the timers are no longer aligned.",
+      "Monitor `show crypto ikev2 sa` and interface counters during the next rekey interval to confirm forwarding remains continuous."
+    ],
+    "resolution": "No software fix is required for this behavior in 5.2.2. Prevent recurrence by avoiding aligned DPD and child-SA rekey timers on route-based tunnels, and do not configure both timers to the same 10-second value. Keep the timers staggered by at least 3 seconds so the scheduler does not place probe handling and rekey processing in the same tick."
+  }
+}

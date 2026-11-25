@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-3105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "NF-300 throughput drops during threat feed update",
+        "description": "Evergreen Clinic Network NOC reported a recurring throughput drop on an NF-300 running 5.1.5. They said Internet traffic falls from normal levels to well under 1 Gbps for about a minute after a threat database update finishes, then recovers without a reboot. Existing sessions stay up, but new connections are slow to establish and the event lines up with the signature activation phase. TAC reviewed the current status and confirmed the issue is isolated to the update window rather than a general dataplane fault.",
+        "resolution": "TAC identified this as KB-3105 and applied the documented workaround. We set the threat update window to 02:00-02:15 UTC so the signature activation occurs during low traffic, and advised the customer to keep the feed set small enough to stay below the 128 MB bundle threshold. We also advised them not to make SSL inspection policy changes while an update is activating."
+      },
+      {
+        "subject": "Packet loss after threat signature update on 5.1.5",
+        "description": "Northstar Bank, through their partner, reported short-lived packet loss on an NF-300 running 5.1.5 after a scheduled threat database refresh. Their users noticed slow access to internal apps for roughly one minute, but the firewall did not fail over and normal traffic returned on its own. TAC confirmed that session aging remained normal and that the slowdown matches the signature activation period rather than an interface or routing problem. The partner asked whether a software defect was involved because the pattern repeats after each large update.",
+        "resolution": "TAC matched the behavior to KB-3105 and recommended the supported upgrade path. The customer upgraded the NF-300 from 5.1.5 to 5.2.0, where signature activation is chunked and no longer blocks the dataplane mutex for the full load duration. After the upgrade, the throughput drop during threat updates no longer reproduced."
+      },
+      {
+        "subject": "NF-300 slows briefly when threat database activates",
+        "description": "Prairie State College emailed TAC about an NF-300 running 5.1.5 that briefly slows down every time the threat database activates new signatures. They initially suspected an ISP issue because the firewall still passed traffic, but students and staff saw downloads stall for under two minutes while new connections were being established. TAC reviewed the reported timing and confirmed existing sessions aged out normally during the event, which pointed away from a session-table exhaustion issue. The customer also provided a recent system log excerpt containing the message '%TP-4-SIGNATURE_STALL' during activation.",
+        "resolution": "TAC identified the issue as KB-3105 and advised an upgrade to 5.2.0. The customer installed 5.2.0 on the NF-300, which resolves the dataplane stall during large signature activation. After the upgrade, the update process completed without the previous throughput drop."
+      },
+      {
+        "subject": "Throughput collapse during threat update on NF-300",
+        "description": "Pinnacle Energy called TAC after their NF-300 on 5.1.5 showed a sharp throughput drop during a threat database update. The appliance stays online, but branch traffic falls from about 8 Gbps to under 1 Gbps for roughly 45 seconds, then returns to normal once the new signatures are active. TAC confirmed that the session table continued to grow with new sessions while established sessions aged out at the expected rate, which is consistent with an activation-time stall rather than a hardware failure. The customer supplied a timestamped alert and the firewall log line '%TP-4-SIGNATURE_STALL' from the same event.",
+        "resolution": "TAC traced the symptom to KB-3105 and recommended upgrading the NF-300 from 5.1.5 to 5.2.0. The customer completed the upgrade, and the signature activation path now completes without the dataplane mutex hold that caused the temporary throughput collapse. Post-upgrade testing showed no repeat of the issue during the next threat update."
+      },
+      {
+        "subject": "Threat update causes slow traffic on NF-300, request for workaround",
+        "description": "Northstar Bank submitted a portal case for an NF-300 running 5.1.5 because traffic slows every time the threat database finishes updating. Their note said the firewall is not rebooting or dropping VPN tunnels, but user traffic pauses long enough to trigger complaints from traders and back-office staff. TAC checked the pattern against the device behavior and found that existing sessions remain stable while new sessions increase normally during the event. The customer included the firewall log message '%TP-4-SIGNATURE_STALL' and asked for a fix that does not require an immediate upgrade.",
+        "resolution": "TAC identified the condition as KB-3105 and applied the documented workaround. We configured a threat update window so activations run during a low-traffic period and advised the customer to keep the threat feed set small enough to stay below the 128 MB bundle size. We also advised them to avoid SSL inspection policy changes while the update is still activating."
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-6102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "HX-5000 100g uplink drops briefly after optics alarm clears",
+        "description": "Sunset Power Authority phoned TAC about an HX-5000 core switch running 7.5. They reported a 100G uplink on a QSFP28 module that drops for a few seconds and then comes back without any configuration change. Their team first suspected a bad optic or fiber plant issue because the remote end logs a clean link loss and recovery. TAC reviewed the interface history and confirmed the module readings return to normal immediately before the brief withdrawal.",
+        "resolution": "TAC identified the behavior as KB-6102 and applied the documented workaround on the affected interface to disable aggressive DOM alarm action. After that change, the port stayed in service while the module readings remained within the normal operating range. The customer was advised to monitor the optics and schedule an upgrade when practical."
+      },
+      {
+        "subject": "Intermittent 100g fiber flap on HX-5000 7.5",
+        "description": "Lakeside Hospitality opened a P2 for an HX-5000 core switch on software 7.5. They were seeing an uplink flap on a QSFP28-based 100G port, usually after a temperature or voltage warning cleared on the optic. TAC checked the transceiver counters and found the module itself was recovering cleanly, but the port state was still being withdrawn for several seconds. The behavior matched a software-triggered link-state event rather than a persistent physical layer fault.",
+        "resolution": "TAC confirmed the issue against KB-6102 and recommended upgrading the switch from 7.5 to 7.6. The customer completed the upgrade and retested the uplink, which no longer exhibited the brief down/up cycle after DOM alarms cleared. TAC closed the case after post-upgrade verification."
+      },
+      {
+        "subject": "HX-5000 port goes down briefly after optic alarm clears",
+        "description": "Sunset Power Authority submitted a portal case for an HX-5000 running 7.5. Their note said the 100G uplink on a QSFP28 optic 'keeps bouncing' when the module cools back down after a warning, but the optic diagnostics otherwise look normal. TAC compared the interface timestamps and saw the port was withdrawn for about 3 to 5 seconds before recovering. The pattern was isolated to one uplink and did not affect the rest of the stack.",
+        "resolution": "TAC matched the symptoms to KB-6102 and applied the recommended workaround on the affected interface by disabling aggressive DOM alarm action. The interface remained up after subsequent alarm-clear events, provided the optic stayed within its normal operating range. TAC left the case open only long enough to confirm stability, then resolved it."
+      },
+      {
+        "subject": "Repeated uplink withdraws on HX-5000 after optic alarm clears",
+        "description": "Redwood University escalated a campus network outage from the NOC involving an HX-5000 core switch on 7.5. They reported that a 100G uplink on QSFP28 optics was briefly going down and coming back after a transceiver temperature alert cleared, which was disrupting a bundled service path. TAC inspected the interface state and saw the optic recover normally, but the link state dropped for several seconds anyway. The event was reproducible on the same port and did not correlate with spanning-tree or LACP changes.",
+        "resolution": "TAC traced the behavior to KB-6102 and implemented the workaround on the impacted interface to suppress aggressive DOM alarm action. After the change, the uplink remained stable through subsequent temperature and voltage alarm clear events. The customer was advised to continue operation on 7.5 until a maintenance window allowed an upgrade."
+      },
+      {
+        "subject": "Critical HX-5000 100g link resets with qsfp28 alert clear",
+        "description": "Sunset Power Authority had an on-site field engineer open a P1 on an HX-5000 core switch running 7.5. The engineer reported that a critical 100G uplink was resetting whenever a transceiver alarm cleared, and captured the following message on the switch: '%TRANSCEIVER-4-LOS'. TAC correlated the event with the optic returning to normal DOM values and the port being withdrawn for a short interval before recovering. The issue was isolated to the transceiver manager path rather than the physical link itself.",
+        "resolution": "TAC identified the defect as KB-6102 and directed the customer to upgrade the switch to 7.6, where the debounce handling is corrected. After the upgrade, the uplink no longer asserted a spurious loss-of-signal event when DOM thresholds were recomputed. TAC confirmed stable operation and closed the incident."
+      }
+    ]
+  }
+}

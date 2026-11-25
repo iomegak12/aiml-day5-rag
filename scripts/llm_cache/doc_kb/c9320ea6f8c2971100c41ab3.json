@@ -1,0 +1,24 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-2110",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Aurora AR-900 running 9.2.1, repeated BGP soft clears can cause the routing process to spike above 95% CPU for 30-90 seconds. The condition is most noticeable on large IPv4 unicast tables and while route updates are actively arriving.",
+    "symptoms": "Operators may observe that `clear bgp ipv4 unicast 65001 soft` works initially, but repeated execution causes the router to become sluggish for control-plane operations. During the event window, BGP convergence slows, route programming is delayed, and `show process cpu` reports the routing task consuming most of the scheduler slice. Forwarding usually continues, but BGP neighbors may take longer to reflect fresh best-path selection, especially when the routing table exceeds 250,000 prefixes and the table is still changing.\n\nIn some cases, the system log also records a CPU-related warning tied to the routing process. The spike is transient, typically lasting 30-90 seconds, and it is more likely when soft clears are issued back-to-back during sustained inbound update activity.",
+    "diagnosis_steps": [
+      "Run `show bgp summary` and confirm the device is processing a large IPv4 unicast table, especially one above 250,000 prefixes, while neighbors remain established.",
+      "Run `show process cpu` during or immediately after the soft clear. This issue is indicated when the routing process stays above 95% CPU and dominates the scheduler slice while other processes remain comparatively low.",
+      "Run `show bgp ipv4 unicast neighbors 65001 advertised-routes` or the equivalent BGP neighbor route display supported on the platform. If the refresh is rebuilding output repeatedly, route advertisement counts may remain in flux longer than expected after each clear.",
+      "Check the system log for repeated CPU warnings from the routing task. A matching `%CPU-4-THRESHOLD` or `ERR-CPU-7781` entry during the spike supports this diagnosis.",
+      "If available, run `show process cpu history` to confirm that the CPU spike aligns with each repeated soft clear and subsides after route churn stops."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %CPU-4-THRESHOLD: routing process exceeded 95% CPU for 30s\n2026-03-14T02:13:07Z ERR-CPU-7781: routing task consuming 97% scheduler slice during BGP refresh\n2026-03-14T02:13:08Z %BGP-5-INFO: soft refresh requested for ipv4 unicast, local-as 65001\n2026-03-14T02:13:09Z show process cpu\nprocess            pid   cpu(5s) cpu(1m) cpu(5m)\nrouting            184   97%     88%     41%\nospf               192    2%      3%      4%\nforwarding         201    1%      2%      2%\n2026-03-14T02:13:22Z show bgp summary\nneighbor        asn      state     prefixes-rx prefixes-tx uptime\n198.51.100.2    65001    established 287421    287118     12d04h",
+    "root_cause": "The 9.2.1 soft-clear path rebuilds the outbound BGP update queue from scratch on every refresh request instead of reusing existing prefix state. On a large table, each soft clear forces an O(n) walk of the prefix database plus duplicate best-path serialization, which can saturate the single routing worker thread.\n\nBecause the routing process is single-threaded for this portion of the workflow, repeated soft clears during active update churn compound the load and produce a sustained CPU spike. Data-plane forwarding remains mostly intact because the condition is limited to control-plane processing.",
+    "workaround_steps": [
+      "Avoid issuing repeated soft clears while route updates are actively arriving. Wait until inbound churn has settled for at least 60 seconds before requesting a refresh.",
+      "If a refresh is required immediately, prefer a single hard clear during a maintenance window rather than repeated soft clears.",
+      "After applying the clear, verify CPU recovery with the operational CPU display. If the routing process remains elevated, allow additional time for route churn to subside before repeating the action."
+    ],
+    "resolution": "The defect is fixed in 9.2.3. In that release, BGP refresh reuses prefix state and no longer rebuilds the entire outbound queue on every soft clear, preventing the routing process CPU spike seen in 9.2.1."
+  }
+}

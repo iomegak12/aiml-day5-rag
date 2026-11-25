@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-4106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Orion OW-20 5.0 voice clients pausing on roams",
+        "description": "Prairie State College called TAC to report that handheld voice phones were dropping audio for a fraction of a second every few AP moves. The site runs an Orion OW-20 wireless LAN controller on 5.0, and the issue is most noticeable when classes change and many clients roam at once. TAC reviewed client state and saw reassociation succeed, but `show client detail <mac>` showed `ft fallback: yes` on devices expected to stay on 802.11r fast transition. The pattern matched a roaming-path delay rather than an AP or RADIUS failure.",
+        "resolution": "TAC identified the symptom as KB-4106. Because the controller was on 5.0 and the site needed a permanent fix, Prairie State College upgraded the Orion OW-20 to 5.1, where FT key pushes are sent immediately on reassociation."
+      },
+      {
+        "subject": "Intermittent roam gaps on 5.0 controller",
+        "description": "An on-site field engineer at Evergreen Clinic Network reported brief audio gaps on a few clinical handhelds during room-to-room movement. The Orion OW-20 controller is running 5.0, and the engineer initially suspected RF coverage because the clients were still reconnecting successfully. TAC checked roaming behavior and found the fast transition path was being completed, but some clients were falling back after reassociation and showing `ft fallback: yes` in client detail output. The issue was reproducible only when several devices moved in a short window, which pointed to a controller-side timing problem.",
+        "resolution": "TAC mapped the behavior to KB-4106 and applied the documented workaround. The site reduced roam burst size with `roam batch-size 8` and staggered mobility tests so FT key pushes completed within the completion window on the 5.0 controller."
+      },
+      {
+        "subject": "FT fallback seen on OW-20 after busy clinic roaming",
+        "description": "Partner escalation for Evergreen Clinic Network reported that the Orion OW-20 on 5.0 was allowing clients to roam, but voice handsets were still pausing every few moves. TAC reproduced the problem during a mobility test with many clients roaming together and captured a controller event trail showing reassociation success followed by the log message '%ROAM-5-FT_KEYTIMEOUT'. The partner also provided client output showing `ft fallback: yes` on devices that should have stayed on 802.11r. The symptom only appeared under heavier roam density and did not resemble an authentication outage.",
+        "resolution": "TAC correlated the case with KB-4106. The controller was upgraded from 5.0 to 5.1, which resolves the delayed FT key push behavior by sending keys immediately when the client enters reassociation."
+      },
+      {
+        "subject": "Voice handsets brief dropouts when moving between APs",
+        "description": "Summit Logistics emailed TAC about short audio interruptions on warehouse handhelds as employees walked between coverage zones. Their Orion OW-20 controller is on 5.0, and the customers said the handsets reconnect quickly but sound like they are 'hanging' for a moment during roaming. TAC reviewed the mobility pattern and found the problem only showed up when a larger group of clients moved within about ten seconds. The controller was completing reassociation, but the fast transition path was not always staying on the expected sequence.",
+        "resolution": "TAC identified the issue as KB-4106 and applied the recommended workaround on the 5.0 controller. `roam batch-size 8` was set and roaming tests were staggered to keep the FT flush inside the required completion window, which eliminated the noticeable service gaps."
+      },
+      {
+        "subject": "Multiple roaming pauses on Orion OW-20 5.0 during store walk tests",
+        "description": "HarborPoint Retail emailed TAC after noticing repeated voice dropouts during walk tests in several stores. The Orion OW-20 wireless LAN controller is running 5.0, and the reported issue became worse when many associates were moving at once for opening checks. TAC observed successful reassociation events followed by the log entry '%ROAM-5-FT_KEYTIMEOUT' on affected clients, and `show client detail <mac>` showed `ft fallback: yes` on devices expected to remain on fast transition. The evidence pointed to a controller timing defect rather than a coverage or authentication problem.",
+        "resolution": "TAC matched the case to KB-4106. HarborPoint Retail upgraded the Orion OW-20 from 5.0 to 5.1, which fixes the FT key push timing issue and removes the roaming-related service gaps."
+      }
+    ]
+  }
+}

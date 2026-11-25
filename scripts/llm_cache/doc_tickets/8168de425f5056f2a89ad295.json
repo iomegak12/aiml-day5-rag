@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-6106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "HX-5000 port-channel only forms with 2 members after link flap",
+        "description": "Redwood University opened this through the customer portal after a classroom core maintenance window. Their Helix HX-5000 core switch is running 7.4, and a 4-link EtherChannel to an adjacent switch comes back with only 2 active members after one member is bounced. The missing links stay suspended for roughly a minute, then may join later without intervention. TAC confirmed the peer reports LACP sync, but the local switch is seeing repeated collect/distribute mismatch events; the log also shows \"%LACP-4-MISBUNDLE\" during the flap.",
+        "resolution": "TAC matched the behavior to KB-6106 for HX-5000 7.4. We applied the documented workaround by configuring fast LACP timers on the port-channel and the peer where supported, then cleared the affected bundle after link restoration. After the change, all four members joined consistently and no further mismatch events were observed."
+      },
+      {
+        "subject": "LACP bundle on HX-5000 intermittently suspends members after maintenance",
+        "description": "Northstar Bank reported that a production uplink on a Helix HX-5000 running 7.4 does not always return to four active members after scheduled maintenance. The issue appears when one member link is bounced; the bundle stays partially formed for 30 to 90 seconds and traffic uses only half the links. Initial triage found the neighbor in LACP sync state, but the switch kept logging repeated collect/distribute mismatch transitions. The agent captured \"%LACP-4-MISBUNDLE\" on the console during the event.",
+        "resolution": "TAC identified the issue as the known 7.4 LACP mis-bundle described in KB-6106. We used the workaround from the article: enabled fast LACP timers on the local port-channel and coordinated the same setting on the peer, then cleared the EtherChannel after the link was restored. The bundle recovered with four active members and remained stable under subsequent maintenance testing."
+      },
+      {
+        "subject": "HX-5000 7.4 does not restore all EtherChannel members after link bounce",
+        "description": "Evergreen Clinic Network escalated through a partner after seeing intermittent throughput loss on a Helix HX-5000 core switch running 7.4. They described the problem as “one or two links disappearing” from a four-port aggregation after a maintenance cutover. TAC review showed the partner switch and the local switch both advertise LACP, but the local system is suspending ports that should be participating in the bundle. The symptoms match a transient aggregation mismatch on member rejoin.",
+        "resolution": "TAC mapped the case to KB-6106 and advised the documented workaround for 7.4. We configured fast LACP timers on the affected port-channel and coordinated the peer configuration so the members would rejoin promptly after a flap. Once the link state was cleared, the bundle returned to four active links and the clinic confirmed normal traffic levels."
+      },
+      {
+        "subject": "Critical uplink bundle on HX-5000 only comes up partially after failover",
+        "description": "Prairie State College opened a P1 NOC escalation for a Helix HX-5000 core switch running 7.4 because a campus uplink bundle came back degraded after an upstream change. The team reported that the port-channel should have four members, but only two were forwarding and the other two remained suspended long enough to affect voice and authentication traffic. TAC confirmed the neighbor still shows LACP sync and the local switch logs repeated collect/distribute mismatch events during recovery. The console also displayed \"%LACP-4-MISBUNDLE\" at the time of the incident.",
+        "resolution": "TAC identified the incident as the 7.4 LACP condition documented in KB-6106. We applied the article's workaround by setting fast LACP timers on the local bundle and on the peer where possible, then cleared the EtherChannel after link restoration. The port-channel returned to four active members and the college verified the uplink stayed stable after additional failover tests."
+      },
+      {
+        "subject": "HX-5000 port-channel flaps back with missing members after link restoration",
+        "description": "Lakeside Hospitality escalated a core-switch issue from the NOC on a Helix HX-5000 running 7.4. Their four-link aggregation to an access distribution switch sometimes returns with only two active links after a single member is unplugged and reinserted. They initially suspected a bad cable, but the same behavior repeats across different links and the neighbor remains in LACP sync. TAC observed the local bundle suspending ports during rejoin and confirmed the switch is hitting the known aggregation mismatch behavior.",
+        "resolution": "TAC tied the symptoms to KB-6106 for HX-5000 7.4. We used the documented workaround by configuring fast LACP timers on the port-channel and the peer, then manually clearing the affected EtherChannel after the links were restored. The bundle re-formed with all four members and the hotel reported no further suspension events during later maintenance work."
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-5104",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "lte tunnel traffic drops after 3.1 upgrade on branch edge",
+        "description": "Customer reported that after upgrading a dual-SIM Atlas SD-WAN edge to 3.1, voice traffic and larger file transfers started failing over the LTE path while the tunnel still showed up in the orchestrator. The site is using edge 198.51.100.24 on release 3.1, and the issue appears only on the LTE-backed overlay; wired failover is unaffected. Initial triage found `show sdwan tunnels` reporting the tunnel as up, but packet loss begins once payloads exceed about 1420 bytes, and the customer described intermittent fragmentation alerts in the portal. The customer had previously configured a lower LTE tunnel MTU before the upgrade.",
+        "resolution": "TAC identified this as KB-5104. We had the customer reapply the LTE tunnel MTU on the affected interface with `interface lte0 tunnel-mtu 1400` followed by `commit`, then retested with 1472-byte pings. The tunnel resumed passing traffic normally and the site was returned to service."
+      },
+      {
+        "subject": "intermittent mtu mismatch on lte overlay after moving to 3.1",
+        "description": "Redwood University emailed that one remote campus lost connectivity to cloud apps after an Atlas SD-WAN edge upgrade to 3.1. The affected edge is 203.0.113.18 running 3.1, and `show sdwan tunnels` still reports both LTE tunnels as established. Their network team originally suspected carrier packet loss, but the failure is consistent across two different SIMs in the same chassis and only for larger packets. The edge log includes repeated \"%UPG-5-MTU-MIGRATE\" notices, which points to an upgrade-time configuration issue rather than a transport outage.",
+        "resolution": "TAC matched the behavior to KB-5104 and advised upgrading the edge to 3.2, where the migration preserves the configured LTE tunnel MTU across dual-SIM upgrades. After the customer completed the 3.2 upgrade, the LTE tunnel MTU remained intact and the large-packet drops stopped without further manual changes."
+      },
+      {
+        "subject": "lte tunnel up but large packets fail after orchestrator upgrade",
+        "description": "Partner escalation for Summit Logistics reported that a warehouse edge began dropping ERP traffic after being upgraded from 3.0 to 3.1. The device is an Atlas SD-WAN edge on 192.0.2.77, and the orchestrator still shows the LTE overlay tunnel as healthy. Their first note blamed application-aware routing, but TAC reviewed the edge and found the issue reproduces with plain ICMP when the payload is above the low 1400-byte range. The edge log contains \"%UPG-5-MTU-MIGRATE\", which aligns with an upgrade migration problem on dual-SIM LTE interfaces.",
+        "resolution": "TAC identified KB-5104 and applied the documented workaround by restoring the LTE tunnel MTU on the affected interface with `interface lte0 tunnel-mtu 1400` and `commit`. After the change, the tunnel stopped advertising an oversized encapsulation size and large packets passed normally."
+      },
+      {
+        "subject": "dual-sim lte site drops oversize traffic after 3.1 upgrade",
+        "description": "IronGate Freight opened via partner escalation after a branch edge upgraded to Atlas SD-WAN 3.1 started failing only on LTE backup links. The edge, running 3.1 at 198.51.100.91, still reports the overlay tunnel as up, but shipping label uploads and other larger flows stall or retransmit heavily. The customer initially thought this was an ISP issue because small pings still worked, but packet captures showed fragmentation behavior changing immediately after the upgrade. The problem was limited to the interface with a pre-upgrade explicit LTE tunnel MTU below 1500.",
+        "resolution": "TAC traced the issue to KB-5104 and instructed the customer to reapply the pre-upgrade LTE tunnel MTU on the affected interface. After `interface lte0 tunnel-mtu 1400` and `commit`, the edge returned to stable forwarding and the site was cleared back into production."
+      },
+      {
+        "subject": "p1: branch lte overlay failing after 3.1 migration",
+        "description": "Northstar Bank’s NOC escalated a priority 1 incident after several branch edges on Atlas SD-WAN 3.1 started losing access to internal banking applications over LTE failover. One representative device, 203.0.113.52, is running 3.1 and still shows the tunnels as established, but large transactions time out while small keepalives continue to pass. The NOC also forwarded the edge log, which shows repeated \"%UPG-5-MTU-MIGRATE\" messages after the upgrade. Triage indicates the failure is isolated to dual-SIM LTE interfaces where a custom tunnel MTU had been configured before the upgrade.",
+        "resolution": "TAC identified the condition as KB-5104 and had the customer restore the LTE tunnel MTU on each affected interface using `interface lte0 tunnel-mtu 1400` followed by `commit`. Once applied, the overlay stopped advertising the incorrect encapsulation size and the failed transactions recovered."
+      }
+    ]
+  }
+}

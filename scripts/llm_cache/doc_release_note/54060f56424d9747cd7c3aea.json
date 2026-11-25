@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-AT-3.2",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Atlas SD-WAN 3.2 focuses on control-plane correctness and upgrade safety for orchestrator-managed overlays and edge devices. This release adds immediate route-withdrawal invalidation so application-aware routing stops using withdrawn next-hop information without waiting for cache expiry, preserves dual-SIM LTE tunnel settings during upgrade, and updates IPSec proposal negotiation handling to align with current peer policy behavior. Quality fixes in this release address two customer-impacting issues observed in 3.1: LTE tunnel MTU changes during upgrade on dual-SIM edges, and stale route selection in app-aware routing after a withdrawal event. Administrators should review IPSec and LTE transport configurations before upgrading, especially where nondefault APN profiles or stricter proposal policies are in use.",
+    "features": [
+      {
+        "name": "Immediate route-withdrawal invalidation",
+        "description": "When the orchestrator receives a route withdrawal, Atlas SD-WAN now invalidates the affected route immediately in the forwarding and application-routing caches. This prevents app-aware routing from continuing to select a withdrawn path until the normal cache aging timer expires. No configuration changes are required, but operators should expect faster failover and route-state convergence after withdrawal events."
+      },
+      {
+        "name": "Dual-SIM LTE upgrade preservation",
+        "description": "Upgrade workflows now preserve per-interface LTE tunnel settings on dual-SIM edges instead of rewriting the tunnel MTU during migration. This keeps the configured tunnel MTU intact across image changes and avoids post-upgrade traffic shifts caused by an unintended default value. Existing edge profiles do not require modification, but TAC recommends verifying LTE transport parameters after the upgrade if the edge uses dual-SIM operation."
+      },
+      {
+        "name": "IPSec proposal negotiation updates",
+        "description": "The IPSec negotiation engine has been updated to better follow proposal ordering and peer capability matching during tunnel setup. This improves interoperability with peers that present multiple transform combinations and reduces negotiation failures caused by mismatched local preference handling. Review any custom IPSec policy objects before upgrade to confirm that encryption and integrity proposals still reflect the intended peer requirements."
+      }
+    ],
+    "compatibility": "Atlas SD-WAN 3.2 supports upgrade from 3.1 on the same orchestrator and edge hardware families supported by the 3.x train. Configuration is generally preserved across the upgrade, including overlay policy, SLA classes, certificate material, and routing policy; however, edges using dual-SIM LTE profiles should be checked after upgrade because per-interface LTE tunnel MTU values must remain as intended, especially when a nondefault APN is configured. Interoperability with IPSec peers is unchanged for standard proposal sets, but environments that depend on strict AES-GCM and SHA-384 combinations should be validated before broad rollout because proposal support remains subject to peer-specific negotiation behavior. No manual schema conversion is required, but operators should stage policy and tunnel changes through the orchestrator before upgrading all sites.",
+    "upgrade_steps": [
+      "Back up the orchestrator configuration, certificate inventory, and current edge profiles, including any LTE and IPSec policy objects.",
+      "Verify the target 3.2 image checksum and signature on the orchestrator and on any edge software repository before scheduling the upgrade.",
+      "Choose a maintenance window that covers at least one full control-plane convergence cycle and, for remote sites, a backup WAN path if available.",
+      "Upgrade the orchestrator first, then stage the 3.2 image to a pilot group of edges; confirm the image activates cleanly before expanding the rollout.",
+      "After each pilot edge upgrade, run post-checks such as 'show sdwan tunnels', 'show app-route sla-class', and interface-specific LTE verification to confirm tunnel state, route selection, and MTU values.",
+      "Complete the remaining edge upgrades in waves, then review logs and counters for tunnel negotiation failures, route withdrawals, and policy push errors before closing the change."
+    ]
+  }
+}

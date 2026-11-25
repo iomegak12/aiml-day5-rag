@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "single_hop:KB-6105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "Why do my access ports keep firing topology-change events after a normal host reboot?",
+    "reference_answer": "On Helix HX-5000, KB-6105 says this is expected behavior on access ports running rapid-pvst, identified by %STP-5-TCN-STORM. After a single downstream host reboot, the switch can generate a new topology-change notification every 2 to 4 seconds for several minutes because each learned MAC move resets the topology-change state; `show spanning-tree detail` may also show the same port repeatedly reentering forwarding and the MAC table aging out faster than the configured 300-second timer. This is a design limitation affecting all releases, with no software fix required; avoid rapid-pvst on ports facing multi-MAC downstream devices and instead use a dedicated edge VLAN design or restrict the port to a single access device."
+  }
+}

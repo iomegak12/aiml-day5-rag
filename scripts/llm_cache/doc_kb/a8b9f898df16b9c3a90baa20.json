@@ -1,0 +1,24 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-6102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Helix HX-5000 release 7.5, QSFP28 100G uplinks can momentarily drop after a DOM temperature or voltage alarm clears. The port may recover immediately at the optics level, but the switch withdraws the interface for several seconds due to a false loss-of-signal evaluation.",
+    "symptoms": "Operators typically see a brief down/up cycle on a 100G Ethernet uplink after a transceiver DOM alarm clears. `show interfaces transceiver detail` indicates that optical power, temperature, and voltage have returned to normal, yet the port remains out of service for 3 to 5 seconds before returning to forwarding state.\n\nThe remote device usually records a clean LOS transition with no corresponding physical fiber event. This behavior is intermittent and is most commonly reported on QSFP28 modules operating within vendor specifications on 7.5 systems.",
+    "diagnosis_steps": [
+      "Run `show interfaces transceiver detail` on the affected port and confirm that DOM values return to normal immediately after the alarm clears. Look for temperature or voltage readings inside the expected operating range while the interface is still withdrawn.",
+      "Run `show interface ethernet 1/49` and verify that the port state changes to down and then back up without a persistent local fault. The issue is consistent with a short administrative/operational withdrawal rather than a sustained optics failure.",
+      "Check the system log with `show logging | include TRANSCEIVER` and confirm a `%TRANSCEIVER-4-LOS` entry at the time of the event. The log should show a loss-of-signal assertion immediately after a DOM threshold clear.",
+      "If available, compare the remote switch logs for the same time window. A clean LOS transition on the peer, with no CRC burst or physical-layer degradation, supports this defect rather than cabling damage.",
+      "Use `show interface ethernet 1/49 counters` after recovery. Absence of persistent input errors, symbol errors, or flaps outside the brief interval helps distinguish this issue from a bad optic or dirty fiber."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %TRANSCEIVER-4-LOS: ethernet 1/49: rx los asserted after dom threshold recalc\n2026-03-14T02:13:08Z %LINK-5-STATE: ethernet 1/49, link down\n2026-03-14T02:13:11Z %LINK-5-STATE: ethernet 1/49, link up\n\nhelix# show interfaces transceiver detail ethernet 1/49\nInterface ethernet 1/49\n  Type                : qsfp28\n  Vendor              : fictional-optics\n  Temperature         : 41.2 C\n  Voltage             : 3.28 V\n  Tx Power            : -1.4 dBm\n  Rx Power            : -2.0 dBm\n  Alarm Status        : none\n  Link State          : up\n  Last Event          : dom threshold clear\n",
+    "root_cause": "In release 7.5, the transceiver manager recalculates alarm thresholds after each DOM read. When a temperature or voltage alarm clears, the code briefly reevaluates link state against the newly calculated limits before the debounce timer completes. On affected QSFP28 optics, that transient reevaluation can assert loss of signal even though the module is operating within specification.\n\nThe result is a spurious `%TRANSCEIVER-4-LOS` event followed by a short port withdrawal. The condition is not caused by sustained optical degradation and does not indicate a fiber fault if the module readings remain normal.",
+    "workaround_steps": [
+      "On the affected interface, disable aggressive DOM alarm action so that a transient threshold recalculation does not force link-down behavior.",
+      "Keep the uplink in service if the DOM readings remain within the normal operating range and the port stabilizes after the brief event.",
+      "If the link is business-critical and repeated flaps are operationally disruptive, schedule migration of the uplink to a system running a fixed release."
+    ],
+    "resolution": "This defect is fixed in release 7.6. In that release, threshold recomputation no longer triggers link-state reevaluation until the 5-second debounce timer completes, preventing the spurious LOS assertion on QSFP28 uplinks."
+  }
+}

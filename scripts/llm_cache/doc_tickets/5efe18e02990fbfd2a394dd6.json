@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-6112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "HX-5000 routing CPU and memory climbing after EVPN updates",
+        "description": "Lakeside Hospitality opened this as an on-site field engineer case on a Helix HX-5000 core switch running 7.6. They reported that the routing process memory keeps climbing during the day, and the box becomes sluggish when the fabric receives a burst of EVPN updates from remote sites. TAC reviewed `show process memory` and confirmed the routing daemon RSS had grown from roughly 920 MB to 1.7 GB over 18 hours, with free memory trending below 13 percent. The system log also showed \"%MEM-4-LEAK\" during the same window. The customer initially suspected a stacking issue, but stack status and control-plane counters were otherwise stable.",
+        "resolution": "TAC identified this as the 7.6 EVPN refresh memory leak described in KB-6112. The customer upgraded the HX-5000 from 7.6 to 8.0, and post-upgrade memory usage stabilized with no further growth during EVPN route-refresh activity. TAC advised continued monitoring of free memory and verification with `show process memory` after maintenance windows."
+      },
+      {
+        "subject": "Repeated EVPN refreshes causing routing memory exhaustion on HX-5000",
+        "description": "Crescent Health Group escalated this from the NOC for a Helix HX-5000 core switch running 7.6. They saw increasing control-plane latency overnight and said the routing process was consuming more memory each hour, even though no major configuration changes had been made. TAC checked the device and found the routing daemon RSS had increased from about 900 MB to just over 1.8 GB after repeated EVPN route-refresh activity, with free memory at 11 percent. The switch log included \"%MEM-4-LEAK\", matching the pattern seen in the field. Initial suspicion was a transient burst from a peer reset, but the growth was cumulative across multiple refresh cycles.",
+        "resolution": "TAC traced the issue to the 7.6 memory leak documented in KB-6112. The customer upgraded the HX-5000 to 8.0, which fixes the refresh handler to reuse attribute cache objects and release stale generations immediately. After the upgrade, the routing process stopped growing and control-plane latency returned to normal."
+      },
+      {
+        "subject": "HX-5000 free memory drops during EVPN churn",
+        "description": "Summit Logistics opened the case through an on-site field engineer on a Helix HX-5000 core switch running 7.6. The engineer reported that the switch stayed up, but management access became slow after several hours and free memory was trending down during EVPN churn. TAC checked the device and confirmed steady growth in the routing process memory footprint, from around 940 MB to 1.6 GB, with no corresponding increase in traffic load. The issue was isolated to the routing daemon, and the rest of the system looked normal. No log excerpt was provided by the customer, and TAC did not need one to identify the pattern.",
+        "resolution": "TAC matched the behavior to KB-6112 and confirmed it was the 7.6 EVPN refresh memory leak. Because the fabric was stable, TAC applied the workaround from KB-6112: reduce unnecessary neighbor resets, keep EVPN adjacency changes out of peak traffic windows, and schedule a reload before free memory falls below 15 percent. The customer implemented the workaround and continued monitoring the routing process until a maintenance upgrade can be planned."
+      },
+      {
+        "subject": "Memory leak on HX-5000 after EVPN route-refresh events",
+        "description": "MetroLink Telecom raised the issue through an on-site field engineer for a Helix HX-5000 core switch running 7.6. They reported intermittent control-plane lag and said the problem seemed to follow route changes from the EVPN fabric, not a link failure. TAC found that the routing process RSS had risen from about 910 MB to 1.9 GB over the course of the day, while free memory dropped to 12 percent. The system log showed \"%MEM-4-LEAK\", which aligned with the observed growth in `show process memory`. Spanning tree and interface state were normal, so TAC ruled out a Layer 2 instability.",
+        "resolution": "TAC linked the symptoms to KB-6112 and determined the HX-5000 was affected by the 7.6 routing process leak during repeated EVPN route-refresh events. The customer upgraded to 8.0, where the refresh handler has been corrected to reuse cache objects and free stale generations immediately. After the upgrade, memory stabilized and the control-plane latency cleared."
+      },
+      {
+        "subject": "HX-5000 routing memory leak impacting production fabric",
+        "description": "MetroLink Telecom submitted a partner escalation on behalf of the customer for a Helix HX-5000 core switch running 7.6. The report said the switch was still forwarding traffic, but the routing process memory kept increasing and the fabric was becoming less responsive during EVPN changes. TAC observed the routing daemon RSS climbing from roughly 900 MB to more than 1.8 GB within a day, with free memory approaching the 12 percent threshold. The logs contained \"%MEM-4-LEAK\", confirming the same failure signature seen in prior cases. The customer initially believed the issue was caused by a transient peer flap, but the growth continued even after the fabric settled.",
+        "resolution": "TAC identified the condition as the 7.6 EVPN refresh memory leak described in KB-6112. MetroLink upgraded the HX-5000 to 8.0, which resolves the issue by reusing attribute cache objects and freeing stale generations on each refresh cycle. After the upgrade, RSS remained stable and no further control-plane degradation was observed."
+      }
+    ]
+  }
+}

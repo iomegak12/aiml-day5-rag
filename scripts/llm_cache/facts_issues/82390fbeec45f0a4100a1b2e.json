@@ -1,0 +1,333 @@
+{
+  "stage": "facts_issues",
+  "label": "OW",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "issues": [
+      {
+        "ref": "I01",
+        "category": "AP Join",
+        "error_code": "%CAPWAP-3-JOIN_REJECT",
+        "title": "Orion OW-20 4.6 rejects AP joins when the join request includes a zero-length RF profile TLV",
+        "symptoms": "After upgrading to 4.6, some APs stay in the discovery state for 30-60 seconds and then retry join in a loop. The controller logs repeated join rejects, and `show ap summary` shows the APs as `down/joining` with no radios enabled. Affected APs typically have a valid management IP and can reach the controller UDP 5246/5247, but never complete CAPWAP association.",
+        "root_cause": "In 4.6, the CAPWAP parser incorrectly treats an empty RF profile TLV as a fatal join condition instead of skipping it. The defect is triggered by AP models that send the TLV with length 0 during initial capability exchange, causing the controller to reject the join before configuration download.",
+        "workaround": "Remove the RF profile override from the AP group so the controller stops emitting the empty TLV, or migrate the APs to a group with no custom RF settings. If the fleet is mixed, disable the affected APs' per-radio override until the upgrade is complete.",
+        "workaround_commands": [
+          "show ap summary",
+          "ap-group default rf-profile none",
+          "show logging last 50"
+        ],
+        "fix": "Fixed in 4.7: the join parser ignores zero-length RF profile TLVs during CAPWAP negotiation.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "4.6"
+        ],
+        "fixed_in": "4.7",
+        "engineer_question": "Why do APs fail to join only on 4.6 when the CAPWAP exchange includes an empty RF profile TLV?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I02",
+        "category": "AP Join",
+        "error_code": "ERR-APJ-4417",
+        "title": "Orion OW-20 4.7 may drop AP join retries after radio capability revalidation",
+        "symptoms": "On 4.7, a subset of APs intermittently stop after the third join retry and remain offline for 5-10 minutes before the next discovery cycle. The event log shows join retries followed by a capability revalidation step, then no further CAPWAP messages from the AP. `show ap detail <name>` reports `last-seen` advancing only after the AP is power-cycled or the join database is cleared.",
+        "root_cause": "The 4.7 AP-join state machine can advance the retry counter before the radio capability revalidation completes. When the AP responds slowly to the second capability query, the controller marks the join transaction as expired and removes it from the retransmit queue, leaving the AP to wait for the next discovery window.",
+        "workaround": "Reduce the AP join retry interval from 5 seconds to 2 seconds so the controller keeps the transaction active long enough for revalidation. If the APs are remote, also verify one-way latency is under 80 ms and packet loss is below 1%.",
+        "workaround_commands": [
+          "show ap detail <name>",
+          "ap join retry-interval 2",
+          "show logging last 50"
+        ],
+        "fix": "Fixed in 4.8: join retries are not consumed until capability revalidation returns or times out.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "4.7"
+        ],
+        "fixed_in": "4.8",
+        "engineer_question": "Why do some APs on 4.7 disappear after a few join retries and then only come back much later?",
+        "twin_of": "I03",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I03",
+        "category": "AP Join",
+        "error_code": "ERR-APJ-4417",
+        "title": "Orion OW-20 4.8 AP join stalls when the second capability exchange is delayed",
+        "symptoms": "On 4.8, APs can sit in `joining` for 2-4 minutes and then reset their CAPWAP session without ever reaching `authorized`. The controller shows the same join retry counter incrementing twice, then stopping, and `show ap summary` reports a growing number of APs with `join pending`. The issue is more visible on links with 60-100 ms RTT and brief retransmit bursts.",
+        "root_cause": "The 4.8 join path waits for the second capability exchange on a separate worker, but the worker can be pre-empted by the retransmit timer and never re-arm the join session correctly. The AP is still reachable, but the controller has already moved the join context to an orphaned state and does not resume processing when the delayed response arrives.",
+        "workaround": "Temporarily increase the join timeout to 180 seconds and keep AP uplink loss under 0.5% during join. If the branch link is unstable, stage the APs locally and move them after the initial registration completes.",
+        "workaround_commands": [
+          "show ap summary",
+          "ap join timeout 180",
+          "show logging last 50"
+        ],
+        "fix": "Fixed in 4.9: delayed capability responses are matched to the active join session before the session can age out.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "4.8"
+        ],
+        "fixed_in": "4.9",
+        "engineer_question": "Why do APs on 4.8 get stuck joining for minutes even though the controller still sees them on the network?",
+        "twin_of": "I02",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I04",
+        "category": "Controller Redundancy",
+        "error_code": "%REDUNDANCY-4-SYNC_STALL",
+        "title": "Orion OW-20 4.8 active-standby sync stalls when the configuration database exceeds 32,768 rows",
+        "symptoms": "In 4.8 redundancy pairs, the standby stops receiving incremental updates after the configuration database grows past about 32,768 rows. Failover still triggers, but the standby comes up with stale WLAN and client-policy state, and clients may reauthenticate for 30-90 seconds after switchover. `show redundancy status` shows `sync state: partial` and the event log repeats the sync stall message every 10 seconds.",
+        "root_cause": "The incremental sync encoder uses a 15-bit row index in 4.8, so configuration objects beyond row 32,767 wrap and are treated as already synchronized. The standby never receives the wrapped rows, which leaves the replicated database incomplete even though the link between peers remains up.",
+        "workaround": "Reduce the configuration database below 30,000 rows by deleting unused AP groups, WLAN profiles, and stale guest accounts before enabling redundancy. If immediate failover is required, force a full config resync during a maintenance window.",
+        "workaround_commands": [
+          "show redundancy status",
+          "show configuration database summary",
+          "redundancy force-resync"
+        ],
+        "fix": "Fixed in 4.9: incremental synchronization uses a 32-bit object index and no longer stalls above 32,768 rows.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "4.8"
+        ],
+        "fixed_in": "4.9",
+        "engineer_question": "Why does 4.8 redundancy go partially out of sync once the config database gets large?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I05",
+        "category": "Roaming",
+        "error_code": "%ROAM-5-FT_KEYTIMEOUT",
+        "title": "Orion OW-20 4.9 can delay 802.11r key installation during fast transition roaming",
+        "symptoms": "With 802.11r enabled, clients moving between APs on 4.9 often pause for 200-400 ms before traffic resumes, and some voice calls show one or two audible gaps per roam. `show client detail <mac>` reports successful reassociation, but the FT key install timer expires and the client falls back to a slower key derivation path. The problem is most visible when the roam occurs while the controller is under moderate CPU load above 70%.",
+        "root_cause": "The 4.9 FT handler waits on a shared key-install queue that is also used by periodic client accounting updates. Under load, the queue can defer the PMK-R1 push long enough for the 300 ms FT timer to expire, which forces the client to complete the roam without the pre-installed key material.",
+        "workaround": "Lower the client accounting interval to 60 seconds to reduce queue pressure, and keep controller CPU below 70% during roaming tests. For latency-sensitive SSIDs, disable 802.11r until the maintenance window.",
+        "workaround_commands": [
+          "show client detail <mac>",
+          "wlan corp ft enable",
+          "wlan corp accounting interval 60"
+        ],
+        "fix": "Fixed in 5.0: FT key installation is handled on a dedicated queue with priority over accounting updates.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "4.9"
+        ],
+        "fixed_in": "5.0",
+        "engineer_question": "Why do 4.9 clients pause during fast roaming even though 802.11r is enabled?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I06",
+        "category": "Roaming",
+        "error_code": "%ROAM-5-FT_KEYTIMEOUT",
+        "title": "Orion OW-20 5.0 may miss FT key pushes during heavy 802.11r roaming",
+        "symptoms": "In 5.0, voice and handheld clients can roam successfully but still incur 150-300 ms service gaps every few moves. The controller shows reassociation success, then an FT key timeout, and `show client detail <mac>` reports `ft fallback: yes` for clients that should have stayed on the fast transition path. The issue is reproducible when more than 40 clients roam within a 10-second interval.",
+        "root_cause": "The 5.0 roaming daemon batches FT key pushes to reduce CPU usage, but the batch flush can be delayed by the per-client state cleanup thread. When roaming density exceeds about 40 clients per 10 seconds, the key push may miss the 300 ms completion window and the client reverts to a slower transition sequence.",
+        "workaround": "Stagger roaming tests or reduce the client cleanup batch size so the FT flush completes within 150 ms. If the SSID is voice-critical, cap roam bursts below 30 clients per 10 seconds until the release is updated.",
+        "workaround_commands": [
+          "show client detail <mac>",
+          "wlan corp ft enable",
+          "roam batch-size 8"
+        ],
+        "fix": "Fixed in 5.1: FT key pushes are sent immediately when the client enters reassociation, regardless of cleanup batching.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.0"
+        ],
+        "fixed_in": "5.1",
+        "engineer_question": "Why does 5.0 still show roam pauses on 802.11r clients when many devices move at once?",
+        "twin_of": "I05",
+        "duplicate_of": null
+      },
+      {
+        "ref": "I07",
+        "category": "RADIUS/802.1X",
+        "error_code": "%RADIUS-4-ATTR_DROP",
+        "title": "Orion OW-20 4.9 drops Vendor-Specific attribute 26 on Access-Challenge replies with more than 12 attributes",
+        "symptoms": "802.1X authentication against external RADIUS servers fails intermittently on 4.9, usually after the second Access-Challenge. The controller sends the request, but the server rejects the next step because the tunneled policy attributes are missing, and clients remain stuck in `authenticating` for 15-20 seconds before timing out. This is easiest to reproduce when the Access-Challenge carries 13 or more attributes.",
+        "root_cause": "The 4.9 RADIUS encoder truncates the attribute list at 12 entries when it repacks Access-Challenge packets for internal policy processing. Vendor-Specific attribute 26 is often placed after the 12th slot and is silently dropped, which breaks tunneled EAP methods that depend on it.",
+        "workaround": "Trim the RADIUS challenge to 12 or fewer attributes, or move the Vendor-Specific attribute earlier in the server response order. If possible, use a dedicated policy server that sends the tunneled attributes first.",
+        "workaround_commands": [
+          "show client detail <mac>",
+          "radius-server attribute-order vendor-first",
+          "show logging last 50"
+        ],
+        "fix": "Fixed in 5.0: Access-Challenge repacking preserves all attributes and no longer truncates at 12 entries.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "4.9"
+        ],
+        "fixed_in": "5.0",
+        "engineer_question": "Why do 4.9 802.1X logins fail only when the RADIUS challenge has a long attribute list?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I08",
+        "category": "RADIUS/802.1X",
+        "error_code": "%RADIUS-4-ATTR_DROP",
+        "title": "Orion OW-20 5.0 omits later RADIUS attributes when Access-Challenge packets are repacked",
+        "symptoms": "On 5.0, wired and wireless 802.1X clients can fail on the second RADIUS exchange with an Access-Reject from the authentication server. The controller log shows the challenge being processed, but the subsequent packet is missing one or more policy attributes, and the client retries for up to 3 attempts before failing open or timing out. The failure rate rises above 20% when the RADIUS server returns 14-16 attributes.",
+        "root_cause": "The 5.0 RADIUS processing path repacks the Access-Challenge into a compact internal structure, but the copy loop stops when the destination buffer reaches 256 bytes instead of continuing with the remaining attributes. Because the truncation occurs after attribute normalization, the server receives a syntactically valid packet that lacks the policy elements required to complete EAP.",
+        "workaround": "Reduce the number of attributes returned by the authentication server to 12 or fewer, or shorten long VSAs so the repacked challenge stays under 256 bytes. If the policy design cannot change, temporarily move the SSID to a local authentication profile.",
+        "workaround_commands": [
+          "show client detail <mac>",
+          "radius-server max-attributes 12",
+          "show logging last 50"
+        ],
+        "fix": "Fixed in 5.1: the challenge repacker preserves all attributes regardless of total packet size.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.0"
+        ],
+        "fixed_in": "5.1",
+        "engineer_question": null,
+        "twin_of": null,
+        "duplicate_of": "I07"
+      },
+      {
+        "ref": "I09",
+        "category": "Guest Portal",
+        "error_code": "%PORTAL-5-COOKIE_MISMATCH",
+        "title": "Orion OW-20 guest portal sessions fail after standby failover when the portal cookie is pinned to the active node UUID",
+        "symptoms": "Guest users can authenticate successfully on the active controller, but after a redundancy failover the browser redirects back to the login page and the guest session never reaches `authorized`. The redirect loop typically appears within 1-2 seconds of the standby taking over, and the portal status page shows repeated cookie validation failures. Existing sessions are lost even though the guest database itself remains intact.",
+        "root_cause": "The guest portal cookie in 4.9 is signed with the active node UUID as part of the session token. After failover, the standby presents a different UUID, so the cookie signature no longer matches and the portal rejects an otherwise valid session.",
+        "workaround": "Keep guest portal traffic pinned to the active node by disabling failover during guest registration windows, or clear the cookie and reauthenticate after each switchover. For planned maintenance, expire guest sessions before invoking redundancy failover.",
+        "workaround_commands": [
+          "show redundancy status",
+          "guest-portal session timeout 15",
+          "redundancy failover inhibit"
+        ],
+        "fix": "Fixed in 5.0: guest portal cookies are validated against the redundancy cluster identity instead of the active node UUID.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "4.9"
+        ],
+        "fixed_in": "5.0",
+        "engineer_question": "Why do guest users on 4.9 get kicked back to the portal after a controller failover?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I10",
+        "category": "RF Management",
+        "error_code": "%RF-4-DFS_FREEZE",
+        "title": "Orion OW-20 5.1 RF manager may stop channel updates after repeated DFS events on 5 GHz radios",
+        "symptoms": "On 5.1, AP radios in DFS-enabled channels can remain pinned to a single channel after 3-5 radar hits within 10 minutes. `show ap summary` still reports the APs as up, but neighboring APs keep transmitting on a channel that should have been vacated, and client retries increase by 8-12% during the event window. The RF dashboard shows no further channel-change messages even though the radar counter continues to increment.",
+        "root_cause": "The 5.1 RF manager can deadlock its channel re-evaluation worker when DFS channel history is updated concurrently with AP power tuning. Once the worker blocks, the channel-selection queue stops draining, so subsequent radar detections increment counters but never trigger a move to a new channel.",
+        "workaround": "Disable DFS on the affected radio group and pin the radios to a non-DFS channel set with at least 20 MHz separation from neighboring cells. If DFS must remain enabled, limit the environment to fewer than 3 radar events per 10 minutes during peak usage.",
+        "workaround_commands": [
+          "show ap summary",
+          "ap group dfs disable",
+          "rf channel set 36,40,44,48"
+        ],
+        "fix": "Fixed in 5.1 maintenance update: DFS history updates no longer block the channel re-evaluation worker.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.1"
+        ],
+        "fixed_in": null,
+        "engineer_question": "Why does RF on 5.1 stop changing channels after a few DFS hits even though the APs stay up?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I11",
+        "category": "Upgrade",
+        "error_code": "ERR-UPG-2204",
+        "title": "Orion OW-20 upgrade from 4.6 to 5.0 can fail if the configuration database contains legacy guest portal ACL objects",
+        "symptoms": "During a direct upgrade from 4.6, the controller reboots into the new image but fails the post-upgrade database migration and rolls back after 8-12 minutes. The upgrade log stops at guest portal object conversion, and the controller may come back with the previous image still active. The problem usually appears when the config database includes more than 50 legacy guest ACL objects created before 4.7.",
+        "root_cause": "The 5.0 migration tool expects guest portal ACL entries to be normalized into the post-4.7 schema, but 4.6 databases can still contain the older ACL object form with empty destination fields. The converter treats the legacy object as malformed and aborts the migration instead of translating it.",
+        "workaround": "Delete unused legacy guest portal ACL objects before starting the upgrade, and export the configuration for review so the database contains only normalized entries. If the upgrade already failed, boot the old image and rerun the migration after pruning the stale ACL objects.",
+        "workaround_commands": [
+          "show configuration database summary",
+          "show guest acl summary",
+          "upgrade apply 5.0"
+        ],
+        "fix": "Fixed in 5.1: the migration tool translates legacy guest portal ACL objects instead of aborting on the older schema.",
+        "affects_all_versions": false,
+        "affected_versions": [
+          "5.0"
+        ],
+        "fixed_in": "5.1",
+        "engineer_question": "Why does a 4.6-to-5.0 upgrade roll back when the controller has old guest ACL entries?",
+        "twin_of": null,
+        "duplicate_of": null
+      },
+      {
+        "ref": "I12",
+        "category": "Configuration Database",
+        "error_code": "ERR-DB-1809",
+        "title": "Orion OW-20 configuration database backup omits pending WLAN edits when the commit queue is non-empty",
+        "symptoms": "A manual configuration backup can restore successfully, but recent WLAN changes made in the last 2-3 minutes are missing after the restore. Operators notice that `show configuration database summary` reports a non-empty commit queue at the time of backup, and the restored system reverts the last SSID or RF change without any corruption warning. The problem is most obvious when multiple edits are staged before a single commit.",
+        "root_cause": "The backup routine snapshots the persisted database only and does not wait for the in-memory commit queue to drain. If a WLAN edit is still staged, the backup contains the previous committed state, so the restored image is consistent but incomplete from the operator's point of view.",
+        "workaround": "Wait until the commit queue is empty before taking a backup, or force a commit and verify the change is present in `show configuration database summary`. For scheduled backups, require at least 30 seconds of idle time after the last WLAN edit.",
+        "workaround_commands": [
+          "show configuration database summary",
+          "commit",
+          "backup configuration"
+        ],
+        "fix": "No software fix required; take backups only after the commit queue drains to zero.",
+        "affects_all_versions": true,
+        "affected_versions": [],
+        "fixed_in": null,
+        "engineer_question": "Why does a backup on OW-20 sometimes miss the last WLAN change even though the system says it completed?",
+        "twin_of": null,
+        "duplicate_of": null
+      }
+    ],
+    "releases": [
+      {
+        "version": "4.6",
+        "features": [
+          "CAPWAP join baseline",
+          "guest portal object model",
+          "configuration database commit queue"
+        ]
+      },
+      {
+        "version": "4.7",
+        "features": [
+          "AP join retry handling",
+          "redundancy sync improvements",
+          "RADIUS attribute normalization"
+        ]
+      },
+      {
+        "version": "4.8",
+        "features": [
+          "AP join state-machine rework",
+          "incremental config sync",
+          "roaming telemetry"
+        ]
+      },
+      {
+        "version": "4.9",
+        "features": [
+          "802.11r FT enhancements",
+          "guest portal session continuity",
+          "DFS event logging"
+        ]
+      },
+      {
+        "version": "5.0",
+        "features": [
+          "RADIUS challenge repacking",
+          "fast roaming queue priority",
+          "upgrade migration checks"
+        ]
+      },
+      {
+        "version": "5.1",
+        "features": [
+          "RF channel worker tuning",
+          "guest ACL migration",
+          "configuration backup validation"
+        ]
+      }
+    ]
+  }
+}

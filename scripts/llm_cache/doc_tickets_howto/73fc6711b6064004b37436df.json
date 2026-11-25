@@ -1,0 +1,19 @@
+{
+  "stage": "doc_tickets_howto",
+  "label": "GUIDE-HX",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "Tune DOM monitoring for flapping SFP28 ports",
+        "description": "HarborPoint Retail asked how to tune optics and DOM monitoring on HX-5000 ports that are showing link drops and occasional LOS alarms on release 7.2. The affected SFP28 interfaces report rising bias current and intermittent remote LOS events under load. TAC reviewed the symptoms and confirmed the customer was looking for the recommended monitoring interval and optics handling guidance for this release.",
+        "resolution": "TAC pointed the customer to GUIDE-HX and advised lowering DOM polling on the affected SFP28 ports by setting the transceiver monitoring interval to 120 seconds. TAC also recommended keeping optics below 50 C case temperature where possible, especially on ports showing bias current spikes or remote LOS alarms. If the port continues to flap under load, the guide recommends moving the optic to a later-release port or replacing the module with one that has a stable bias current profile. Example commands: configure terminal; interface ethernet 1/1; transceiver monitoring interval 120; show interfaces transceiver detail."
+      },
+      {
+        "subject": "Stabilize an oscillating switch stack",
+        "description": "IronGate Freight asked what should be changed on HX-5000 when a stack is oscillating or briefly separating between members on release 7.4. They reported intermittent master changes and short stack adjacencies loss during normal operation. TAC treated this as a how-to question and checked the documented stack stability recommendations for the platform.",
+        "resolution": "TAC pointed the customer to GUIDE-HX and summarized the stack-stability guidance: pin the desired master by setting a higher priority on the preferred member, avoid adding or removing members during the unstable period, and keep control-plane load below 60 percent until the software is upgraded. The guide also notes that on 7.3 matched-length stack cables reduce master election oscillation, and on 7.6 stack cabling should be kept under 1 m where possible without chaining all members through a single long physical path. Example commands: configure terminal; stack member 1 priority 200; stack member 2 priority 100; stack heartbeat timeout 900; show stack."
+      }
+    ]
+  }
+}

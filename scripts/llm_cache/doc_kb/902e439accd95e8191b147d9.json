@@ -1,0 +1,26 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-2112",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "Aurora AR-900 running 9.2.3 can underreport dropped IPv6 neighbor discovery (ND) traffic in the control-plane protection statistics during short traffic bursts. In affected cases, the control-plane receives more IPv6 ND punts than the configured policer should allow, but the drop counter remains unchanged for short intervals.",
+    "symptoms": "On 9.2.3, a burst of IPv6 neighbor discovery traffic can push the control-plane above the configured limit while the drop counter remains unchanged. In the cases observed, `show control-plane protection statistics` held at 0 drops for 30-60 seconds, CPU usage climbed from 15% to 85%, and IPv6 neighbors would periodically move to Stale. The issue is most apparent when 5,000-8,000 NS/NA packets arrive in short bursts from a single access VLAN.\n\nOperators typically report intermittent neighbor churn on a single VLAN or access segment, while other forwarding functions continue to work. The event is usually correlated with a temporary rise in control-plane CPU and a lack of corresponding increments in the IPv6 ND drop counters.",
+    "diagnosis_steps": [
+      "Run `show control-plane protection statistics` and confirm that IPv6 ND input is near or above the configured policer rate while the drop counter remains at 0 or does not increment during the burst.",
+      "Run `show process cpu` and look for control-plane CPU rising sharply, commonly from normal idle values near 15% to sustained values above 80% while the event is active.",
+      "Run `show ipv6 neighbors` and check for entries on the affected VLAN moving from Reachable to Stale in a periodic pattern.",
+      "Run `show logging` and look for `ERR-CPP-4412` messages that align with the same timestamps as the traffic burst.",
+      "If packet capture is available on the access interface, confirm a short burst of approximately 5,000-8,000 NS/NA packets sourced from one access VLAN within a few seconds.",
+      "If the burst repeats, compare `show control-plane protection statistics` before and after the event; affected systems show traffic growth without matching drop counter movement."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %CPP-4-POLICE: ipv6-nd punt rate 7843 pps, configured 4000 pps\n2026-03-14T02:13:07Z ERR-CPP-4412 control-plane protection accounting mismatch detected on queue 3\n2026-03-14T02:13:08Z %CPP-4-POLICE: ipv6-nd punt rate 7921 pps, configured 4000 pps\n2026-03-14T02:13:12Z show control-plane protection statistics\nipv6-nd input               31426 pkts\nipv6-nd dropped              0 pkts\nother control-plane traffic  184 pkts\n2026-03-14T02:13:12Z show process cpu\ncpu utilization: 84%\ncontrol-plane thread: 79%\n2026-03-14T02:13:14Z show ipv6 neighbors\nfe80::1a2b:3c4d:5e6f:7a8b  vlan 120  stale\nfe80::1a2b:3c4d:5e6f:7a8c  vlan 120  stale",
+    "root_cause": "The punt policer tracks IPv6 ND packets in a 32-bit per-queue counter that is sampled every 250 ms. When traffic arrives in bursts, the counter can wrap between samples, and the excess packets do not take the drop decision path. As a result, the CPU receives more traffic than the intended policer rate permits.\n\nThis is a control-plane accounting defect rather than a forwarding-plane failure. The policer configuration remains present, but under the burst conditions described above the drop accounting can lag or remain at zero until the burst subsides.",
+    "workaround_steps": [
+      "Reduce IPv6 ND load at the edge by applying RA guard or storm control on the access VLAN to limit unsolicited neighbor discovery bursts.",
+      "Temporarily lower the control-plane policer to a conservative value so that the CPU is protected while the source is isolated; the recommended interim value is 2,000 pps.",
+      "If the burst persists on a specific access port, shut that port for about 30 seconds to allow neighbor state to recover and to stop the punt surge.",
+      "After the traffic source is isolated, restore normal edge policy only after control-plane CPU and neighbor state have stabilized."
+    ],
+    "resolution": "The defect is fixed in release 9.3.0. Aurora AR-900 9.3.0 uses lossless accounting for IPv6 ND punts in control-plane protection, so burst traffic is correctly sampled and dropped according to the configured policer."
+  }
+}

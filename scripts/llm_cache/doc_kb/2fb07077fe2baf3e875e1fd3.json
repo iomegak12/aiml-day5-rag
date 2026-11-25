@@ -1,0 +1,27 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-3108",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "A policy-based IKEv2 tunnel on Nimbus NF-300 can establish the IKE SA but fail to install the CHILD_SA when the local traffic selector is a /31 or a host route. The issue is present in all releases and is triggered by the selector compiler generating an invalid upper bound for very small local prefixes.",
+    "symptoms": "Administrators typically observe that the peer completes IKEv2 authentication and the phase 1 SA shows as established, but the data plane never passes traffic. The child SA remains absent or repeatedly renegotiates, and session or byte counters stay at zero even though the tunnel policy is active.\n\nThis is most visible on host-to-host designs or tightly scoped policy-based VPNs. The remote peer may retry CHILD_SA negotiation at 10-second intervals, and the firewall logs one or more %IKEV2-3-TS_UNSUPPORTED events during negotiation.",
+    "diagnosis_steps": [
+      "Run show crypto ikev2 sa and confirm the IKE SA is in established state while no child SA is present or the child SA is stuck in negotiating.",
+      "Run show session table summary and verify that VPN-bound traffic is not being encrypted; counters for the tunnel policy remain at zero despite matching traffic.",
+      "Check the configured local traffic selector in the VPN policy and confirm it is a /31 or a host route; /30 and larger selectors do not trigger this condition.",
+      "Enable IKEv2 event logging and review the system log for %IKEV2-3-TS_UNSUPPORTED during CHILD_SA negotiation, which indicates the selector was rejected.",
+      "If needed, run show crypto ikev2 statistics and look for repeated CHILD_SA retries every 10 seconds with no successful installation.",
+      "Compare the local and remote selector definitions and verify that the peer is not rejecting the proposal due to other mismatches such as encryption or integrity algorithms; the selector error is the specific indicator for this issue."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %IKEV2-5-STATE_CHANGE: ikev2 sa 198.51.100.10 established\n2026-03-14T02:13:08Z %IKEV2-3-TS_UNSUPPORTED: child sa proposal rejected for policy vpn 12 local-selector 192.0.2.10/32\n2026-03-14T02:13:18Z %IKEV2-3-TS_UNSUPPORTED: child sa proposal rejected for policy vpn 12 local-selector 192.0.2.10/32\n\nnimbus# show crypto ikev2 sa\npeer               state        local id        remote id       uptime\n198.51.100.10      established  192.0.2.1       198.51.100.10   00:04:11\n\nnimbus# show session table summary\nvpn sessions: 0\npolicy hits: 0\nencrypted bytes: 0\nplaintext bytes matched: 1842",
+    "root_cause": "The selector compiler in the policy-based IKEv2 path assumes the local subnet contains at least two usable addresses. When the configured selector is a /31 or a single-host route, the compiler calculates an upper bound outside the valid address range and produces an invalid traffic-selector pair.\n\nDuring CHILD_SA negotiation, that invalid selector is rejected, which prevents the child SA from installing even though the IKE SA and authentication complete successfully. This affects every software release because it is a configuration limitation in the selector handling logic, not a release-specific defect.",
+    "workaround_steps": [
+      "For host-to-host tunnels, convert the design to route-based VPN so the tunnel is not dependent on policy-based traffic selectors.",
+      "If policy-based VPN must be retained, widen the local selector to /30 or larger and then restrict the exact permitted host pair with a firewall policy.",
+      "If the remote peer supports single-address objects, define a single-address selector on the remote side and map it through a broader local subnet on Nimbus NF-300.",
+      "Apply the change in configuration mode and commit the policy update so the selector change takes effect.",
+      "Verify with show crypto ikev2 sa and traffic counters that the CHILD_SA installs and encrypted packets begin to increment."
+    ],
+    "resolution": "No software fix is required because this behavior is a configuration limitation that applies to every Nimbus NF-300 release. To prevent recurrence, avoid using /31 or host routes as local selectors in policy-based IKEv2 VPNs; use route-based VPN for host-to-host use cases, or broaden the local selector to /30 or larger and constrain traffic with firewall policy."
+  }
+}

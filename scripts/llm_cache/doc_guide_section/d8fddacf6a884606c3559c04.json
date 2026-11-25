@@ -1,0 +1,59 @@
+{
+  "stage": "doc_guide_section",
+  "label": "GUIDE-AR#6",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "paragraphs": [
+      "SNMP trap delivery on the Aurora AR-900 is best treated as an event-notification channel, not a lossless audit mechanism. The device queues traps in a finite per-process buffer, and under control-plane pressure the queue can overflow before the management station receives every notification. This is most visible during link flap storms, when interface state changes and generated traps can outpace the SNMP sender. If trap history must be complete, shorten the SNMP polling interval to 30 seconds and treat traps as advisory when link flap storms are present. Polling gives you a second source of truth for interface state and reduces dependence on bursty trap delivery.",
+      "A second contributor to missed linkUp traps is excessive physical-layer churn on unstable access ports. On platforms that generate a high volume of interface events, the trap queue can exceed 1024 entries and older notifications may be dropped before they are transmitted. Enable link debounce of 500 ms on unstable access ports to reduce linkUp trap loss when the trap queue exceeds 1024 entries. Debounce suppresses very short transitions that are usually caused by cabling issues, optics settling, or downstream devices renegotiating. The trade-off is that genuinely brief link restoration events are intentionally masked, so do not apply this setting indiscriminately to ports that carry timing-sensitive failover signals.",
+      "NAT capacity management has a similar operational pattern: under steady churn, allocator behavior matters as much as total address count. On the AR-900, repeated short-lived sessions can produce misleading exhaustion symptoms when translations are created and torn down rapidly. If session churn is predictable, increase application keepalive intervals to 60 seconds or more and set the NAT translation timeout to 240 seconds to reduce allocator churn. A longer keepalive reduces how often client applications rebuild sessions, while a 240-second timeout gives active flows enough time to reuse existing translations without forcing unnecessary reallocations. The cost is slower recovery of address/port space after legitimate session end, so this tuning is appropriate when traffic patterns are well understood.",
+      "Release 9.3.0 requires special attention when dynamic NAT port exhaustion is reported incorrectly after teardown. In that release, the allocator may briefly report depletion after translations have already been removed, which can confuse operators and automation that key off transient counters. On 9.3.0, increase the NAT pool size or add at least one additional public address if dynamic NAT port exhaustion is reported incorrectly after teardown. Expanding the pool reduces the probability that the allocator will momentarily present a full-state condition, and adding one more public address also increases the available port space per address family. Do not treat the symptom only with alerts suppression; verify whether the pool is actually undersized for the session profile before changing operational thresholds.",
+      "When both trap loss and NAT churn are present, address the source of event volume first. Excessive link flaps can drive SNMP queue pressure, increase control-plane interrupts, and indirectly raise NAT allocator activity if users or upstream devices repeatedly reconnect. In practice, that means stabilizing the access interface, validating the upstream path, and then revisiting polling and timeout values. A common mistake is to shorten SNMP polling only after the event storm has already started, which does not reduce trap loss; it only improves post-event visibility. Another common mistake is to increase NAT pool size without checking whether the underlying problem is application retry behavior or an unstable link.",
+      "Use the recommended values exactly as written so the configuration remains aligned with the observed failure modes. The commands below show the minimum configuration changes for the interface debounce and NAT timeout portions of this section. Where the deployment includes SNMP monitoring, apply the 30-second polling guidance in the NMS or monitoring system rather than on the router itself. For 9.3.0 deployments that continue to report false exhaustion after teardown, expand the NAT pool with additional public addresses before changing operational alarm thresholds."
+    ],
+    "procedure_steps": [
+      "enter configuration mode with 'configure'.",
+      "for unstable access ports, enter the interface context and apply 'link-debounce 500' on the affected interface, for example 'interface ethernet 1/1'.",
+      "if dynamic NAT uses a static pool, define or expand the pool with 'ip nat pool edge-pool 198.51.100.10 198.51.100.30' or add at least one additional public address on 9.3.0 when false exhaustion is reported after teardown.",
+      "set the NAT translation timeout to 'ip nat translation timeout 240' when session churn is predictable.",
+      "adjust application keepalive intervals in the attached services or hosts to 60 seconds or more so they do not recreate sessions unnecessarily.",
+      "set SNMP polling in the NMS to 30 seconds if trap history must be complete, and treat traps as advisory during link flap storms."
+    ],
+    "table": {
+      "caption": "SNMP trap reliability and NAT capacity parameters",
+      "header": [
+        "Parameter",
+        "Recommended value",
+        "Operational effect",
+        "Notes"
+      ],
+      "rows": [
+        [
+          "SNMP polling interval",
+          "30 seconds",
+          "Improves state visibility when traps are dropped during event bursts",
+          "Use in the monitoring system; traps remain advisory during flap storms"
+        ],
+        [
+          "Link debounce",
+          "500 ms",
+          "Suppresses short link transitions and reduces trap queue pressure",
+          "Apply only to unstable access ports"
+        ],
+        [
+          "NAT translation timeout",
+          "240 seconds",
+          "Reduces allocator churn for predictable session patterns",
+          "Pairs with application keepalive intervals of 60 seconds or more"
+        ],
+        [
+          "NAT pool size / public addresses",
+          "Increase pool size or add at least one additional public address",
+          "Mitigates false exhaustion reporting on 9.3.0 after teardown",
+          "Verify actual utilization before expanding"
+        ]
+      ]
+    },
+    "verification": "Confirm the interface debounce and NAT settings with show commands and expected counters. Use 'show running-config interface ethernet 1/1' to verify that 'link-debounce 500' is present, and 'show running-config | include ip nat translation timeout' to confirm the timeout is set to 240 seconds. Then run 'show ip nat translations' and 'show ip nat statistics' to check that active translations are aging normally and that the allocator is not reporting persistent exhaustion after teardown. For trap behavior, use 'show snmp traps' or the NMS event log to confirm that linkUp notifications are arriving for stable transitions and that no large burst of missed traps appears when the interface remains flapping; expected output should show recent trap timestamps and no sustained queue-overflow indicators."
+  }
+}

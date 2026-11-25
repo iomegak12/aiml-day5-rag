@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-2106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "AR-900 CPU spikes and IPv6 neighbors flapping on 9.2.3",
+        "description": "CivicWorks Public Agency called TAC after an Aurora AR-900 running 9.2.3 began showing brief CPU spikes to the 80% range during business hours. The reporter said several IPv6 hosts on one access VLAN kept going stale and then relearning, even though interface counters and BGP looked normal. During triage, `show control-plane protection statistics` stayed at 0 drops for nearly a minute while the control-plane CPU increased, and the event correlated with bursts of neighbor discovery traffic from a single switch segment. The syslog buffer also contained \"%CPP-3-THROTTLE ERR-CPP-4412 IPv6 ND punt accounting mismatch on control-plane queue 2\".",
+        "resolution": "TAC identified the behavior as the 9.2.3 control-plane policer accounting issue tracked in KB-2106. We applied the workaround from the article by lowering IPv6 ND policing with `configure` followed by `control-plane` and `police ipv6-nd 2000`, then asked the customer to enable RA guard/storm control on the access VLAN and isolate the source port if needed. After the change, drop counters began incrementing as expected and neighbor state stabilized."
+      },
+      {
+        "subject": "IPv6 neighbor churn on AR-900 after traffic burst",
+        "description": "MetroLink Telecom opened a web form case for an Aurora AR-900 on 9.2.3 because several customer edge hosts lost IPv6 reachability for short periods. Their initial note blamed an upstream ISP flap, but packet captures from the router showed repeated NS/NA bursts from one VLAN without any matching routing instability. TAC reviewed `show control-plane protection statistics` and observed the control-plane CPU rising from about 15% to above 80% while the IPv6 ND drop counter remained at zero during the burst window. The issue was reproducible only when the access VLAN generated a short spike of neighbor discovery traffic.",
+        "resolution": "TAC matched the symptoms to KB-2106 for the 9.2.3 control-plane protection defect. Because the customer requested immediate mitigation, we had them apply the documented workaround to reduce the IPv6 ND policer to 2000 pps and limit burst traffic at the edge with access-layer storm control. The router recovered without further stale neighbor events after the change."
+      },
+      {
+        "subject": "AR-900 stale IPv6 neighbors during peak on 9.2.3",
+        "description": "HarborPoint Retail reported that a branch Aurora AR-900 running 9.2.3 intermittently showed IPv6 neighbors in Stale state during store opening traffic. The caller originally suspected an OSPF problem, but routing adjacencies were stable and only the local access VLAN was affected. On triage, TAC saw that the control-plane protection counters did not move for several seconds even though the CPU climbed from 18% to roughly 85% under a burst of neighbor discovery frames. The platform logs included \"%CPP-3-THROTTLE ERR-CPP-4412 IPv6 ND punt accounting mismatch on control-plane queue 2\".",
+        "resolution": "TAC determined this was the known 9.2.3 policer undercount issue described in KB-2106. We implemented the workaround from the article by setting `police ipv6-nd 2000` in control-plane configuration and recommended enabling RA guard on the access VLAN to reduce the burst rate. After the change, the router resumed dropping excess ND traffic instead of forwarding it to the CPU, and neighbor state no longer oscillated."
+      },
+      {
+        "subject": "Branch router CPU jumps when IPv6 hosts join network",
+        "description": "Lakeside Hospitality sent an on-site field engineer report for an Aurora AR-900 running 9.2.3 at a hotel branch. The engineer observed that whenever a large number of guest devices came online at once, the router CPU rose sharply and some IPv6 clients needed several minutes before they were reachable. TAC review showed the issue was isolated to neighbor discovery bursts on one guest access VLAN; BGP and NAT services remained stable. `show control-plane protection statistics` was not showing a corresponding increase in drop counters during the event, which pointed away from a simple overrun condition.",
+        "resolution": "TAC linked the behavior to KB-2106 and treated it as the 9.2.3 IPv6 ND policer accounting defect. We applied the workaround by lowering the IPv6 ND control-plane limit to 2000 pps and advised the field engineer to add storm control on the guest access VLAN while investigating the source of the burst. The customer reported the CPU spikes stopped and IPv6 neighbor resolution returned to normal."
+      },
+      {
+        "subject": "NOC sees no drops but AR-900 CPU rises on IPv6 bursts",
+        "description": "Cornerstone Supermarkets escalated through the NOC after several stores began reporting slow IPv6 connectivity on Aurora AR-900 routers running 9.2.3. The network team initially suspected a memory leak, but the devices recovered after a short quiet period and no other protocols showed instability. TAC checked the routers and saw sustained neighbor discovery bursts from a single access VLAN, with `show control-plane protection statistics` remaining at zero drops while CPU utilization climbed from about 15% to 80% plus. The router also logged \"%CPP-3-THROTTLE ERR-CPP-4412 IPv6 ND punt accounting mismatch on control-plane queue 2\" during the event.",
+        "resolution": "TAC identified the issue as the 9.2.3 control-plane protection defect documented in KB-2106. We applied the recommended workaround by configuring `police ipv6-nd 2000` and instructed the NOC to use RA guard or storm control on the affected access VLAN to limit further bursts. After the workaround, the drop counter incremented normally and the intermittent IPv6 reachability complaints ceased."
+      }
+    ]
+  }
+}

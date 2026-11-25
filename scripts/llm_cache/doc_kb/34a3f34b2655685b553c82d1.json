@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-6111",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "An in-service upgrade from Helix HX-5000 7.2 to 7.4 can fail during the image migration phase when saved transceiver calibration data exceeds the parser limit. The failure is most common on chassis with many populated optics or long DOM history retention, and the upgrade rolls back after a management-plane restart.",
+    "symptoms": "During an in-service upgrade from 7.2 to 7.4, the process typically progresses to 78 to 82 percent and then pauses briefly before the management plane restarts once and the device rolls back to the previous release. Upgrade logs include a calibration import failure with ERR-UPG-2207, and the rollback may be followed by noticeably slow execution of `show interfaces transceiver detail` on systems with many optics installed.\n\nOperators may also notice that the affected chassis has extensive saved DOM history for transceivers, especially on platforms that have had frequent optic replacements or long retention periods. The upgrade failure is reproducible on the same hardware and software state until the calibration history is reduced.",
+    "diagnosis_steps": [
+      "Run `show version` and confirm the active release is 7.2 and the attempted target is 7.4; this issue is specific to upgrades from 7.2 to 7.4.",
+      "Run `show logging | include ERR-UPG-2207` and look for a calibration import failure at 78 to 82 percent of the upgrade workflow.",
+      "Run `show interfaces transceiver detail` and note whether the command returns slowly, especially on chassis with many populated ports; a 20 to 30 second delay after rollback is consistent with large saved calibration records.",
+      "Run `show file systems` or the local upgrade status command used by your operations workflow and confirm the upgrade aborted after the management-plane restart and reverted to the prior image.",
+      "If available, run `show interfaces transceiver detail | include calibration` and verify that multiple optics report retained calibration history rather than a compact current-state record."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %UPGRADE-6-STATUS: in-service upgrade image verification complete\n2026-03-14T02:13:18Z %UPGRADE-6-STATUS: migrating transceiver calibration data\n2026-03-14T02:13:19Z ERR-UPG-2207: calibration import failed; record size 33792 bytes exceeds parser limit\n2026-03-14T02:13:20Z %UPGRADE-4-RESTART: management plane restart initiated for rollback\n2026-03-14T02:13:44Z %UPGRADE-5-ROLLBACK: upgrade aborted at 81 percent, previous image restored\n\nhelix-hx5000# show interfaces transceiver detail\n...\nPort 1/1/1: DOM history entries: 184\nPort 1/1/2: DOM history entries: 176\nPort 1/1/3: DOM history entries: 181\nCommand completed in 00:00:27",
+    "root_cause": "The 7.4 image expects a compact transceiver calibration record, but some 7.2 systems store expanded DOM history blocks that can exceed 32 KB per chassis. During upgrade, the migration parser does not trim these legacy records before conversion, so the boot loader rejects the converted configuration and aborts the commit.\n\nThis condition is data-dependent rather than hardware-specific. Chassis with more optics, longer retention of DOM history, or repeated optic swaps are more likely to accumulate oversized calibration data and trigger the failure path.",
+    "workaround_steps": [
+      "Schedule the upgrade in a maintenance window and back up the running configuration before making changes.",
+      "Reduce the amount of retained transceiver calibration data by disabling nonessential DOM history, then save the configuration and reload the chassis so the smaller record set is rebuilt.",
+      "If the chassis has many populated optics, remove and reseat the most recently installed modules before retrying the upgrade so the calibration cache is regenerated in a smaller form.",
+      "Retry the in-service upgrade from 7.2 to 7.4 after the system is back in service and verify that the upgrade proceeds past the 80 percent migration point without a management-plane restart."
+    ],
+    "resolution": "This defect is fixed in release 7.5. The migration process now truncates legacy transceiver history before the target image is committed, preventing calibration records from exceeding the parser limit during upgrade."
+  }
+}

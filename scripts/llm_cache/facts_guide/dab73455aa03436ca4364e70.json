@@ -1,0 +1,142 @@
+{
+  "stage": "facts_guide",
+  "label": "AR",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "title": "Aurora AR-900 Configuration and Troubleshooting Guide",
+    "sections": [
+      {
+        "heading": "BGP configuration and next-hop resolution",
+        "key_facts": [
+          "On 9.1.4 and 9.1.6, clear the BGP process for the affected IPv4 unicast address family if the next-hop remains unresolved after an underlay route withdrawal.",
+          "If the affected path is critical during a maintenance window, prefer a static discard route with a lower administrative distance than the learned underlay route so recursion remains stable.",
+          "On 9.2.3, issue a soft clear of the affected BGP address family after changing recursive static routes, and if a clear must be avoided, withdraw the old static route for at least 5 seconds before installing the replacement.",
+          "Avoid repeated soft clears during peak update periods, because the routing process can spike to 95% CPU on 9.2.1."
+        ],
+        "commands": [
+          "clear bgp ipv4 unicast 65001",
+          "clear bgp ipv4 unicast 65001 soft",
+          "clear ip route 198.51.100.0/24",
+          "clear ip route 203.0.113.0/24"
+        ],
+        "related_kbs": [
+          "KB-2101",
+          "KB-2107",
+          "KB-2110"
+        ]
+      },
+      {
+        "heading": "BFD timer tuning and long-uptime maintenance",
+        "key_facts": [
+          "On 9.1.4, restart the BFD process or reload the router during a maintenance window before platform uptime reaches 49 days.",
+          "As temporary containment on noncritical peers, set the BFD transmit interval to 200 ms and the detection multiplier to 5.",
+          "Use the same 200/200/5 timer profile consistently on peers where transient loss is acceptable, and verify the session state after the change.",
+          "If BFD stops transmitting after long uptime, treat it as a process recovery issue rather than a link-layer fault and plan a controlled restart."
+        ],
+        "commands": [
+          "configure",
+          "router bfd",
+          "timers 200 200 5",
+          "show bfd neighbors detail"
+        ],
+        "related_kbs": [
+          "KB-2102"
+        ]
+      },
+      {
+        "heading": "OSPF adjacency stability on multiaccess segments",
+        "key_facts": [
+          "On 9.2.0, match the MTU on both sides of a multiaccess segment to prevent repeated OSPF adjacency resets.",
+          "If the topology permits, configure the neighbor or interface as point-to-point instead of multiaccess to avoid MTU negotiation instability.",
+          "When MTU cannot be matched during the maintenance window, enable `ip ospf mtu-ignore` on both peers.",
+          "After applying the workaround, confirm the adjacency reaches full state and does not restart on the next hello dead interval."
+        ],
+        "commands": [
+          "configure",
+          "interface ethernet 1/1",
+          "ip ospf mtu-ignore",
+          "show ospf neighbor"
+        ],
+        "related_kbs": [
+          "KB-2103"
+        ]
+      },
+      {
+        "heading": "IPv6 neighbor discovery and router advertisement handling",
+        "key_facts": [
+          "Do not suppress router advertisements on the active user VLAN when SLAAC is in use, because prefixes can be removed too early after suppression.",
+          "If RA suppression is required, use DHCPv6 stateful addressing on the affected segment rather than relying on SLAAC.",
+          "Keep the RA hold timer above the preferred lifetime so hosts do not age out prefixes prematurely.",
+          "Review the VLAN interface configuration before changing suppression behavior to ensure the access segment keeps a valid IPv6 addressing method."
+        ],
+        "commands": [
+          "configure",
+          "interface vlan 10",
+          "ipv6 nd ra-suppress",
+          "show ipv6 interface vlan 10"
+        ],
+        "related_kbs": [
+          "KB-2104"
+        ]
+      },
+      {
+        "heading": "QoS and control-plane protection thresholds",
+        "key_facts": [
+          "On 9.2.1, cap the strict-priority class at 30% bandwidth to prevent best-effort starvation during microbursts.",
+          "Where strict priority is not required, convert the service class to low-latency queueing with an explicit policer of 300 Mbps on 10 Gbps links.",
+          "On 9.2.3, set the control-plane policer for IPv6 ND to 2,000 pps until the traffic source is identified.",
+          "Reduce IPv6 ND load at the edge with RA guard or storm control on the access VLAN, and if necessary shut the offending access port for 30 seconds to let neighbor state recover."
+        ],
+        "commands": [
+          "configure",
+          "policy-map wan-egress",
+          "class voice",
+          "priority percent 30",
+          "control-plane"
+        ],
+        "related_kbs": [
+          "KB-2105",
+          "KB-2106",
+          "KB-2112"
+        ]
+      },
+      {
+        "heading": "SNMP trap reliability and NAT capacity management",
+        "key_facts": [
+          "If trap history must be complete, shorten the SNMP polling interval to 30 seconds and treat traps as advisory when link flap storms are present.",
+          "Enable link debounce of 500 ms on unstable access ports to reduce linkUp trap loss when the trap queue exceeds 1024 entries.",
+          "On 9.3.0, increase the NAT pool size or add at least one additional public address if dynamic NAT port exhaustion is reported incorrectly after teardown.",
+          "If session churn is predictable, increase application keepalive intervals to 60 seconds or more and set the NAT translation timeout to 240 seconds to reduce allocator churn."
+        ],
+        "commands": [
+          "configure",
+          "interface ethernet 1/1",
+          "link-debounce 500",
+          "ip nat pool edge-pool 198.51.100.10 198.51.100.30",
+          "ip nat translation timeout 240"
+        ],
+        "related_kbs": [
+          "KB-2108",
+          "KB-2109"
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "question": "How should I recover BGP next-hop resolution after an underlay or recursive static route change?",
+        "section_index": 0,
+        "related_kbs": [
+          "KB-2101",
+          "KB-2107"
+        ]
+      },
+      {
+        "question": "How do I tune BFD timers to reduce false failures on long-lived peers?",
+        "section_index": 1,
+        "related_kbs": [
+          "KB-2102"
+        ]
+      }
+    ]
+  }
+}

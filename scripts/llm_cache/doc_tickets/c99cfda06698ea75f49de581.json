@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-4103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "APs stuck joining after controller upgrade to 4.8",
+        "description": "Pinnacle Energy called in after several APs remained in joining state on an Orion OW-20 running 4.8. The report came in as intermittent wireless loss at first, but `show ap summary` showed a rising `join pending` count and the same APs cycling through join retries before resetting their CAPWAP sessions. Triage on the controller matched the event pattern for delayed capability exchange, and the log buffer included \"%ERR-APJ-4417\" when the second exchange arrived late. The issue was most visible on the remote site link, which was running around 80 ms RTT with brief retransmit bursts during registration.",
+        "resolution": "TAC identified this as KB-4103 and applied the documented workaround on the OW-20: `ap join timeout 180` and verification that uplink loss stayed below 0.5% during joins. After extending the timeout, the APs completed registration and moved to authorized. The customer was advised to keep new APs staged locally until the branch link is stable enough for initial join."
+      },
+      {
+        "subject": "OW-20 APs never reach authorized state at branch site",
+        "description": "Northstar Bank reported a widespread AP outage at a branch using an Orion OW-20 on 4.8. The field engineer observed APs stuck in joining for several minutes, then dropping and retrying without ever reaching authorized, which initially looked like a controller reachability issue. On-site triage confirmed the controller was up and the same join retry counter incremented twice before stopping, while `show ap summary` showed multiple APs in join pending. The event log also contained \"%ERR-APJ-4417\", and the behavior correlated with a WAN path showing 70-90 ms RTT and short retransmit bursts during the join process.",
+        "resolution": "TAC linked the symptoms to KB-4103 and confirmed the defect affects Orion OW-20 release 4.8. Because the customer needed a permanent fix and the site was already in outage, Northstar Bank was moved to 4.9, where delayed capability responses are matched to the active join session before it ages out. After the upgrade, AP registration completed normally and the join pending count stopped increasing."
+      },
+      {
+        "subject": "AP registration stalls on Orion OW-20 4.8 after WAN jitter",
+        "description": "Prairie State College opened the case after a batch of APs would sit in joining and then reset their CAPWAP sessions during a campus-to-branch deployment. The partner reported that the problem looked random, but the Orion OW-20 controller was running 4.8 and `show ap summary` showed a growing number of APs in join pending while the same units retried join twice and stopped. TAC review of the logs found \"%ERR-APJ-4417\" during the delayed capability exchange path. The pattern matched a join stall that was more visible when the uplink had 60-100 ms RTT and short retransmit bursts.",
+        "resolution": "TAC identified the issue as KB-4103 and advised the customer to upgrade the OW-20 from 4.8 to 4.9. The upgrade moved the join logic to the fixed code path that matches delayed capability responses to the active join session before timeout. After the change, APs joined directly to authorized without further stalls."
+      },
+      {
+        "subject": "Wireless APs hang in joining on OW-20 running 4.8",
+        "description": "BlueRiver Credit Union called about new APs that would not come online on an Orion OW-20 running 4.8. The customer described it as a power or cabling issue, but TAC review showed the controller was reachable, APs stayed in joining for 2-4 minutes, and then the CAPWAP session reset before authorization. `show ap summary` showed the join pending count increasing, and the join retry counter behaved the same way across multiple APs, which pointed away from a single hardware fault. Initial triage confirmed the issue was tied to the controller software rather than the APs themselves.",
+        "resolution": "TAC associated the symptoms with KB-4103 and recommended upgrading the OW-20 from 4.8 to 4.9. The customer completed the upgrade, which corrected the join path so delayed capability responses are processed against the active session. APs then registered successfully and the join pending backlog cleared."
+      },
+      {
+        "subject": "APs fail to finish join on controller 4.8",
+        "description": "Sunset Power Authority submitted a portal request stating that several APs were \"connected but not ready\" after deployment on an Orion OW-20 running 4.8. The report suggested an RF problem, but the controller logs and AP status indicated the APs were reaching the join process and then restarting the CAPWAP session before authorization. TAC confirmed `show ap summary` was showing additional join pending entries and the controller was incrementing the same join retry counter twice before stopping. The log view included \"%ERR-APJ-4417\", which aligned with a delayed second capability exchange on a link with moderate RTT and brief retransmit bursts.",
+        "resolution": "TAC identified the case as KB-4103 and advised an upgrade from 4.8 to 4.9 on the OW-20. After the upgrade, delayed capability responses were matched to the active join session before it could age out, and the APs completed authorization normally. The customer confirmed the join pending count stopped growing after the change."
+      }
+    ]
+  }
+}

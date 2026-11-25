@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-4105",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "802.11r roam pauses on OW-20 4.9 during peak hours",
+        "description": "Evergreen Clinic Network NOC reported brief voice drops when staff roam between APs on Orion OW-20 running 4.9. The issue is intermittent but becomes easier to reproduce during daytime peak load, and `show client detail <mac>` shows the reassociation completing before traffic resumes. The controller CPU was observed above 70% during the affected period. The event log also showed \"%ROAM-5-FT_KEYTIMEOUT\" on failed fast-transition attempts.",
+        "resolution": "TAC confirmed this matches KB-4105 for Orion OW-20 4.9. We applied the workaround from the article by setting `wlan corp accounting interval 60` and advised the customer to keep controller CPU below 70% during roaming validation. For the affected voice SSID, we also recommended temporarily disabling 802.11r until the next maintenance window if the call path remains sensitive."
+      },
+      {
+        "subject": "Fast transition roam delay on wireless controller 4.9",
+        "description": "IronGate Freight's field engineer reported that handheld scanners and softphone clients pause for a fraction of a second when moving between access points on an Orion OW-20 running 4.9. The delay is noticeable in the warehouse aisles and is worse when several users roam at once. TAC reviewed a live `show client detail <mac>` sample and saw successful reassociation followed by a delayed return to forwarding state. The controller was under moderate load at the time, which aligned with the reported symptoms.",
+        "resolution": "This behavior matches KB-4105. TAC applied the documented workaround by lowering the accounting interval to 60 seconds with `wlan corp accounting interval 60` and recommended keeping controller CPU below 70% during roaming tests. The customer was told to use the workaround until their planned maintenance window."
+      },
+      {
+        "subject": "Guest voice users hear brief gaps during AP roaming",
+        "description": "Lakeside Hospitality called in after guests reported short audio gaps on voice handsets while walking between lobby and meeting-room APs. The wireless controller is an Orion OW-20 running 4.9, and the issue only appears on SSIDs with 802.11r enabled. `show client detail <mac>` shows the client reassociating successfully, but traffic resumes late enough for users to notice the interruption. The controller logs include \"%ROAM-5-FT_KEYTIMEOUT\" during the roam events.",
+        "resolution": "TAC tied the report to KB-4105 and applied the workaround from the article. We changed the accounting interval to 60 seconds with `wlan corp accounting interval 60` and advised the customer to reduce controller CPU load during roaming tests. For the voice SSID, TAC also noted that disabling 802.11r is an acceptable temporary measure until maintenance."
+      },
+      {
+        "subject": "802.11r roaming issue on OW-20 4.9 causing brief packet loss",
+        "description": "Lakeside Hospitality emailed TAC to report that some roaming clients on Orion OW-20 4.9 experience a brief stall when moving between APs. The customer originally suspected RF interference, but packet captures and `show client detail <mac>` indicate the client completes reassociation and then delays before user traffic resumes. The controller was operating above normal load during the incident window. The logs showed \"%ROAM-5-FT_KEYTIMEOUT\" on the affected clients.",
+        "resolution": "TAC identified the issue as KB-4105 and implemented the workaround described there. We set `wlan corp accounting interval 60` to reduce queue pressure and advised the customer to keep controller CPU below 70% when validating roaming performance. The customer was asked to retest after the change and to defer any broader 802.11r changes until the next maintenance window."
+      },
+      {
+        "subject": "Urgent: roaming failures on OW-20 4.9 across campus SSID",
+        "description": "Prairie State College escalated through a partner because voice users were reporting repeated roam interruptions on an Orion OW-20 running 4.9. The clients reassociate to the next AP, but users hear a noticeable pause before the call recovers, especially in lecture halls with frequent movement. TAC triage confirmed the controller is on 4.9 and that the issue is reproducible during moderate CPU utilization. Based on the pattern, this is a controller-side fast-transition delay rather than an RF coverage problem.",
+        "resolution": "TAC resolved the case by recommending an upgrade to 5.0 per KB-4105. The issue is fixed in 5.0, where FT key installation uses a dedicated queue with priority over accounting updates. The customer was advised to schedule the upgrade in the next maintenance window and retest 802.11r roaming after completion."
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "stage": "facts_duplicate",
+  "label": "KB-5108",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "title": "Atlas SD-WAN 2.8: edge re-registration fails after certificate renewal if the orchestrator trust bundle is not updated",
+    "symptoms": "Edges that had been renewing certificates normally can lose connectivity after a certificate rotation. In the orchestrator UI, the edge changes to disconnected within 2 to 6 minutes, and subsequent policy pushes to that site fail with certificate validation errors. On the edge, the renewal itself completes, but the following registration attempt is rejected because the certificate chain cannot be validated back to a trusted root.",
+    "root_cause": "The orchestrator keeps the edge trust bundle separate from the active device certificate and does not automatically refresh the intermediate CA list after renewal. If the intermediate is replaced or expires, the orchestrator continues to validate the edge against the previous chain until the trust bundle is manually updated.",
+    "workaround": "Import the complete certificate chain, including the current intermediate CA, into the orchestrator before renewing the edge certificate. In large deployments, load the new chain at least 24 hours before the previous intermediate expires.",
+    "fix": "Fixed in 2.9: certificate renewal now refreshes the stored intermediate chain automatically."
+  }
+}

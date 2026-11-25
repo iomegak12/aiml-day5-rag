@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-AR-9.1.4",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Aurora AR-900 release 9.1.4 introduces three routing-plane enhancements focused on BGP and BFD behavior. The release adds a BGP next-hop recursion cache to reduce repeated resolution work during route churn, a BFD transmit scheduler to improve timer handling under load, and BGP add-path session state to preserve session context across control-plane events. This first release in the 9.1 train is intended for early adopters validating routing and failover behavior in edge deployments. Operators should review the known issues before deployment, particularly the remaining BGP next-hop and BFD counter-wrap limitations and the upgrade constraint to later 9.2 software when add-path is enabled.",
+    "features": [
+      {
+        "name": "BGP next-hop recursion cache",
+        "description": "Aurora AR-900 9.1.4 adds a cache for BGP next-hop recursion results so repeated lookups do not re-evaluate the same underlay resolution path on every update. This reduces control-plane churn during route instability and can lower CPU usage in dense tables. No configuration changes are required to enable the cache."
+      },
+      {
+        "name": "BFD transmit scheduler",
+        "description": "This release introduces a transmit scheduler for BFD sessions to improve packet pacing when the system carries many concurrent sessions. The scheduler centralizes transmit timing and reduces jitter caused by competing control-plane tasks. Existing BFD configuration remains valid, but TAC recommends validating session timers after upgrade in deployments with aggressive detection intervals."
+      },
+      {
+        "name": "BGP add-path session state",
+        "description": "Aurora AR-900 9.1.4 now retains BGP add-path session state in the control plane so path-selection context is preserved across transient events. This improves session continuity for peers using add-path and reduces the likelihood of unnecessary path re-advertisement after a restart of routing processes. No additional configuration is required, but operators should confirm add-path behavior during maintenance windows."
+      }
+    ],
+    "compatibility": "Aurora AR-900 9.1.4 is the first release covered in the 9.1 train and is intended for AR-900 hardware only. Supported upgrade sources for this release are not defined because no earlier Aurora AR-900 release is included in this train. The release interoperates with standard BGP, BFD, OSPF, IPv6, QoS, SNMP, NAT, and control-plane protection configurations already present on the platform, but deployments using BGP add-path should note the documented upgrade limitation to 9.2.0. Configuration syntax is preserved for existing features; however, operators should review route-policy, BFD timer, and BGP add-path settings before and after upgrade to confirm expected behavior.",
+    "upgrade_steps": [
+      "Back up the running configuration and capture current operational state, including 'show bgp summary', 'show bfd neighbors detail', and any platform health output used for baseline comparison.",
+      "Verify the 9.1.4 image checksum and signature against the published image file before transferring it to the AR-900.",
+      "Schedule a maintenance window and confirm that routing convergence impact is acceptable for the site, especially where BGP add-path or tight BFD timers are in use.",
+      "Stage the image on the device, then perform the upgrade using the standard AR-900 software installation procedure and allow the system to reload completely.",
+      "After the reload, confirm software version, validate BGP and BFD session status, and check that routing adjacencies and next-hop resolution are restored as expected.",
+      "Monitor logs and counters for a short validation period and compare post-upgrade behavior with the baseline, paying particular attention to BGP add-path peers and BFD transmit continuity."
+    ]
+  }
+}

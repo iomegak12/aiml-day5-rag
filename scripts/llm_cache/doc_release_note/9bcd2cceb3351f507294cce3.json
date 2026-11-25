@@ -1,0 +1,31 @@
+{
+  "stage": "doc_release_note",
+  "label": "RN-AT-2.8",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "overview": "Atlas SD-WAN 2.8 is the first generally available release for the Atlas SD-WAN orchestrator and edge platform. It introduces initial overlay tunnel formation, basic application-aware routing, and certificate-based edge registration. This release establishes the core control-plane and data-plane workflow for site onboarding and policy delivery, with emphasis on deterministic tunnel bring-up, simple SLA-driven path selection, and certificate validation during edge enrollment. As the first release in the train, 2.8 is intended for new deployments and controlled pilot rollouts, with known limitations around short probe-loss events and certificate renewal workflows that should be considered during operations planning.",
+    "features": [
+      {
+        "name": "Initial overlay tunnel formation",
+        "description": "Atlas SD-WAN 2.8 establishes the first overlay tunnels between registered edges and the orchestrator-managed fabric. Tunnel creation uses the configured transport underlay and negotiates tunnel parameters automatically during edge bring-up. Administrators can verify tunnel state from the edge CLI with commands such as `show sdwan tunnels`."
+      },
+      {
+        "name": "Basic application-aware routing",
+        "description": "This release adds policy-driven application-aware routing based on SLA classes. Edges can classify traffic and select an overlay path using latency, loss, and jitter thresholds defined in the orchestrator policy. The initial implementation supports basic class matching and path preference, and operators can review class state with `show app-route sla-class`."
+      },
+      {
+        "name": "Certificate-based edge registration",
+        "description": "Atlas SD-WAN 2.8 introduces certificate-based edge registration for orchestrator-managed onboarding. The orchestrator validates the edge certificate chain before accepting a device into the fabric, and the edge uses its certificate identity for subsequent control-plane authentication. Administrators should ensure the full trust chain is available before attempting registration or renewal."
+      }
+    ],
+    "compatibility": "Atlas SD-WAN 2.8 is the initial release in the 2.x train and does not support direct upgrade from earlier Atlas SD-WAN releases because none are defined for this train. Hardware compatibility is limited to the edge platforms and orchestrator software images validated for 2.8; mixed-version deployments are not supported beyond the staged upgrade window. Interoperability is limited to Atlas SD-WAN components running the same 2.8 feature set, and configuration created in 2.8 may require revalidation after later upgrades because certificate enrollment, tunnel policy, and application-routing behaviour are foundational in this release. Before upgrading, confirm that the orchestrator trust bundle includes the active intermediate CA used by all edges.",
+    "upgrade_steps": [
+      "Back up the orchestrator configuration, edge configuration exports, and certificate trust material, including the active root and intermediate CA chain.",
+      "Verify the 2.8 images for the orchestrator and each edge, and confirm available storage and boot variables before starting the upgrade.",
+      "Schedule a maintenance window and stage the upgrade so that the orchestrator is upgraded first, followed by pilot edges and then the remaining sites.",
+      "After the orchestrator upgrade, import or reimport the required certificate chain and confirm that policy push and edge registration succeed.",
+      "Upgrade edges in batches, then validate tunnel formation and application-aware routing with `show sdwan tunnels` and `show app-route sla-class` on representative sites.",
+      "Complete post-upgrade checks by confirming registration status, policy synchronization, and application traffic forwarding across all planned transports."
+    ]
+  }
+}

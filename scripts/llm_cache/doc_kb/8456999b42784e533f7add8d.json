@@ -1,0 +1,25 @@
+{
+  "stage": "doc_kb",
+  "label": "KB-6103",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "summary": "On Helix HX-5000 systems running 7.3, a stack with mixed 50 cm and 1 m stack cables can experience repeated master re-elections even though all physical stack links remain up. The condition is most visible when the control plane is moderately busy and the master role changes several times per hour.",
+    "symptoms": "Administrators may observe intermittent stack instability with no corresponding cable failure or link-down event. `show stack` can briefly display members in separate election domains, and the log records repeated re-election activity with %STACK-3-SPLIT-BRAIN events. In affected deployments, the master role may oscillate 2 to 4 times per hour under moderate control-plane load, which can lead to brief management disruption or transient routing protocol resets on the stack master.\n\nThe issue is limited to 7.3 and is most likely when stack cable lengths are mixed across the ring. The stack remains electrically intact, but election behavior becomes unstable when one member encounters scheduling delay during keepalive processing.",
+    "diagnosis_steps": [
+      "Run `show stack` and verify whether the stack is repeatedly re-electing a new master while all members remain present. Affected systems can show members briefly in separate election domains or alternating master/standby state without a port or cable failure.",
+      "Check `show logging` and look for repeated `%STACK-3-SPLIT-BRAIN` events within a short interval. The log pattern should show election restarts, not physical interface down/up messages.",
+      "Run `show stack detail` and confirm that all stack links report operational status with no physical loss, CRC storm, or link renegotiation counters increasing. This issue occurs with links up and stable.",
+      "If supported in the current image, run `show stack election` or the equivalent election-status command and look for frequent changes in the selected master while adjacency scores remain close. An unstable result with consistent link health points to this defect.",
+      "Check control-plane utilization with `show processes cpu` and confirm whether the system is under moderate load, typically above normal idle but below saturation. Affected systems often show the oscillation when CPU is elevated for control-plane tasks, not when the stack is idle."
+    ],
+    "sample_output": "2026-03-14T02:13:07Z %STACK-3-SPLIT-BRAIN: stack election restarted on member 2, election domain changed from 1 to 2\n2026-03-14T02:13:11Z %STACK-3-SPLIT-BRAIN: master role moved from member 1 to member 2\n2026-03-14T02:23:44Z %STACK-3-SPLIT-BRAIN: master role moved from member 2 to member 1\n\nhx5000-1# show stack\nStack  Member  Role      Priority  State     Election Domain  Uptime\n-----  ------  --------  --------  --------  ---------------  ------\n1      1       master    100       up        1                3d04h\n2      2       standby   100       up        1                3d04h\n3      3       member    100       up        1                3d04h\n\nhx5000-1# show stack detail\nMember 1: links up, latency samples 0.8 ms / 1.1 ms / 0.9 ms\nMember 2: links up, latency samples 1.0 ms / 1.2 ms / 0.8 ms\nElection result: master changed 3 times in last 60 minutes",
+    "root_cause": "In 7.3, the stack election code uses the lowest latency sample from the last three keepalive intervals instead of the current two-way adjacency score. When one member experiences a scheduler delay of about 20 ms, the election result can temporarily favor a different member even though both stack links are still operational.\n\nMixed 50 cm and 1 m cables can make the observed latency samples less consistent, which increases the chance that the incorrect election input changes from one interval to the next. This causes repeated master re-selection and produces split-brain log entries without any physical stack failure.",
+    "workaround_steps": [
+      "Standardize the stack cabling so that all members use matched-length stack cables, which reduces latency variance across the ring.",
+      "Keep control-plane load below 60 percent during the unstable period to minimize scheduling delay spikes that can trigger master oscillation.",
+      "If a specific master is preferred for operations continuity, set a higher stack member priority on that unit and lower the priority on the other member(s) so election outcomes remain stable.",
+      "Avoid adding or removing stack members until the system is upgraded, because topology changes can increase the chance of another re-election while the defect is present."
+    ],
+    "resolution": "Upgrade the stack to release 7.4 or later. The defect is fixed in 7.4: master election now uses the current adjacency score and ignores transient scheduler delay spikes, which stops the repeated re-election behavior."
+  }
+}

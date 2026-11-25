@@ -1,0 +1,34 @@
+{
+  "stage": "doc_tickets",
+  "label": "KB-2102",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "tickets": [
+      {
+        "subject": "BFD neighbors timing out after long uptime on AR-900",
+        "description": "On-site field engineer reported that an Aurora AR-900 running 9.1.4 began dropping a few BFD sessions after the box had been up for about seven weeks. `show bfd neighbors detail` showed the local discriminator still Up and the receive side active, but the transmit counter stopped increasing on the affected peers. The field engineer also captured this log entry during the event: `%BFD-3-ERR-BFD-2201: transmit scheduling stalled for session 198.51.100.14/198.51.100.15`. Initial triage confirms the issue appears only on long-lived sessions and matches the pattern of peers expiring after several missed control packets.",
+        "resolution": "TAC identified the behavior as KB-2102 and applied the documented workaround on the router: `configure`, `router bfd`, `timers 200 200 5` for noncritical peers. The customer was advised to plan a maintenance reload or BFD process restart before platform uptime reaches the wrap point. This stabilized the affected sessions until a software fix can be introduced in a later release."
+      },
+      {
+        "subject": "Intermittent WAN BFD flap on 9.1.4 edge router",
+        "description": "Phone call logged by the TAC agent: Cornerstone Supermarkets reported that one WAN path on an Aurora AR-900 running 9.1.4 started flapping after several weeks of stable service. The customer initially suspected provider instability, but `show bfd neighbors detail` showed only one side of the session losing transmit activity while the remote peer kept responding briefly. During the call, the agent confirmed the router logged `%BFD-3-ERR-BFD-2201: transmit scheduling stalled for session 203.0.113.8/203.0.113.9`. The issue is consistent with a long-uptime transmit scheduler problem rather than a carrier outage.",
+        "resolution": "TAC matched the symptom set to KB-2102 and implemented the workaround from the article. The BFD timers were adjusted with `configure`, `router bfd`, `timers 200 200 5` on the noncritical adjacency, and the customer was advised to avoid running past the uptime threshold without a planned restart. This contained the flaps while keeping service stable."
+      },
+      {
+        "subject": "AR-900 on 9.1.4 needs upgrade for recurring BFD drops",
+        "description": "MetroLink Telecom emailed TAC that an Aurora AR-900 on 9.1.4 was losing BFD reachability on multiple upstream peers after extended uptime. Their note said the links stayed up physically, but routing convergence broke and traffic shifted away from healthy paths for a few seconds at a time. Initial review of the exported CLI output showed `show bfd neighbors detail` with frozen transmit counters on the impacted sessions and no corresponding interface errors. The pattern aligns with a known long-uptime BFD scheduler defect on this release.",
+        "resolution": "TAC identified the issue as KB-2102 and advised the customer to upgrade the AR-900 from 9.1.4 to 9.1.6. After the upgrade, BFD transmit scheduling no longer stalled at the uptime wrap point and the affected peers remained stable. No further workaround was required once the system ran the fixed code."
+      },
+      {
+        "subject": "BFD session stop sending packets on 9.1.4 after long uptime",
+        "description": "Phone call logged by the TAC agent: BlueRiver Credit Union reported that their Aurora AR-900 running 9.1.4 had one BFD neighbor repeatedly timing out, then recovering, then timing out again. The customer thought the issue was related to a firewall change, but the router-side counters told a different story: `show bfd neighbors detail` showed the local session as Up while transmit activity had frozen on the affected peer. The device also emitted `%BFD-3-ERR-BFD-2201: transmit scheduling stalled for session 192.0.2.20/192.0.2.21`. TAC confirmed this matched a known uptime-related defect rather than a filtering problem.",
+        "resolution": "TAC applied the workaround from KB-2102 by changing the BFD profile to longer timers on the affected noncritical peer: `configure`, `router bfd`, `timers 200 200 5`. The customer was also told to schedule a restart or process reload before the platform reaches the known wrap point to prevent recurrence. This restored stable forwarding until a permanent code fix can be deployed."
+      },
+      {
+        "subject": "BFD neighbors freezing on AR-900 9.1.4",
+        "description": "Customer portal web form: Prairie State College submitted that an Aurora AR-900 on 9.1.4 was showing one-sided BFD failures after weeks of uptime, with upstream routing becoming unstable during the event. They noted that interface counters were clean and that the problem seemed to move between peers over time. TAC reviewed the attached operational output and saw `show bfd neighbors detail` with a stuck transmit counter on the affected session, while the receive path still looked healthy. The device log included `%BFD-3-ERR-BFD-2201: transmit scheduling stalled for session 198.51.100.77/198.51.100.78`, which matches the reported behavior.",
+        "resolution": "TAC identified the condition as KB-2102 and recommended the documented workaround on the AR-900. The customer applied `configure`, `router bfd`, `timers 200 200 5` to the affected noncritical peers and was instructed to plan a controlled restart before the uptime threshold is reached again. This kept the sessions stable pending a later maintenance window."
+      }
+    ]
+  }
+}

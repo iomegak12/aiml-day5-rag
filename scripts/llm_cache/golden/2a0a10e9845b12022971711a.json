@@ -1,0 +1,9 @@
+{
+  "stage": "golden",
+  "label": "similar_case:KB-2106",
+  "model": "gpt-5.4-mini",
+  "output": {
+    "question": "We are on an Aurora AR-900 running 9.2.3, and during short bursts of IPv6 neighbor discovery from one access VLAN the CPU climbs sharply while our control-plane drop counter stays at zero for a while. IPv6 neighbors start flipping to Stale and the issue is most obvious when a few thousand NS/NA packets hit the box in bursts. Have you seen other customers report the same thing before, and if so, how was it resolved?",
+    "reference_answer": "Yes, we have 5 similar resolved cases. In each case, TAC tied the behavior to the 9.2.3 control-plane protection defect and resolved it by lowering the IPv6 ND policer to 2000 pps with `configure`, `control-plane`, `police ipv6-nd 2000`, then reducing burst traffic at the edge with RA guard or storm control on the affected access VLAN. In some cases, the offending access port was also shut for 30 seconds to let neighbor state recover; the fix is available in 9.3.0."
+  }
+}
